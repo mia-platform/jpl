@@ -18,6 +18,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"regexp"
 	"strings"
 
 	"github.com/Masterminds/semver"
@@ -33,6 +36,7 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/restmapper"
+	k8syaml "sigs.k8s.io/yaml"
 )
 
 const (
@@ -110,4 +114,61 @@ func IsNotUsingSemver(target *Resource) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// MakeResources takes a filepath/buffer and returns the Kubernetes resources in them
+func MakeResources(filePaths []string, namespace string) ([]Resource, error) {
+	resources := []Resource{}
+	for _, path := range filePaths {
+
+		res, err := NewResources(path, namespace)
+		if err != nil {
+			return nil, err
+		}
+		resources = append(resources, res...)
+	}
+
+	resources = SortResourcesByKind(resources, nil)
+	return resources, nil
+}
+
+// NewResources creates new Resources from a file at `filepath`
+// support multiple documents inside a single file
+func NewResources(filepath, namespace string) ([]Resource, error) {
+	var resources []Resource
+	var stream []byte
+	var err error
+
+	if filepath == StdinToken {
+		stream, err = ioutil.ReadAll(os.Stdin)
+	} else {
+		stream, err = fs.ReadFile(filepath)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// split resources on --- yaml document delimiter
+	re := regexp.MustCompile(`\n---\n`)
+	for _, resourceYAML := range re.Split(string(stream), -1) {
+
+		if len(resourceYAML) == 0 {
+			continue
+		}
+
+		u := unstructured.Unstructured{Object: map[string]interface{}{}}
+		if err := k8syaml.Unmarshal([]byte(resourceYAML), &u.Object); err != nil {
+			return nil, fmt.Errorf("resource %s: %s", filepath, err)
+		}
+		gvk := u.GroupVersionKind()
+		u.SetNamespace(namespace)
+
+		resources = append(resources,
+			Resource{
+				Filepath:         filepath,
+				GroupVersionKind: &gvk,
+				Object:           u,
+			})
+	}
+	return resources, nil
 }
