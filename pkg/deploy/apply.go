@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"time"
 
-	externalsecretsv1beta1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
 	"github.com/pkg/errors"
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
@@ -34,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
 	"k8s.io/apimachinery/pkg/util/mergepatch"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/kubectl/pkg/scheme"
 )
@@ -46,12 +44,7 @@ const (
 	smartDeploy    = "smart_deploy"
 )
 
-var (
-	deleteBeforeApplyAnnotation = GetMiaAnnotation("delete-before-apply")
-	awaitCompletionAnnotation   = GetMiaAnnotation("await-completion")
-)
-
-// NewSmartApplyFunction allows to generate the smart apply function with a generic number of decorator
+// NewSmartApplyFunction allows to generate the smart apply function with a generic number of decorators
 // before calling the actual apply
 func NewSmartApplyFunction(decorators ...func(applyFunction) applyFunction) applyFunction {
 	decoratedApplyFn := smartApplyResource
@@ -69,176 +62,6 @@ func NewDefaultApplyFunction(decorators ...func(applyFunction) applyFunction) ap
 		decoratedApplyFn = f(decoratedApplyFn)
 	}
 	return decoratedApplyFn
-}
-
-// withDeletableResource is an apply function decorator that deletes resources
-// annotated with deleteBeforeApplyAnnotation before applying them to the cluster
-func withDeletableResource(apply applyFunction) applyFunction {
-	return func(clients *K8sClients, res Resource, deployConfig DeployConfig) error {
-		_, deleteBeforeApplyFound := res.Object.GetAnnotations()[deleteBeforeApplyAnnotation]
-		if deleteBeforeApplyFound {
-			gvr, err := FromGVKtoGVR(clients.discovery, res.Object.GroupVersionKind())
-			if err != nil {
-				return err
-			}
-
-			fmt.Printf("Deleting resource %s before apply\n", res.Object.GetName())
-
-			err = clients.dynamic.Resource(gvr).
-				Delete(context.TODO(), res.Object.GetName(), metav1.DeleteOptions{})
-			if err != nil && !apierrors.IsNotFound(err) {
-				return err
-			}
-		}
-
-		return apply(clients, res, deployConfig)
-	}
-}
-
-// withAwaitableResource is an apply function decorator that awaits resources
-// decorated with awaitCompletionAnnotation for completion after they are
-// applied on the cluster
-func withAwaitableResource(apply applyFunction) applyFunction {
-	return func(clients *K8sClients, res Resource, deployConfig DeployConfig) error {
-		gvr, err := FromGVKtoGVR(clients.discovery, res.Object.GroupVersionKind())
-		if err != nil {
-			return err
-		}
-
-		// register a watcher and starts to listen for events for the gvr
-		// if res is annotated with awaitCompletionAnnotation
-		var watchEvents <-chan watch.Event
-		startTime := time.Now()
-		awaitCompletionValue, awaitCompletionFound := res.Object.GetAnnotations()[awaitCompletionAnnotation]
-		if awaitCompletionFound {
-			watcher, err := clients.dynamic.Resource(gvr).
-				Namespace(res.Object.GetNamespace()).
-				Watch(context.TODO(), metav1.ListOptions{})
-			if err != nil {
-				return err
-			}
-			watchEvents = watcher.ResultChan()
-			fmt.Printf("Registered a watcher for resource: %s.%s.%s having name %s\n", gvr.Group, gvr.Version, gvr.Resource, res.Object.GetName())
-			defer watcher.Stop()
-		}
-
-		// actually apply the resource
-		if err := apply(clients, res, deployConfig); err != nil {
-			return err
-		}
-
-		// return if no event channel has been set
-		if watchEvents == nil {
-			return nil
-		}
-
-		// parse timeout from annotation value
-		timeout, err := time.ParseDuration(awaitCompletionValue)
-		if err != nil {
-			msg := fmt.Sprintf("Error in %s annotation value for resource \"%s\": must be a valid duration", awaitCompletionAnnotation, res.Object.GetName())
-			return errors.Wrap(err, msg)
-		}
-
-		if err := assertAwaitSupportedForThisResource(res); err != nil {
-			return err
-		}
-
-		// consume watcher events and wait for the resource to complete or exit because of timeout
-		for {
-			select {
-			case event := <-watchEvents:
-				isCompleted, err := handleResourceCompletionEvent(res, &event, startTime)
-				if err != nil {
-					msg := "Error while watching resource events"
-					return errors.Wrap(err, msg)
-				}
-
-				if isCompleted {
-					return nil
-				}
-			case <-time.NewTimer(timeout).C:
-				msg := fmt.Sprintf("Timeout received while waiting for resource %s completion", res.Object.GetName())
-				return errors.New(msg)
-			}
-		}
-	}
-}
-
-func assertAwaitSupportedForThisResource(res Resource) error {
-	_, err := handleResourceCompletionEvent(res, nil, time.Now())
-	return err
-}
-
-// handleResourceCompletionEvent takes the target resource, the watch event and
-// the initial watch time as arguments. It returns (true, nil) when the given
-// resource has completed in the given event. If the event is nil returns (false, nil)
-// when the resource supports events watching otherwise returns (false, error).
-func handleResourceCompletionEvent(res Resource, event *watch.Event, startTime time.Time) (bool, error) {
-	switch res.GroupVersionKind.Kind {
-	case "Job":
-		// only manage watch.Modified events
-		if event == nil || event.Type != watch.Modified {
-			return false, nil
-		}
-		// convert resources into jobs
-		var jobFromRes, jobFromEvent batchv1.Job
-
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(res.Object.Object, &jobFromRes); err != nil {
-			return false, err
-		}
-
-		u, ok := event.Object.(*unstructured.Unstructured)
-		if !ok {
-			msg := "Cannot convert object event to unstructured while handling events for Job"
-			return false, errors.New(msg)
-		}
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, &jobFromEvent); err != nil {
-			return false, err
-		}
-		// if job from event is the one we are listening for changes
-		if jobFromEvent.Name != jobFromRes.Name {
-			return false, nil
-		}
-		// check if job has completed after start time
-		if completedAt := jobFromEvent.Status.CompletionTime; completedAt != nil && completedAt.Time.After(startTime) {
-			fmt.Println("Job completed:", jobFromEvent.Name)
-			return true, nil
-		}
-
-		return false, nil
-	case "ExternalSecret":
-		if event == nil || event.Type != watch.Modified {
-			return false, nil
-		}
-
-		var extsecFromRes, extsecFromEvent externalsecretsv1beta1.ExternalSecret
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(res.Object.Object, &extsecFromRes); err != nil {
-			return false, err
-		}
-
-		u, ok := event.Object.(*unstructured.Unstructured)
-		if !ok {
-			msg := "Cannot convert object from event into unstructured object while handling ExternalSecret events"
-			return false, errors.New(msg)
-		}
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, &extsecFromEvent); err != nil {
-			return false, err
-		}
-
-		if extsecFromEvent.Name != extsecFromRes.Name {
-			return false, nil
-		}
-
-		if refreshedAt := extsecFromEvent.Status.RefreshTime; refreshedAt.Time.After(startTime) {
-			fmt.Println("ExternalSecret completed:", extsecFromEvent.Name)
-			return true, nil
-		}
-
-		return false, nil
-	default:
-		msg := fmt.Sprintf("No watch handler for resource %s.%s.%s having name %s", res.GroupVersionKind.Group, res.GroupVersionKind.Version, res.GroupVersionKind.Kind, res.Object.GetName())
-		return false, errors.New(msg)
-	}
 }
 
 // defaultApplyResource applies the resource to the cluster following
