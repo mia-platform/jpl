@@ -42,12 +42,15 @@ func MakeResources(filePaths []string, namespace string) ([]Resource, error) {
 		if err != nil {
 			return nil, err
 		}
-
 		resources = append(resources, res...)
 	}
+
+	resources = SortResourcesByKind(resources, nil)
 	return resources, nil
 }
 
+// NewResources creates new Resources from a file at `filepath`
+// support multiple documents inside a single file
 func NewResources(filepath, namespace string) ([]Resource, error) {
 	var resources []Resource
 	var stream []byte
