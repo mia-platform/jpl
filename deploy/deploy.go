@@ -15,8 +15,12 @@
 package jpl
 
 import (
+	"context"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
@@ -124,4 +128,24 @@ func Cleanup(clients *K8sClients, namespace string, resources []Resource) error 
 	}
 	err = updateResourceSecret(clients.dynamic, namespace, actual)
 	return err
+}
+
+// ensureNamespaceExistence verifies whether the given namespace already exists
+// on the cluster, and creates it if missing
+func ensureNamespaceExistence(clients *K8sClients, namespace string) error {
+	ns := &unstructured.Unstructured{}
+	ns.SetUnstructuredContent(map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Namespace",
+		"metadata": map[string]interface{}{
+			"name": namespace,
+		},
+	})
+
+	fmt.Printf("Creating namespace %s\n", namespace)
+	if _, err := clients.dynamic.Resource(gvrNamespaces).Create(context.Background(), ns, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
+		return err
+	}
+
+	return nil
 }

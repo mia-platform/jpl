@@ -413,23 +413,3 @@ func CheckError(err error, msg string) {
 		log.Fatal(err, msg)
 	}
 }
-
-// ensureNamespaceExistence verifies whether the given namespace already exists
-// on the cluster, and creates it if missing
-func ensureNamespaceExistence(clients *K8sClients, namespace string) error {
-	ns := &unstructured.Unstructured{}
-	ns.SetUnstructuredContent(map[string]interface{}{
-		"apiVersion": "v1",
-		"kind":       "Namespace",
-		"metadata": map[string]interface{}{
-			"name": namespace,
-		},
-	})
-
-	fmt.Printf("Creating namespace %s\n", namespace)
-	if _, err := clients.dynamic.Resource(gvrNamespaces).Create(context.Background(), ns, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
-		return err
-	}
-
-	return nil
-}
