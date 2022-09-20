@@ -217,7 +217,7 @@ func createPatch(currentObj unstructured.Unstructured, target Resource) ([]byte,
 	return patch, types.StrategicMergePatchType, err
 }
 
-// Create a Job from every CronJob having the mia-platform.eu/autocreate annotation set to true
+// cronJobAutoCreate creates a Job from every CronJob having the mia-platform.eu/autocreate annotation set to true
 func cronJobAutoCreate(k8sClient dynamic.Interface, res *unstructured.Unstructured) error {
 	if res.GetKind() != "CronJob" {
 		return nil

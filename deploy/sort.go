@@ -105,7 +105,7 @@ func SortResourcesByKind(resources []Resource, ordering resourceOrder) []Resourc
 	return resources
 }
 
-// assign to every string inside ordering a value based on its index
+// convertOrderingInMap assigns to every string inside ordering a value based on its index
 func convertOrderingInMap(ordering resourceOrder) map[string]int {
 	orderingMap := make(map[string]int, len(ordering))
 	for value, key := range ordering {
@@ -115,7 +115,7 @@ func convertOrderingInMap(ordering resourceOrder) map[string]int {
 	return orderingMap
 }
 
-// returns the lowest order of the kinds specified in
+// getOrderFromAnnotationOrKind returns the lowest order of the kinds specified in
 // mia-platform.eu/apply-before-kinds annotation or, if the annotation is not
 // present, returns the order specified in orderingMap for the resource's kind
 // P.S. we use decimals for overridden orders to avoid conflicts with defaults.
