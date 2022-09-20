@@ -12,13 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package deploy
+package jpl
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/pkg/errors"
 	batchv1 "k8s.io/api/batch/v1"
@@ -37,31 +35,20 @@ import (
 	"k8s.io/kubectl/pkg/scheme"
 )
 
-type applyFunction func(clients *K8sClients, res Resource, deployConfig DeployConfig) error
+type ApplyFunction func(clients *K8sClients, res Resource, deployConfig DeployConfig) error
 
-const (
-	deployChecksum = "deploy-checksum"
-	smartDeploy    = "smart_deploy"
-)
-
-// NewSmartApplyFunction allows to generate the smart apply function with a generic number of decorators
+// DecorateApplyFunction allows to generate an apply function with a generic number of decorators
 // before calling the actual apply
-func NewSmartApplyFunction(decorators ...func(applyFunction) applyFunction) applyFunction {
-	decoratedApplyFn := smartApplyResource
+func DecorateApplyFunction(apply ApplyFunction, decorators ...func(ApplyFunction) ApplyFunction) ApplyFunction {
 	for _, f := range decorators {
-		decoratedApplyFn = f(decoratedApplyFn)
+		apply = f(apply)
 	}
-	return decoratedApplyFn
+	return apply
 }
 
-// NewDefaultApplyFunction allows to generate the default apply function with a generic number of decorator
-// before calling the actual apply
-func NewDefaultApplyFunction(decorators ...func(applyFunction) applyFunction) applyFunction {
-	decoratedApplyFn := defaultApplyResource
-	for _, f := range decorators {
-		decoratedApplyFn = f(decoratedApplyFn)
-	}
-	return decoratedApplyFn
+// DecorateDefaultApplyFunction allows to decorate the default apply function
+func DecorateDefaultApplyFunction(decorators ...func(ApplyFunction) ApplyFunction) ApplyFunction {
+	return DecorateApplyFunction(defaultApplyResource, decorators...)
 }
 
 // defaultApplyResource applies the resource to the cluster following
@@ -72,94 +59,34 @@ func defaultApplyResource(clients *K8sClients, res Resource, deployConfig Deploy
 		return err
 	}
 
-	onClusterObj, err := getResource(gvr, clients, res)
+	onClusterObj, err := GetResource(gvr, clients, res)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return createResource(gvr, clients, res)
+			return CreateResource(gvr, clients, res)
 		} else {
 			return err
 		}
 	}
 
-	if res.Object.GetKind() == "Secret" || res.Object.GetKind() == "ConfigMap" {
+	if res.Object.GetKind() == "Secret" || res.Object.GetKind() == "ConfigMap" || res.Object.GetKind() == "CustomResourceDefinition" {
 		fmt.Printf("Replacing %s: %s\n", res.Object.GetKind(), res.Object.GetName())
-		return replaceResource(gvr, clients, res)
+		return ReplaceResource(gvr, clients, res)
 	}
 
-	return patchResource(gvr, clients, res, onClusterObj)
+	return PatchResource(gvr, clients, res, onClusterObj)
 }
 
-// smartApplyResource applies the resource to the cluster following
-// the smart deploy logic
-func smartApplyResource(clients *K8sClients, res Resource, deployConfig DeployConfig) error {
-
-	gvr, err := FromGVKtoGVR(clients.discovery, res.Object.GroupVersionKind())
-	if err != nil {
-		return err
-	}
-
-	onClusterObj, err := getResource(gvr, clients, res)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return createResource(gvr, clients, res)
-		} else {
-			return err
-		}
-	}
-
-	// Do not modify the resource if is already present on cluster and the annotation is set to "once"
-	if res.Object.GetAnnotations()[GetMiaAnnotation("deploy")] != "once" {
-
-		// Replace only if it is a Secret or configmap otherwise patch the resource
-		if res.Object.GetKind() == "Secret" || res.Object.GetKind() == "ConfigMap" {
-
-			fmt.Printf("Replacing %s: %s\n", res.Object.GetKind(), res.Object.GetName())
-			return replaceResource(gvr, clients, res)
-
-		} else {
-
-			fmt.Printf("Updating %s: %s\n", res.Object.GetKind(), res.Object.GetName())
-
-			if deployConfig.DeployType == smartDeploy && (res.Object.GetKind() == "CronJob" || res.Object.GetKind() == "Deployment") {
-				isNotUsingSemver, err := IsNotUsingSemver(&res)
-				if err != nil {
-					return errors.Wrap(err, "failed semver check")
-				}
-
-				if deployConfig.ForceDeployWhenNoSemver && isNotUsingSemver {
-					if err := ensureDeployAll(&res, time.Now()); err != nil {
-						return errors.Wrap(err, "failed ensure deploy all on resource not using semver")
-					}
-				} else {
-					if err = ensureSmartDeploy(onClusterObj, &res); err != nil {
-						return errors.Wrap(err, "failed smart deploy ensure")
-					}
-				}
-			}
-
-			if res.Object.GetKind() == "CronJob" {
-				if err := checkIfCreateJob(clients.dynamic, onClusterObj, res); err != nil {
-					return errors.Wrap(err, "failed check if create job")
-				}
-			}
-
-			return patchResource(gvr, clients, res, onClusterObj)
-		}
-	}
-	return nil
-}
-
-// getResource returns the identified resource if present on the cluster
+// GetResource returns the identified resource if present on the cluster
 // if the resource does not exist, returns a NotFound error
-func getResource(gvr schema.GroupVersionResource, clients *K8sClients, res Resource) (*unstructured.Unstructured, error) {
+func GetResource(gvr schema.GroupVersionResource, clients *K8sClients, res Resource) (*unstructured.Unstructured, error) {
 	return clients.dynamic.Resource(gvr).
 		Namespace(res.Object.GetNamespace()).
 		Get(context.Background(), res.Object.GetName(), metav1.GetOptions{})
 }
 
-// createResource handles the creation of a k8s resource when
+// CreateResource handles the creation of a k8s resource when
 // not already present on the cluster
-func createResource(gvr schema.GroupVersionResource, clients *K8sClients, res Resource) error {
+func CreateResource(gvr schema.GroupVersionResource, clients *K8sClients, res Resource) error {
 	fmt.Printf("Creating %s: %s\n", res.Object.GetKind(), res.Object.GetName())
 
 	// creates kubectl.kubernetes.io/last-applied-configuration annotation
@@ -190,9 +117,9 @@ func createResource(gvr schema.GroupVersionResource, clients *K8sClients, res Re
 	return err
 }
 
-// replaceResource handles resource replacement on the cluster
+// ReplaceResource handles resource replacement on the cluster
 // e.g. for Secrets and ConfigMaps
-func replaceResource(gvr schema.GroupVersionResource, clients *K8sClients, res Resource) error {
+func ReplaceResource(gvr schema.GroupVersionResource, clients *K8sClients, res Resource) error {
 	_, err := clients.dynamic.Resource(gvr).
 		Namespace(res.Object.GetNamespace()).
 		Update(context.Background(),
@@ -201,9 +128,9 @@ func replaceResource(gvr schema.GroupVersionResource, clients *K8sClients, res R
 	return err
 }
 
-// patchResource patches a resource that already exists on the cluster
+// PatchResource patches a resource that already exists on the cluster
 // and needs to be updated
-func patchResource(gvr schema.GroupVersionResource, clients *K8sClients, res Resource, onClusterObj *unstructured.Unstructured) error {
+func PatchResource(gvr schema.GroupVersionResource, clients *K8sClients, res Resource, onClusterObj *unstructured.Unstructured) error {
 	// create the patch
 	patch, patchType, err := createPatch(*onClusterObj, res)
 	if err != nil {
@@ -288,90 +215,6 @@ func createPatch(currentObj unstructured.Unstructured, target Resource) ([]byte,
 
 	patch, err := strategicpatch.CreateThreeWayMergePatch([]byte(lastAppliedConfigJson), targetJson, currentJson, patchMeta, true)
 	return patch, types.StrategicMergePatchType, err
-}
-
-func ensureDeployAll(res *Resource, currentTime time.Time) error {
-	var path []string
-	switch res.GroupVersionKind.Kind {
-	case "Deployment":
-		path = []string{"spec", "template", "metadata", "annotations"}
-	case "CronJob":
-		path = []string{"spec", "jobTemplate", "spec", "template", "metadata", "annotations"}
-	}
-	currentAnnotations, found, err := unstructured.NestedStringMap(res.Object.Object, path...)
-	if err != nil {
-		return err
-	}
-	if !found {
-		currentAnnotations = make(map[string]string)
-	}
-	currentAnnotations[GetMiaAnnotation(deployChecksum)] = GetChecksum([]byte(currentTime.Format(time.RFC3339)))
-	return unstructured.SetNestedStringMap(res.Object.Object, currentAnnotations, path...)
-}
-
-// EnsureSmartDeploy merge, if present, the "mia-platform.eu/deploy-checksum" annotation from the Kubernetes cluster
-// into the target Resource that is going to be released.
-func ensureSmartDeploy(onClusterResource *unstructured.Unstructured, target *Resource) error {
-	var path []string
-	switch target.GroupVersionKind.Kind {
-	case "Deployment":
-		path = []string{"spec", "template", "metadata", "annotations"}
-	case "CronJob":
-		path = []string{"spec", "jobTemplate", "spec", "template", "metadata", "annotations"}
-	}
-
-	currentAnn, found, err := unstructured.NestedStringMap(onClusterResource.Object, path...)
-	if err != nil {
-		return err
-	}
-	if !found {
-		currentAnn = make(map[string]string)
-	}
-
-	// If deployChecksum annotation is not found early returns avoiding creating an
-	// empty annotation causing a pod restart
-	depChecksum, found := currentAnn[GetMiaAnnotation(deployChecksum)]
-	if !found {
-		return nil
-	}
-
-	targetAnn, found, err := unstructured.NestedStringMap(target.Object.Object, path...)
-	if err != nil {
-		return err
-	}
-	if !found {
-		targetAnn = make(map[string]string)
-	}
-	targetAnn[GetMiaAnnotation(deployChecksum)] = depChecksum
-	err = unstructured.SetNestedStringMap(target.Object.Object, targetAnn, path...)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func checkIfCreateJob(k8sClient dynamic.Interface, currentObj *unstructured.Unstructured, target Resource) error {
-	original := currentObj.GetAnnotations()[corev1.LastAppliedConfigAnnotation]
-
-	obj := target.Object.DeepCopy()
-	objAnn := obj.GetAnnotations()
-	_, found := objAnn[corev1.LastAppliedConfigAnnotation]
-	if found {
-		delete(objAnn, corev1.LastAppliedConfigAnnotation)
-		obj.SetAnnotations(objAnn)
-	}
-	desired, err := obj.MarshalJSON()
-	if err != nil {
-		return errors.Wrap(err, "serializing target configuration")
-	}
-
-	if !bytes.Equal([]byte(original), desired) {
-		if err := cronJobAutoCreate(k8sClient, &target.Object); err != nil {
-			return errors.Wrap(err, "failed on cronJobAutoCreate")
-		}
-	}
-	return nil
 }
 
 // Create a Job from every CronJob having the mia-platform.eu/autocreate annotation set to true

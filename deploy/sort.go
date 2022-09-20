@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package deploy
+package jpl
 
 import (
 	"sort"
@@ -28,6 +28,7 @@ type resourceOrder []string
 var applyBeforeAnnotation = GetMiaAnnotation("apply-before-kinds")
 
 var defaultSortOrder = resourceOrder{
+	"CustomResourceDefinition",
 	"Namespace",
 	"NetworkPolicy",
 	"ResourceQuota",

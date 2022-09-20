@@ -12,17 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package deploy
+package jpl
 
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
-	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
-	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -30,42 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	dynamicFake "k8s.io/client-go/dynamic/fake"
 )
-
-func TestCheckIfCreateJob(t *testing.T) {
-	cronjob, err := NewResources("testdata/apply/cronjob-test.cronjob.yml", "default")
-	require.Nil(t, err)
-	scheme := runtime.NewScheme()
-	_ = corev1.AddToScheme(scheme)
-	_ = batchv1.AddToScheme(scheme)
-
-	t.Run("without last-applied", func(t *testing.T) {
-		dynamicClient := dynamicFake.NewSimpleDynamicClient(scheme)
-		err := checkIfCreateJob(dynamicClient, &cronjob[0].Object, cronjob[0])
-		require.Nil(t, err)
-	})
-	t.Run("same last-applied", func(t *testing.T) {
-		cronjob[0].Object.SetAnnotations(map[string]string{
-			"kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"batch/v1beta1\",\"kind\":\"CronJob\",\"metadata\":{\"annotations\":{\"mia-platform.eu/autocreate\":\"true\"},\"name\":\"hello\",\"namespace\":\"default\"},\"spec\":{\"jobTemplate\":{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"args\":[\"/bin/sh\",\"-c\",\"date; sleep 120\"],\"image\":\"busybox\",\"name\":\"hello\"}],\"restartPolicy\":\"OnFailure\"}}}},\"schedule\":\"*/5 * * * *\"}}\n",
-			"mia-platform.eu/autocreate":                       "true",
-		})
-		dynamicClient := dynamicFake.NewSimpleDynamicClient(scheme)
-		err = checkIfCreateJob(dynamicClient, &cronjob[0].Object, cronjob[0])
-		require.Nil(t, err)
-	})
-	t.Run("different last-applied", func(t *testing.T) {
-		obj := cronjob[0].Object.DeepCopy()
-		obj.SetAnnotations(map[string]string{
-			"kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"batch/v1beta1\",\"kind\":\"CronJob\",\"metadata\":{\"annotations\":{\"mia-platform.eu/autocreate\":\"true\"},\"name\":\"hello\",\"namespace\":\"default\"},\"spec\":{\"jobTemplate\":{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"args\":[\"/bin/sh\",\"-c\",\"date; sleep 2\"],\"image\":\"busybox\",\"name\":\"hello\"}],\"restartPolicy\":\"OnFailure\"}}}},\"schedule\":\"*/5 * * * *\"}}\n",
-		})
-		dynamicClient := dynamicFake.NewSimpleDynamicClient(scheme)
-		err = checkIfCreateJob(dynamicClient, obj, cronjob[0])
-		require.Nil(t, err)
-		list, err := dynamicClient.Resource(gvrJobs).
-			Namespace("default").List(context.Background(), metav1.ListOptions{})
-		require.Nil(t, err)
-		require.Equal(t, 1, len(list.Items))
-	})
-}
 
 func TestCronJobAutoCreate(t *testing.T) {
 	scheme := runtime.NewScheme()
@@ -227,113 +188,4 @@ func TestCreatePatch(t *testing.T) {
 			require.Nil(t, err)
 		})
 	}
-}
-
-func TestEnsureDeployAll(t *testing.T) {
-
-	mockTime := time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
-	expectedCheckSum := "6ab733c74e26e73bca78aa9c4c9db62664f339d9eefac51dd503c9ff0cf0c329"
-
-	t.Run("Add deployment annotation", func(t *testing.T) {
-		deployment, err := NewResources("testdata/apply/test-deployment.yaml", "default")
-		require.Nil(t, err)
-		err = ensureDeployAll(&deployment[0], mockTime)
-		require.Nil(t, err)
-
-		var dep appsv1.Deployment
-		err = runtime.DefaultUnstructuredConverter.
-			FromUnstructured(deployment[0].Object.Object, &dep)
-		require.Nil(t, err)
-		require.Equal(t, map[string]string{GetMiaAnnotation(deployChecksum): expectedCheckSum}, dep.Spec.Template.ObjectMeta.Annotations)
-	})
-
-	t.Run("Add cronJob annotation", func(t *testing.T) {
-		cronJob, err := NewResources("testdata/apply/cronjob-test.cronjob.yml", "default")
-		require.Nil(t, err)
-
-		err = ensureDeployAll(&cronJob[0], mockTime)
-		require.Nil(t, err)
-		var cronj batchv1beta1.CronJob
-		err = runtime.DefaultUnstructuredConverter.
-			FromUnstructured(cronJob[0].Object.Object, &cronj)
-		require.Nil(t, err)
-		require.Equal(t, map[string]string{GetMiaAnnotation(deployChecksum): expectedCheckSum}, cronj.Spec.JobTemplate.Spec.Template.ObjectMeta.Annotations)
-	})
-	t.Run("Keep existing annotations", func(t *testing.T) {
-		// testing only deployment because annotation accessing method is the same
-		deployment, err := NewResources("testdata/apply/test-deployment.yaml", "default")
-		require.Nil(t, err)
-		unstructured.SetNestedStringMap(deployment[0].Object.Object, map[string]string{
-			"existing-key": "value1",
-		},
-			"spec", "template", "metadata", "annotations")
-		err = ensureDeployAll(&deployment[0], mockTime)
-		require.Nil(t, err)
-		var dep appsv1.Deployment
-		err = runtime.DefaultUnstructuredConverter.
-			FromUnstructured(deployment[0].Object.Object, &dep)
-		require.Nil(t, err)
-		require.Equal(t, map[string]string{
-			GetMiaAnnotation(deployChecksum): expectedCheckSum,
-			"existing-key":                   "value1",
-		}, dep.Spec.Template.ObjectMeta.Annotations)
-	})
-}
-
-func TestEnsureSmartDeploy(t *testing.T) {
-	expectedCheckSum := "6ab733c74e26e73bca78aa9c4c9db62664f339d9eefac51dd503c9ff0cf0c329"
-
-	t.Run("Add deployment deploy/checksum annotation", func(t *testing.T) {
-		targetObject, err := NewResources("testdata/apply/test-deployment.yaml", "default")
-		require.Nil(t, err)
-		currentObj := targetObject[0].Object.DeepCopy()
-		unstructured.SetNestedStringMap(currentObj.Object, map[string]string{
-			"mia-platform.eu/deploy-checksum": expectedCheckSum,
-			"test":                            "test",
-		}, "spec", "template", "metadata", "annotations")
-		t.Logf("targetObj: %s\n", currentObj.Object)
-		err = ensureSmartDeploy(currentObj, &targetObject[0])
-		require.Nil(t, err)
-		targetAnn, _, err := unstructured.NestedStringMap(targetObject[0].Object.Object,
-			"spec", "template", "metadata", "annotations")
-		require.Nil(t, err)
-		require.Equal(t, targetAnn["mia-platform.eu/deploy-checksum"], expectedCheckSum)
-	})
-
-	t.Run("Add deployment without deploy/checksum annotation", func(t *testing.T) {
-		targetObject, err := NewResources("testdata/apply/test-deployment.yaml", "default")
-		require.Nil(t, err)
-		currentObj := targetObject[0].Object.DeepCopy()
-		err =
-			unstructured.SetNestedStringMap(targetObject[0].Object.Object, map[string]string{
-				"test": "test",
-			}, "spec", "template", "annotations")
-		require.Nil(t, err)
-
-		err = ensureSmartDeploy(currentObj, &targetObject[0])
-		require.Nil(t, err)
-
-		targetAnn, _, err := unstructured.NestedStringMap(targetObject[0].Object.Object,
-			"spec", "template", "annotations")
-		require.Nil(t, err)
-		require.Equal(t, "test", targetAnn["test"])
-	})
-
-	t.Run("Add cronjob deploy/checksum annotation", func(t *testing.T) {
-		targetObject, err := NewResources("testdata/apply/cronjob-test.cronjob.yml", "default")
-		require.Nil(t, err)
-		currentObj := targetObject[0].Object.DeepCopy()
-		unstructured.SetNestedStringMap(currentObj.Object, map[string]string{
-			"mia-platform.eu/deploy-checksum": expectedCheckSum,
-			"test":                            "test",
-		}, "spec", "jobTemplate", "spec", "template", "metadata", "annotations")
-		t.Logf("targetObj: %s\n", currentObj.Object)
-		err = ensureSmartDeploy(currentObj, &targetObject[0])
-
-		require.Nil(t, err)
-		targetAnn, _, err := unstructured.NestedStringMap(targetObject[0].Object.Object,
-			"spec", "jobTemplate", "spec", "template", "metadata", "annotations")
-		require.Nil(t, err)
-		require.Equal(t, targetAnn["mia-platform.eu/deploy-checksum"], expectedCheckSum)
-	})
 }

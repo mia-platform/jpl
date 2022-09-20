@@ -12,15 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package deploy
+package jpl
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	dynamicFake "k8s.io/client-go/dynamic/fake"
 )
 
 const testdata = "testdata/utils/"
@@ -158,4 +164,58 @@ func TestIsNotUsingSemver(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestUpdateResourceSecret(t *testing.T) {
+	expected := corev1.Secret{
+		Data: map[string][]byte{"resources": []byte(`{"CronJob":{"kind":{"Group":"batch","Version":"v1beta1","Kind":"CronJob"},"resources":["bar"]}}`)},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      resourceSecretName,
+			Namespace: "foo",
+		},
+		TypeMeta: metav1.TypeMeta{Kind: "Secret", APIVersion: "v1"},
+	}
+
+	resources := map[string]*ResourceList{
+		"CronJob": {
+			Gvk:       &schema.GroupVersionKind{Group: "batch", Version: "v1beta1", Kind: "CronJob"},
+			Resources: []string{"bar"},
+		},
+	}
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+
+	t.Run("Create resource-deployed secret for the first time", func(t *testing.T) {
+		dynamicClient := dynamicFake.NewSimpleDynamicClient(scheme)
+		err := updateResourceSecret(dynamicClient, "foo", resources)
+		require.Nil(t, err)
+		var actual corev1.Secret
+		expUnstr, err := dynamicClient.Resource(gvrSecrets).
+			Namespace("foo").
+			Get(context.Background(), resourceSecretName, metav1.GetOptions{})
+		require.Nil(t, err)
+		runtime.DefaultUnstructuredConverter.FromUnstructured(expUnstr.Object, &actual)
+		require.Equal(t, string(expected.Data["resources"]), string(actual.Data["resources"]))
+	})
+	t.Run("Update resource-deployed", func(t *testing.T) {
+		existingSecret := &corev1.Secret{
+			Data: map[string][]byte{"resources": []byte(`{"CronJob":{"kind":{"Group":"batch","Version":"v1beta1","Kind":"CronJob"},"resources":["foo", "sss"]}}`)},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      resourceSecretName,
+				Namespace: "foo",
+			},
+			TypeMeta: metav1.TypeMeta{Kind: "Secret", APIVersion: "v1"},
+		}
+		dynamicClient := dynamicFake.NewSimpleDynamicClient(scheme, existingSecret)
+
+		err := updateResourceSecret(dynamicClient, "foo", resources)
+		require.Nil(t, err)
+		var actual corev1.Secret
+		expUnstr, err := dynamicClient.Resource(gvrSecrets).
+			Namespace("foo").
+			Get(context.Background(), resourceSecretName, metav1.GetOptions{})
+		require.Nil(t, err)
+		runtime.DefaultUnstructuredConverter.FromUnstructured(expUnstr.Object, &actual)
+		require.Equal(t, string(expected.Data["resources"]), string(actual.Data["resources"]))
+	})
 }

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package deploy
+package jpl
 
 import (
 	"context"
@@ -29,11 +29,11 @@ type DeployConfig struct {
 	EnsureNamespace         bool
 }
 
-func Deploy(clients *K8sClients, namespace string, resources []Resource, deployConfig DeployConfig, apply applyFunction) error {
+func Deploy(clients *K8sClients, namespace string, resources []Resource, deployConfig DeployConfig, apply ApplyFunction) error {
 
-	// for each resource ensure namespace if a namespace is not passed to mlp ensure namespace in the resource, gives error
-	// on no namespace passed to mlp and no namespace in yaml
-	// The namespace given to mlp overrides yaml namespace
+	// for each resource ensure namespace if a namespace is not passed to the function ensure namespace in the resource, gives error
+	// on no namespace passed to the function and no namespace in yaml
+	// The namespace given to the function overrides yaml namespace
 	for _, res := range resources {
 		if namespace == "" {
 			resourceNamespace := res.Object.GetNamespace()
