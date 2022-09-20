@@ -15,12 +15,8 @@
 package jpl
 
 import (
-	"context"
 	"fmt"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
@@ -87,26 +83,6 @@ func Deploy(clients *K8sClients, namespace string, resources []Resource, deployC
 	return nil
 }
 
-// ensureNamespaceExistence verifies whether the given namespace already exists
-// on the cluster, and creates it if missing
-func ensureNamespaceExistence(clients *K8sClients, namespace string) error {
-	ns := &unstructured.Unstructured{}
-	ns.SetUnstructuredContent(map[string]interface{}{
-		"apiVersion": "v1",
-		"kind":       "Namespace",
-		"metadata": map[string]interface{}{
-			"name": namespace,
-		},
-	})
-
-	fmt.Printf("Creating namespace %s\n", namespace)
-	if _, err := clients.dynamic.Resource(gvrNamespaces).Create(context.Background(), ns, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
-		return err
-	}
-
-	return nil
-}
-
 // InitK8sClients returns an initialized K8sClients struct to be used
 // for the deployment process
 func InitK8sClients(inputPaths []string, deployConfig DeployConfig, opts *Options) *K8sClients {
@@ -123,4 +99,29 @@ func InitK8sClients(inputPaths []string, deployConfig DeployConfig, opts *Option
 		dynamic:   dynamic.NewForConfigOrDie(restConfig),
 		discovery: discovery.NewDiscoveryClientForConfigOrDie(restConfig),
 	}
+}
+
+// Cleanup removes the resources no longer deployed and updates
+// the secret in the cluster with the updated set of resources
+func Cleanup(clients *K8sClients, namespace string, resources []Resource) error {
+	actual := makeResourceMap(resources)
+
+	old, err := getOldResourceMap(clients, namespace)
+	if err != nil {
+		return err
+	}
+
+	// Prune only if it is not the first release
+	if len(old) != 0 {
+		deleteMap := deletedResources(actual, old)
+
+		for _, resourceGroup := range deleteMap {
+			err = prune(clients, namespace, resourceGroup)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	err = updateResourceSecret(clients.dynamic, namespace, actual)
+	return err
 }

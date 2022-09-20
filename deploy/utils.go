@@ -186,31 +186,6 @@ func NewResources(filepath, namespace string) ([]Resource, error) {
 	return resources, nil
 }
 
-// Cleanup removes the resources no longer deployed and updates
-// the secret in the cluster with the updated set of resources
-func Cleanup(clients *K8sClients, namespace string, resources []Resource) error {
-	actual := makeResourceMap(resources)
-
-	old, err := getOldResourceMap(clients, namespace)
-	if err != nil {
-		return err
-	}
-
-	// Prune only if it is not the first release
-	if len(old) != 0 {
-		deleteMap := deletedResources(actual, old)
-
-		for _, resourceGroup := range deleteMap {
-			err = prune(clients, namespace, resourceGroup)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	err = updateResourceSecret(clients.dynamic, namespace, actual)
-	return err
-}
-
 // makeResourceMap groups the resources list by kind and embeds them in a `ResourceList` struct
 func makeResourceMap(resources []Resource) map[string]*ResourceList {
 	res := make(map[string]*ResourceList)
@@ -437,4 +412,24 @@ func CheckError(err error, msg string) {
 	if err != nil {
 		log.Fatal(err, msg)
 	}
+}
+
+// ensureNamespaceExistence verifies whether the given namespace already exists
+// on the cluster, and creates it if missing
+func ensureNamespaceExistence(clients *K8sClients, namespace string) error {
+	ns := &unstructured.Unstructured{}
+	ns.SetUnstructuredContent(map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Namespace",
+		"metadata": map[string]interface{}{
+			"name": namespace,
+		},
+	})
+
+	fmt.Printf("Creating namespace %s\n", namespace)
+	if _, err := clients.dynamic.Resource(gvrNamespaces).Create(context.Background(), ns, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
+		return err
+	}
+
+	return nil
 }
