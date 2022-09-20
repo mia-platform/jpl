@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic/fake"
 	dynamicFake "k8s.io/client-go/dynamic/fake"
 )
 
@@ -372,7 +371,7 @@ func TestGetOldResourceMap(t *testing.T) {
 	require.Nil(t, err)
 	for _, tt := range testcases {
 		t.Run(tt.description, func(t *testing.T) {
-			dynamicClient := fake.NewSimpleDynamicClient(scheme, tt.input)
+			dynamicClient := dynamicFake.NewSimpleDynamicClient(scheme, tt.input)
 			actual, err := getOldResourceMap(&K8sClients{dynamic: dynamicClient}, "foo")
 			require.Equal(t, tt.expected, actual)
 			tt.error(t, err)
