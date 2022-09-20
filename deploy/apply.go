@@ -233,6 +233,7 @@ func cronJobAutoCreate(k8sClient dynamic.Interface, res *unstructured.Unstructur
 	return nil
 }
 
+// createJobFromCronjob creates a job from a given cronjob, returning its name
 func createJobFromCronjob(k8sClient dynamic.Interface, res *unstructured.Unstructured) (string, error) {
 
 	var cronjobObj batchv1beta1.CronJob
