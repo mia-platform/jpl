@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"regexp"
 	"strings"
@@ -45,9 +46,9 @@ import (
 )
 
 const (
-	StdinToken         string = "-"
-	resourceSecretName        = "resources-deployed"
-	resourceField             = "resources"
+	StdinToken         = "-"
+	resourceSecretName = "resources-deployed"
+	resourceField      = "resources"
 )
 
 var fs = &afero.Afero{Fs: afero.NewOsFs()}
@@ -185,9 +186,9 @@ func NewResources(filepath, namespace string) ([]Resource, error) {
 	return resources, nil
 }
 
-// cleanup removes the resources no longer deployed by `mlp` and updates
+// Cleanup removes the resources no longer deployed and updates
 // the secret in the cluster with the updated set of resources
-func cleanup(clients *K8sClients, namespace string, resources []Resource) error {
+func Cleanup(clients *K8sClients, namespace string, resources []Resource) error {
 	actual := makeResourceMap(resources)
 
 	old, err := getOldResourceMap(clients, namespace)
@@ -296,6 +297,7 @@ func deletedResources(actual, old map[string]*ResourceList) map[string]*Resource
 	return res
 }
 
+// prune deletes the given resources on the cluster
 func prune(clients *K8sClients, namespace string, resourceGroup *ResourceList) error {
 
 	for _, res := range resourceGroup.Resources {
@@ -325,6 +327,7 @@ func prune(clients *K8sClients, namespace string, resourceGroup *ResourceList) e
 	return nil
 }
 
+// updateResourceSecret updates the resource secret with the given resource map
 func updateResourceSecret(dynamic dynamic.Interface, namespace string, resources map[string]*ResourceList) error {
 	secretContent, err := json.Marshal(resources)
 	if err != nil {
@@ -427,4 +430,11 @@ func contains(res []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// CheckError default error handling function
+func CheckError(err error, msg string) {
+	if err != nil {
+		log.Fatal(err, msg)
+	}
 }
