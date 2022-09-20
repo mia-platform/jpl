@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -38,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
@@ -412,4 +414,101 @@ func CheckError(err error, msg string) {
 	if err != nil {
 		log.Fatal(err, msg)
 	}
+}
+
+// ExtractYAMLFiles return array of YAML filenames from array of files and directories
+func ExtractYAMLFiles(paths []string) ([]string, error) {
+	if len(paths) == 1 && paths[0] == StdinToken {
+		return []string{StdinToken}, nil
+	}
+
+	fileNames := []string{}
+
+	// Extract files from directories
+	for _, path := range paths {
+		// get absolute path for good measure
+		globalPath, err := filepath.Abs(path)
+		if err != nil {
+			return nil, err
+		}
+
+		pathIsDirectory, err := fs.IsDir(globalPath)
+		if err != nil {
+			fmt.Printf("WARN: can't read input file at path %s\n", globalPath)
+			continue
+		}
+
+		if pathIsDirectory {
+			pathsInDirectory, err := extractYAMLFromDir(globalPath)
+			if err != nil {
+				return nil, err
+			}
+
+			fileNames = append(fileNames, pathsInDirectory...)
+		} else if isYAMLFile(globalPath) {
+			fileNames = append(fileNames, globalPath)
+		}
+	}
+	return fileNames, nil
+}
+
+// extractYAMLFromDir extracts from a directory the global path to YAML files contained in it.
+// This function does not look into subdirs.
+func extractYAMLFromDir(directoryPath string) ([]string, error) {
+	filesPath := []string{}
+
+	files, err := fs.ReadDir(directoryPath)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, path := range files {
+		if !path.IsDir() && isYAMLFile(path.Name()) {
+			filesPath = append(filesPath, filepath.Join(directoryPath, path.Name()))
+		}
+	}
+
+	return filesPath, nil
+}
+
+// isYAMLFile this function return true if the path contain a known YAML extension
+func isYAMLFile(path string) bool {
+	fileExtension := filepath.Ext(path)
+	return fileExtension == ".yaml" || fileExtension == ".yml"
+}
+
+// WriteYamlsToDisk marshals and writes kubernetes runtime objects to YAML file
+func WriteYamlsToDisk(objs map[string]runtime.Object, outputDirectory string) {
+	printer := &printers.YAMLPrinter{}
+	for yamlName, obj := range objs {
+		fileName := outputDirectory + "/" + yamlName + ".yaml"
+		file, err := CreateFile(fileName)
+		CheckError(err, "")
+		printer.PrintObj(obj, file)
+	}
+}
+
+// ReadFile read a file from the file system
+func ReadFile(filename string) ([]byte, error) {
+	return fs.ReadFile(filename)
+}
+
+// MkdirAll create a folder
+func MkdirAll(name string) error {
+	return fs.MkdirAll(name, os.FileMode(0755))
+}
+
+// RemoveAll removes a directory path and any children it contains.
+func RemoveAll(path string) error {
+	return fs.RemoveAll(path)
+}
+
+// CreateFile create a new file in path
+func CreateFile(path string) (afero.File, error) {
+	return fs.Create(path)
+}
+
+// WriteFile write data to file
+func WriteFile(filename string, data []byte) error {
+	return fs.WriteFile(filename, data, os.FileMode(0644))
 }
