@@ -89,7 +89,7 @@ func Deploy(clients *K8sClients, namespace string, resources []Resource, deployC
 
 // InitK8sClients returns an initialized K8sClients struct to be used
 // for the deployment process
-func InitK8sClients(inputPaths []string, deployConfig DeployConfig, opts *Options) *K8sClients {
+func InitK8sClients(deployConfig DeployConfig, opts *Options) *K8sClients {
 	restConfig, err := opts.Config.ToRESTConfig()
 	CheckError(err, "")
 
