@@ -21,9 +21,9 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
 )
 
 // DeployConfig are all the specific configurations used in deploy phase
@@ -31,23 +31,6 @@ type DeployConfig struct {
 	DeployType              string
 	ForceDeployWhenNoSemver bool
 	EnsureNamespace         bool
-}
-
-// Options global option for the cli that can be passed to all commands
-type Options struct {
-	Config *genericclioptions.ConfigFlags
-
-	CertificateAuthority  string
-	ClientCertificate     string
-	ClientKey             string
-	Cluster               string
-	Context               string
-	Kubeconfig            string
-	InsecureSkipTLSVerify bool
-	Namespace             string
-	Server                string
-	Token                 string
-	User                  string
 }
 
 // Deploy ensures namespace existence and applies the resources to the cluster
@@ -87,9 +70,9 @@ func Deploy(clients *K8sClients, namespace string, resources []Resource, deployC
 	return nil
 }
 
-// InitK8sClients returns an initialized K8sClients struct to be used
-// for the deployment process
-func InitK8sClients(deployConfig DeployConfig, opts *Options) *K8sClients {
+// InitRealK8sClients initializes a K8sClients struct from given CLI options,
+// to be used for the deployment process
+func InitRealK8sClients(opts *Options) *K8sClients {
 	restConfig, err := opts.Config.ToRESTConfig()
 	CheckError(err, "")
 
@@ -99,10 +82,17 @@ func InitK8sClients(deployConfig DeployConfig, opts *Options) *K8sClients {
 	restConfig.QPS = 500.0
 	restConfig.Burst = 500
 
-	return &K8sClients{
-		dynamic:   dynamic.NewForConfigOrDie(restConfig),
-		discovery: discovery.NewDiscoveryClientForConfigOrDie(restConfig),
+	return CreateK8sClients(restConfig)
+}
+
+// CreateK8sClients returns an initialized K8sClients struct,
+// given a REST config
+func CreateK8sClients(cfg *rest.Config) *K8sClients {
+	clients := &K8sClients{
+		dynamic:   dynamic.NewForConfigOrDie(cfg),
+		discovery: discovery.NewDiscoveryClientForConfigOrDie(cfg),
 	}
+	return clients
 }
 
 // Cleanup removes the resources no longer deployed and updates

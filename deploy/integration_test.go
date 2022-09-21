@@ -27,8 +27,6 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -51,10 +49,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	clients = &K8sClients{
-		dynamic:   dynamic.NewForConfigOrDie(cfg),
-		discovery: discovery.NewDiscoveryClientForConfigOrDie(cfg),
-	}
+	clients = CreateK8sClients(cfg)
 }, 60)
 
 var _ = AfterSuite(func() {

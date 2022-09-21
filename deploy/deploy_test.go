@@ -47,3 +47,11 @@ func TestEnsureNamespaceExistance(t *testing.T) {
 		require.Nil(t, err)
 	})
 }
+
+func TestInitK8sClients(t *testing.T) {
+	t.Run("Initialize K8s clients", func(t *testing.T) {
+		opts := New()
+		clients := InitRealK8sClients(opts)
+		require.NotNil(t, clients, "The returned K8s clients struct should not be nil")
+	})
+}
