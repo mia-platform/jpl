@@ -385,8 +385,7 @@ func updateResourceSecret(dynamic dynamic.Interface, namespace string, resources
 	return nil
 }
 
-// Resources secrets created with helper/builer version of mlp is incompatible with newer versions
-// this function convert old format in the new one
+// convertSecretFormat converts the secret format in the compatible one
 func convertSecretFormat(resources []byte) (map[string]*ResourceList, error) {
 
 	type oldResourceList struct {
@@ -415,7 +414,7 @@ func convertSecretFormat(resources []byte) (map[string]*ResourceList, error) {
 	return res, nil
 }
 
-// convert runtime object to unstructured.Unstructured
+// fromRuntimeObjtoUnstruct converts runtime object to unstructured.Unstructured
 func fromRuntimeObjtoUnstruct(obj runtime.Object, gvk schema.GroupVersionKind) (*unstructured.Unstructured, error) {
 	currentObj := &unstructured.Unstructured{}
 	currentObj.SetGroupVersionKind(gvk)

@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/component: custom
     app.kubernetes.io/managed-by: mia-platform
     app.kubernetes.io/name: test-nginx
-    app.kubernetes.io/part-of: test-mlp-kustomize-2
+    app.kubernetes.io/part-of: test-kustomize-2
     app.kubernetes.io/version: latest
     mia-platform.eu/stage: 'DEV'
     mia-platform.eu/tenant: kustomize-tenant
