@@ -39,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
@@ -86,6 +87,47 @@ func FromGVKtoGVR(discoveryClient discovery.DiscoveryInterface, gvk schema.Group
 		return schema.GroupVersionResource{}, err
 	}
 	return a.Resource, nil
+}
+
+// Options global option struct
+type Options struct {
+	Config *genericclioptions.ConfigFlags
+
+	CertificateAuthority  string
+	ClientCertificate     string
+	ClientKey             string
+	Cluster               string
+	Context               string
+	Kubeconfig            string
+	InsecureSkipTLSVerify bool
+	Namespace             string
+	Server                string
+	Token                 string
+	User                  string
+}
+
+// New create a new options struct
+func New() *Options {
+	options := &Options{
+		Kubeconfig: os.Getenv("KUBECONFIG"),
+	}
+
+	// bind to kubernetes config flags
+	options.Config = &genericclioptions.ConfigFlags{
+		CAFile:       &options.CertificateAuthority,
+		CertFile:     &options.ClientCertificate,
+		KeyFile:      &options.ClientKey,
+		ClusterName:  &options.Cluster,
+		Context:      &options.Context,
+		KubeConfig:   &options.Kubeconfig,
+		Insecure:     &options.InsecureSkipTLSVerify,
+		Namespace:    &options.Namespace,
+		APIServer:    &options.Server,
+		BearerToken:  &options.Token,
+		AuthInfoName: &options.User,
+	}
+
+	return options
 }
 
 // GetMiaAnnotation is used to get an annotation name following a pattern used in mia-platform
