@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -71,7 +71,7 @@ type Resource struct {
 }
 
 type ResourceList struct {
-	Gvk       *schema.GroupVersionKind `json:"kind"`
+	Kind      *schema.GroupVersionKind `json:"kind"`
 	Resources []string                 `json:"resources"`
 }
 
@@ -177,7 +177,6 @@ func IsNotUsingSemver(target *Resource) (bool, error) {
 func MakeResources(filePaths []string, namespace string) ([]Resource, error) {
 	resources := []Resource{}
 	for _, path := range filePaths {
-
 		res, err := NewResources(path, namespace)
 		if err != nil {
 			return nil, err
@@ -197,9 +196,9 @@ func NewResources(filepath, namespace string) ([]Resource, error) {
 	var err error
 
 	if filepath == StdinToken {
-		stream, err = ioutil.ReadAll(os.Stdin)
+		stream, err = io.ReadAll(os.Stdin)
 	} else {
-		stream, err = fs.ReadFile(filepath)
+		stream, err = os.ReadFile(filepath)
 	}
 	if err != nil {
 		return nil, err
@@ -208,7 +207,6 @@ func NewResources(filepath, namespace string) ([]Resource, error) {
 	// split resources on --- yaml document delimiter
 	re := regexp.MustCompile(`\n---\n`)
 	for _, resourceYAML := range re.Split(string(stream), -1) {
-
 		if len(resourceYAML) == 0 {
 			continue
 		}
@@ -237,7 +235,7 @@ func makeResourceMap(resources []Resource) map[string]*ResourceList {
 	for _, r := range resources {
 		if _, ok := res[r.GroupVersionKind.Kind]; !ok {
 			res[r.GroupVersionKind.Kind] = &ResourceList{
-				Gvk:       r.GroupVersionKind,
+				Kind:      r.GroupVersionKind,
 				Resources: []string{},
 			}
 		}
@@ -295,7 +293,7 @@ func deletedResources(actual, old map[string]*ResourceList) map[string]*Resource
 	for key := range old {
 		if _, ok := res[key]; !ok {
 			res[key] = &ResourceList{
-				Gvk: old[key].Gvk,
+				Kind: old[key].Kind,
 			}
 		}
 
@@ -318,11 +316,10 @@ func deletedResources(actual, old map[string]*ResourceList) map[string]*Resource
 
 // prune deletes the given resources on the cluster
 func prune(clients *K8sClients, namespace string, resourceGroup *ResourceList) error {
-
 	for _, res := range resourceGroup.Resources {
-		fmt.Printf("Deleting: %v %v\n", resourceGroup.Gvk.Kind, res)
+		fmt.Printf("Deleting: %v %v\n", resourceGroup.Kind.Kind, res)
 
-		gvr, err := FromGVKtoGVR(clients.discovery, *resourceGroup.Gvk)
+		gvr, err := FromGVKtoGVR(clients.discovery, *resourceGroup.Kind)
 		if err != nil {
 			return err
 		}
@@ -387,7 +384,6 @@ func updateResourceSecret(dynamic dynamic.Interface, namespace string, resources
 
 // convertSecretFormat converts the secret format in the compatible one
 func convertSecretFormat(resources []byte) (map[string]*ResourceList, error) {
-
 	type oldResourceList struct {
 		Kind      string `json:"kind"`
 		Mapping   schema.GroupVersionResource
@@ -404,7 +400,7 @@ func convertSecretFormat(resources []byte) (map[string]*ResourceList, error) {
 
 	for k, v := range oldres {
 		res[k] = &ResourceList{
-			Gvk: &schema.GroupVersionKind{
+			Kind: &schema.GroupVersionKind{
 				Group:   v.Mapping.Group,
 				Version: v.Mapping.Version,
 				Kind:    k,
@@ -525,7 +521,7 @@ func WriteYamlsToDisk(objs map[string]runtime.Object, outputDirectory string) {
 		fileName := outputDirectory + "/" + yamlName + ".yaml"
 		file, err := CreateFile(fileName)
 		CheckError(err, "")
-		printer.PrintObj(obj, file)
+		CheckError(printer.PrintObj(obj, file), "")
 	}
 }
 
@@ -536,7 +532,8 @@ func ReadFile(filename string) ([]byte, error) {
 
 // MkdirAll create a folder
 func MkdirAll(name string) error {
-	return fs.MkdirAll(name, os.FileMode(0755))
+	userFolderReadOnlyPerm := 0755
+	return fs.MkdirAll(name, os.FileMode(userFolderReadOnlyPerm))
 }
 
 // RemoveAll removes a directory path and any children it contains.
@@ -551,5 +548,6 @@ func CreateFile(path string) (afero.File, error) {
 
 // WriteFile write data to file
 func WriteFile(filename string, data []byte) error {
-	return fs.WriteFile(filename, data, os.FileMode(0644))
+	userWriteOnlyFilePerm := 0644
+	return fs.WriteFile(filename, data, os.FileMode(userWriteOnlyFilePerm))
 }

@@ -25,8 +25,8 @@ import (
 	dynamicFake "k8s.io/client-go/dynamic/fake"
 )
 
-func TestEnsureNamespaceExistance(t *testing.T) {
-	t.Run("Ensure Namespace existance", func(t *testing.T) {
+func TestEnsureNamespaceExistence(t *testing.T) {
+	t.Run("Ensure Namespace existence", func(t *testing.T) {
 		namespaceName := "foo"
 		scheme := runtime.NewScheme()
 		_ = corev1.AddToScheme(scheme)

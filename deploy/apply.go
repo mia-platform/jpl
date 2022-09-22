@@ -63,9 +63,9 @@ func defaultApplyResource(clients *K8sClients, res Resource, deployConfig Deploy
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return CreateResource(gvr, clients, res)
-		} else {
-			return err
 		}
+
+		return err
 	}
 
 	if res.Object.GetKind() == "Secret" || res.Object.GetKind() == "ConfigMap" || res.Object.GetKind() == "CustomResourceDefinition" {
@@ -96,11 +96,11 @@ func CreateResource(gvr schema.GroupVersionResource, clients *K8sClients, res Re
 		if orignAnn == nil {
 			orignAnn = make(map[string]string)
 		}
-		objJson, err := res.Object.MarshalJSON()
+		objJSON, err := res.Object.MarshalJSON()
 		if err != nil {
 			return err
 		}
-		orignAnn[corev1.LastAppliedConfigAnnotation] = string(objJson)
+		orignAnn[corev1.LastAppliedConfigAnnotation] = string(objJSON)
 		res.Object.SetAnnotations(orignAnn)
 	}
 
@@ -158,12 +158,12 @@ func annotateWithLastApplied(res Resource) (unstructured.Unstructured, error) {
 		annotatedRes.SetAnnotations(annotations)
 	}
 
-	resJson, err := annotatedRes.MarshalJSON()
+	resJSON, err := annotatedRes.MarshalJSON()
 	if err != nil {
 		return unstructured.Unstructured{}, err
 	}
 
-	annotations[corev1.LastAppliedConfigAnnotation] = string(resJson)
+	annotations[corev1.LastAppliedConfigAnnotation] = string(resJSON)
 	annotatedRes.SetAnnotations(annotations)
 
 	return *annotatedRes, nil
@@ -175,20 +175,20 @@ func annotateWithLastApplied(res Resource) (unstructured.Unstructured, error) {
 // the update.
 func createPatch(currentObj unstructured.Unstructured, target Resource) ([]byte, types.PatchType, error) {
 	// Get last applied config from current object annotation
-	lastAppliedConfigJson := currentObj.GetAnnotations()[corev1.LastAppliedConfigAnnotation]
+	lastAppliedConfigJSON := currentObj.GetAnnotations()[corev1.LastAppliedConfigAnnotation]
 
 	// Get the desired configuration
 	annotatedTarget, err := annotateWithLastApplied(target)
 	if err != nil {
 		return nil, types.StrategicMergePatchType, err
 	}
-	targetJson, err := annotatedTarget.MarshalJSON()
+	targetJSON, err := annotatedTarget.MarshalJSON()
 	if err != nil {
 		return nil, types.StrategicMergePatchType, err
 	}
 
 	// Get the resource in the cluster
-	currentJson, err := currentObj.MarshalJSON()
+	currentJSON, err := currentObj.MarshalJSON()
 	if err != nil {
 		return nil, types.StrategicMergePatchType, errors.Wrap(err, "serializing live configuration")
 	}
@@ -202,7 +202,7 @@ func createPatch(currentObj unstructured.Unstructured, target Resource) ([]byte,
 		patchType := types.MergePatchType
 		preconditions := []mergepatch.PreconditionFunc{mergepatch.RequireKeyUnchanged("apiVersion"),
 			mergepatch.RequireKeyUnchanged("kind"), mergepatch.RequireMetadataKeyUnchanged("name")}
-		patch, err := jsonmergepatch.CreateThreeWayJSONMergePatch([]byte(lastAppliedConfigJson), targetJson, currentJson, preconditions...)
+		patch, err := jsonmergepatch.CreateThreeWayJSONMergePatch([]byte(lastAppliedConfigJSON), targetJSON, currentJSON, preconditions...)
 		return patch, patchType, err
 	} else if err != nil {
 		return nil, types.StrategicMergePatchType, err
@@ -213,7 +213,7 @@ func createPatch(currentObj unstructured.Unstructured, target Resource) ([]byte,
 		return nil, types.StrategicMergePatchType, errors.Wrap(err, "unable to create patch metadata from object")
 	}
 
-	patch, err := strategicpatch.CreateThreeWayMergePatch([]byte(lastAppliedConfigJson), targetJson, currentJson, patchMeta, true)
+	patch, err := strategicpatch.CreateThreeWayMergePatch([]byte(lastAppliedConfigJSON), targetJSON, currentJSON, patchMeta, true)
 	return patch, types.StrategicMergePatchType, err
 }
 
@@ -235,7 +235,6 @@ func cronJobAutoCreate(k8sClient dynamic.Interface, res *unstructured.Unstructur
 
 // createJobFromCronjob creates a job from a given cronjob, returning its name
 func createJobFromCronjob(k8sClient dynamic.Interface, res *unstructured.Unstructured) (string, error) {
-
 	var cronjobObj batchv1beta1.CronJob
 	err := runtime.DefaultUnstructuredConverter.
 		FromUnstructured(res.Object, &cronjobObj)

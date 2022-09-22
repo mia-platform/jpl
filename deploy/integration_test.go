@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -65,31 +64,30 @@ var _ = Describe("deploy on mock kubernetes", func() {
 		ForceDeployWhenNoSemver: true,
 		EnsureNamespace:         true,
 	}
-	currentTime := time.Now()
 
 	Context("apply resources", func() {
 		It("creates non existing secret without namespace in metadata", func() {
-			err := execDeploy(clients, "test1", []string{"testdata/integration/apply-resources/docker.secret.yaml"}, deployConfig, currentTime)
+			err := execDeploy(clients, "test1", []string{"testdata/integration/apply-resources/docker.secret.yaml"}, deployConfig)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = clients.dynamic.Resource(gvrSecrets).Namespace("test1").
 				Get(context.Background(), "docker", metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 		})
 		It("creates non existing secret overriding namespace in metadata", func() {
-			err := execDeploy(clients, "test2", []string{"testdata/integration/apply-resources/docker-ns.secret.yaml"}, deployConfig, currentTime)
+			err := execDeploy(clients, "test2", []string{"testdata/integration/apply-resources/docker-ns.secret.yaml"}, deployConfig)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = clients.dynamic.Resource(gvrSecrets).Namespace("test2").
 				Get(context.Background(), "docker", metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 		})
 		It("gives error with no given namespace and no namespace in metadata", func() {
-			err := execDeploy(clients, "", []string{"testdata/integration/apply-resources/docker-no-ns.secret.yaml"}, deployConfig, currentTime)
+			err := execDeploy(clients, "", []string{"testdata/integration/apply-resources/docker-no-ns.secret.yaml"}, deployConfig)
 			Expect(err).To(HaveOccurred())
 		})
 		It("updates secret", func() {
-			err := execDeploy(clients, "test3", []string{"testdata/integration/apply-resources/opaque-1.secret.yaml"}, deployConfig, currentTime)
+			err := execDeploy(clients, "test3", []string{"testdata/integration/apply-resources/opaque-1.secret.yaml"}, deployConfig)
 			Expect(err).NotTo(HaveOccurred())
-			err = execDeploy(clients, "test3", []string{"testdata/integration/apply-resources/opaque-2.secret.yaml"}, deployConfig, currentTime)
+			err = execDeploy(clients, "test3", []string{"testdata/integration/apply-resources/opaque-2.secret.yaml"}, deployConfig)
 			Expect(err).NotTo(HaveOccurred())
 			sec, err := clients.dynamic.Resource(gvrSecrets).Namespace("test3").
 				Get(context.Background(), "opaque", metav1.GetOptions{})
@@ -101,9 +99,9 @@ var _ = Describe("deploy on mock kubernetes", func() {
 			Expect(sec.GetLabels()[corev1.LastAppliedConfigAnnotation]).To(Equal(""))
 		})
 		It("updates configmap", func() {
-			err := execDeploy(clients, "test3", []string{"testdata/integration/apply-resources/literal-1.configmap.yaml"}, deployConfig, currentTime)
+			err := execDeploy(clients, "test3", []string{"testdata/integration/apply-resources/literal-1.configmap.yaml"}, deployConfig)
 			Expect(err).NotTo(HaveOccurred())
-			err = execDeploy(clients, "test3", []string{"testdata/integration/apply-resources/literal-2.configmap.yaml"}, deployConfig, currentTime)
+			err = execDeploy(clients, "test3", []string{"testdata/integration/apply-resources/literal-2.configmap.yaml"}, deployConfig)
 			Expect(err).NotTo(HaveOccurred())
 			sec, err := clients.dynamic.Resource(gvrConfigMaps).Namespace("test3").
 				Get(context.Background(), "literal", metav1.GetOptions{})
@@ -115,9 +113,9 @@ var _ = Describe("deploy on mock kubernetes", func() {
 			Expect(sec.GetLabels()[corev1.LastAppliedConfigAnnotation]).To(Equal(""))
 		})
 		It("creates and updates depoyment", func() {
-			err := execDeploy(clients, "test3", []string{"testdata/integration/apply-resources/test-deployment-1.yaml"}, deployConfig, currentTime)
+			err := execDeploy(clients, "test3", []string{"testdata/integration/apply-resources/test-deployment-1.yaml"}, deployConfig)
 			Expect(err).NotTo(HaveOccurred())
-			err = execDeploy(clients, "test3", []string{"testdata/integration/apply-resources/test-deployment-2.yaml"}, deployConfig, currentTime)
+			err = execDeploy(clients, "test3", []string{"testdata/integration/apply-resources/test-deployment-2.yaml"}, deployConfig)
 			Expect(err).NotTo(HaveOccurred())
 			dep, err := clients.dynamic.Resource(gvrDeployments).
 				Namespace("test3").
@@ -126,7 +124,7 @@ var _ = Describe("deploy on mock kubernetes", func() {
 			Expect(dep.GetAnnotations()[corev1.LastAppliedConfigAnnotation]).NotTo(Equal(""))
 		})
 		It("creates job from cronjob", func() {
-			err := execDeploy(clients, "test4", []string{"testdata/integration/apply-resources/test-cronjob-1.yaml"}, deployConfig, currentTime)
+			err := execDeploy(clients, "test4", []string{"testdata/integration/apply-resources/test-cronjob-1.yaml"}, deployConfig)
 			Expect(err).NotTo(HaveOccurred())
 			jobList, err := clients.dynamic.Resource(gvrJobs).
 				Namespace("test4").
@@ -139,7 +137,7 @@ var _ = Describe("deploy on mock kubernetes", func() {
 
 // execDeploy combines the deploy function with its helper to apply a configuration
 // on the test environment
-func execDeploy(clients *K8sClients, namespace string, inputPaths []string, deployConfig DeployConfig, currentTime time.Time) error {
+func execDeploy(clients *K8sClients, namespace string, inputPaths []string, deployConfig DeployConfig) error {
 	filePaths, err := ExtractYAMLFiles(inputPaths)
 	CheckError(err, "Error extracting yaml files")
 

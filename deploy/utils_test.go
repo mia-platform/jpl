@@ -179,7 +179,7 @@ func TestUpdateResourceSecret(t *testing.T) {
 
 	resources := map[string]*ResourceList{
 		"CronJob": {
-			Gvk:       &schema.GroupVersionKind{Group: "batch", Version: "v1beta1", Kind: "CronJob"},
+			Kind:      &schema.GroupVersionKind{Group: "batch", Version: "v1beta1", Kind: "CronJob"},
 			Resources: []string{"bar"},
 		},
 	}
@@ -195,7 +195,8 @@ func TestUpdateResourceSecret(t *testing.T) {
 			Namespace("foo").
 			Get(context.Background(), resourceSecretName, metav1.GetOptions{})
 		require.Nil(t, err)
-		runtime.DefaultUnstructuredConverter.FromUnstructured(expUnstr.Object, &actual)
+		err = runtime.DefaultUnstructuredConverter.FromUnstructured(expUnstr.Object, &actual)
+		require.Nil(t, err)
 		require.Equal(t, string(expected.Data["resources"]), string(actual.Data["resources"]))
 	})
 	t.Run("Update resource-deployed", func(t *testing.T) {
@@ -216,15 +217,15 @@ func TestUpdateResourceSecret(t *testing.T) {
 			Namespace("foo").
 			Get(context.Background(), resourceSecretName, metav1.GetOptions{})
 		require.Nil(t, err)
-		runtime.DefaultUnstructuredConverter.FromUnstructured(expUnstr.Object, &actual)
+		err = runtime.DefaultUnstructuredConverter.FromUnstructured(expUnstr.Object, &actual)
+		require.Nil(t, err)
 		require.Equal(t, string(expected.Data["resources"]), string(actual.Data["resources"]))
 	})
 }
 
 func TestMakeResourceMap(t *testing.T) {
-
-	gvk_secret := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}
-	gvk_cm := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
+	gvkSecret := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}
+	gvkCm := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
 
 	testcases := []struct {
 		description string
@@ -236,15 +237,15 @@ func TestMakeResourceMap(t *testing.T) {
 			input: []Resource{
 				{
 					Object:           unstructured.Unstructured{Object: map[string]interface{}{"apiVersion": "v1", "metadata": map[string]interface{}{"name": "secret1"}}},
-					GroupVersionKind: &gvk_secret,
+					GroupVersionKind: &gvkSecret,
 				},
 				{
 					Object:           unstructured.Unstructured{Object: map[string]interface{}{"apiVersion": "v1", "metadata": map[string]interface{}{"name": "secret2"}}},
-					GroupVersionKind: &gvk_secret,
+					GroupVersionKind: &gvkSecret,
 				},
 			},
 			expected: map[string]*ResourceList{"Secret": {
-				Gvk:       &gvk_secret,
+				Kind:      &gvkSecret,
 				Resources: []string{"secret1", "secret2"},
 			}},
 		},
@@ -253,19 +254,19 @@ func TestMakeResourceMap(t *testing.T) {
 			input: []Resource{
 				{
 					Object:           unstructured.Unstructured{Object: map[string]interface{}{"apiVersion": "v1", "metadata": map[string]interface{}{"name": "secret1"}}},
-					GroupVersionKind: &gvk_secret,
+					GroupVersionKind: &gvkSecret,
 				},
 				{
 					Object:           unstructured.Unstructured{Object: map[string]interface{}{"apiVersion": "v1", "metadata": map[string]interface{}{"name": "cm1"}}},
-					GroupVersionKind: &gvk_cm,
+					GroupVersionKind: &gvkCm,
 				},
 			},
 			expected: map[string]*ResourceList{"Secret": {
-				Gvk:       &gvk_secret,
+				Kind:      &gvkSecret,
 				Resources: []string{"secret1"},
 			},
 				"ConfigMap": {
-					Gvk:       &gvk_cm,
+					Kind:      &gvkCm,
 					Resources: []string{"cm1"},
 				},
 			},
@@ -281,7 +282,6 @@ func TestMakeResourceMap(t *testing.T) {
 }
 
 func TestGetOldResourceMap(t *testing.T) {
-
 	testcases := []struct {
 		description string
 		input       *corev1.Secret
@@ -313,7 +313,7 @@ func TestGetOldResourceMap(t *testing.T) {
 				},
 				TypeMeta: metav1.TypeMeta{Kind: "Secret", APIVersion: "v1"},
 			},
-			expected: map[string]*ResourceList{"Deployment": {Resources: []string{"test-deployment", "test-deployment-2"}, Gvk: &schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}}},
+			expected: map[string]*ResourceList{"Deployment": {Resources: []string{"test-deployment", "test-deployment-2"}, Kind: &schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}}},
 			error: func(t *testing.T, err error) {
 				require.Nil(t, err)
 			},
@@ -495,5 +495,5 @@ func TestConvertSecretFormat(t *testing.T) {
 	actual, err := convertSecretFormat(oldres)
 	require.Nil(t, err)
 	require.Equal(t, []string{"test-deployment", "test-deployment-2"}, actual["Deployment"].Resources)
-	require.Equal(t, schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}, *actual["Deployment"].Gvk)
+	require.Equal(t, schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}, *actual["Deployment"].Kind)
 }

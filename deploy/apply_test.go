@@ -124,10 +124,10 @@ func TestCreatePatch(t *testing.T) {
 				annotations = make(map[string]string)
 			}
 
-			lastAppliedJson, err := lastApplied.Object.MarshalJSON()
+			lastAppliedJSON, err := lastApplied.Object.MarshalJSON()
 			require.Nil(t, err)
 
-			annotations[corev1.LastAppliedConfigAnnotation] = string(lastAppliedJson)
+			annotations[corev1.LastAppliedConfigAnnotation] = string(lastAppliedJSON)
 			deployment.Object.SetAnnotations(annotations)
 		}
 
@@ -139,7 +139,8 @@ func TestCreatePatch(t *testing.T) {
 	deploymentWithLastApplied := createDeployment("", deployment)
 
 	deploymentWith2Replicas := createDeployment("", nil)
-	unstructured.SetNestedField(deploymentWith2Replicas.Object.Object, "2", "spec", "replicas")
+	err := unstructured.SetNestedField(deploymentWith2Replicas.Object.Object, "2", "spec", "replicas")
+	require.Nil(t, err)
 
 	deploymentWithDifferentAnnotationValue := createDeployment("current", createDeployment("current", nil))
 	annotations := deploymentWithDifferentAnnotationValue.Object.GetAnnotations()

@@ -35,7 +35,6 @@ type DeployConfig struct {
 
 // Deploy ensures namespace existence and applies the resources to the cluster
 func Deploy(clients *K8sClients, namespace string, resources []Resource, deployConfig DeployConfig, apply ApplyFunction) error {
-
 	// for each resource ensure namespace if a namespace is not passed to the function ensure namespace in the resource, gives error
 	// on no namespace passed to the function and no namespace in yaml
 	// The namespace given to the function overrides yaml namespace
