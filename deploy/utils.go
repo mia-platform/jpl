@@ -106,8 +106,8 @@ type Options struct {
 	User                  string
 }
 
-// New create a new options struct
-func New() *Options {
+// NewOptions create a new options struct
+func NewOptions() *Options {
 	options := &Options{
 		Kubeconfig: os.Getenv("KUBECONFIG"),
 	}
