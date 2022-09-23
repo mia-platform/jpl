@@ -4,7 +4,7 @@
 
 The library will also provide functions for adding additional behaviours during the apply.
 
-`jpl` is the acronim for Jet Propulsion Laboratory, the NASA branch that is responsible for the construction and
+`jpl` is the acronym for Jet Propulsion Laboratory, the NASA branch that is responsible for the construction and
 operation of planetary robotic spacecraft.
 
 ## Testing
