@@ -27,7 +27,7 @@ ENVTEST_VERSION=latest
 
 TEST_VERBOSE ?= "false"
 .PHONY: test
-test: envtest-dep
+test: envtest-dep envtest-assets
 ifneq ($(TEST_VERBOSE), "false")
 	@KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) go test -test.v ./...
 else
@@ -35,8 +35,11 @@ else
 endif
 
 .PHONY: test-coverage
-test-coverage: envtest-dep
+test-coverage: envtest-dep envtest-assets
 	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) go test ./... -race -coverprofile=coverage.xml -covermode=atomic
+
+envtest-assets:
+	$(eval KUBEBUILDER_ASSETS := $(shell $(TOOLS_BIN)/setup-envtest use $(ENVTEST_K8S_VERSION) --bin-dir $(TOOLS_BIN) -p path))
 
 .PHONY: show-coverage
 show-coverage: test-coverage
@@ -57,7 +60,8 @@ clean-go:
 .PHONY: clean-tools
 clean-tools:
 	@echo "Clean tools folder..."
-	@rm -fr .tools/bin
+	@[ -d tools/bin/k8s ] && chmod +w tools/bin/k8s/* || true
+	@rm -fr ./tools/bin
 
 .PHONY: clean-all
 clean-all: clean clean-go clean-tools
@@ -98,4 +102,3 @@ lintgo-dep:
 
 envtest-dep:
 	@GOBIN=$(TOOLS_BIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@$(ENVTEST_VERSION)
-	$(eval KUBEBUILDER_ASSETS := $(shell $(TOOLS_BIN)/setup-envtest use $(ENVTEST_K8S_VERSION) --bin-dir $(TOOLS_BIN) -p path))
