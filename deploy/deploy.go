@@ -61,6 +61,7 @@ func Deploy(clients *K8sClients, namespace string, resources []Resource, deployC
 
 	// apply the resources
 	for _, res := range resources {
+		fmt.Printf("DEBUG: APPLYING %+v\n", res)
 		err := apply(clients, res, deployConfig)
 		if err != nil {
 			return err

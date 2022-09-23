@@ -73,6 +73,7 @@ func defaultApplyResource(clients *K8sClients, res Resource, deployConfig Deploy
 		return ReplaceResource(gvr, clients, res)
 	}
 
+	fmt.Printf("DEBUG: PATCHING res %+v\n", res)
 	return PatchResource(gvr, clients, res, onClusterObj)
 }
 
@@ -132,6 +133,7 @@ func ReplaceResource(gvr schema.GroupVersionResource, clients *K8sClients, res R
 // and needs to be updated
 func PatchResource(gvr schema.GroupVersionResource, clients *K8sClients, res Resource, onClusterObj *unstructured.Unstructured) error {
 	// create the patch
+	fmt.Printf("DEBUG: PATCHRESOURCE res %+v\nonClusterObj: %+v", res, onClusterObj)
 	patch, patchType, err := createPatch(*onClusterObj, res)
 	if err != nil {
 		return errors.Wrap(err, "failed to create patch")
@@ -148,6 +150,7 @@ func PatchResource(gvr schema.GroupVersionResource, clients *K8sClients, res Res
 
 // annotateWithLastApplied annotates a given resource with corev1.LastAppliedConfigAnnotation
 func annotateWithLastApplied(res Resource) (unstructured.Unstructured, error) {
+	fmt.Printf("DEBUG: ANNOTATEWITHLASTAPPLIED res: %+v", res)
 	annotatedRes := res.Object.DeepCopy()
 	annotations := annotatedRes.GetAnnotations()
 	if annotations == nil {
@@ -176,7 +179,7 @@ func annotateWithLastApplied(res Resource) (unstructured.Unstructured, error) {
 func createPatch(currentObj unstructured.Unstructured, target Resource) ([]byte, types.PatchType, error) {
 	// Get last applied config from current object annotation
 	lastAppliedConfigJSON := currentObj.GetAnnotations()[corev1.LastAppliedConfigAnnotation]
-
+	fmt.Printf("DEBUG: CREATEPATCH target: %+v\nlastAppliedConfigJSON: %+v\ncurrentObj: %+v", target, lastAppliedConfigJSON, currentObj)
 	// Get the desired configuration
 	annotatedTarget, err := annotateWithLastApplied(target)
 	if err != nil {
