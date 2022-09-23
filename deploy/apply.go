@@ -150,7 +150,7 @@ func PatchResource(gvr schema.GroupVersionResource, clients *K8sClients, res Res
 
 // annotateWithLastApplied annotates a given resource with corev1.LastAppliedConfigAnnotation
 func annotateWithLastApplied(res Resource) (unstructured.Unstructured, error) {
-	fmt.Printf("DEBUG: ANNOTATEWITHLASTAPPLIED res: %+v", res)
+	fmt.Printf("DEBUG: ANNOTATEWITHLASTAPPLIED res: %+v", res.Object)
 	annotatedRes := res.Object.DeepCopy()
 	annotations := annotatedRes.GetAnnotations()
 	if annotations == nil {
