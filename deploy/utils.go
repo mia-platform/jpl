@@ -65,6 +65,7 @@ var (
 )
 
 type Resource struct {
+	Filepath         string
 	GroupVersionKind *schema.GroupVersionKind
 	Object           unstructured.Unstructured
 }
@@ -202,12 +203,15 @@ func NewResourcesFromFile(filepath, namespace string) ([]Resource, error) {
 		return nil, err
 	}
 
-	return NewResourcesFromBuffer(stream, namespace)
+	return NewResourcesFromBuffer(stream, namespace, filepath)
 }
 
 // NewResourcesFromBuffer creates new Resources from a byte stream
 // Supports multiple resources divided by `---`
-func NewResourcesFromBuffer(stream []byte, namespace string) ([]Resource, error) {
+func NewResourcesFromBuffer(stream []byte, namespace string, filepath string) ([]Resource, error) {
+	if filepath == "" {
+		filepath = "buffer"
+	}
 	var resources []Resource
 	re := regexp.MustCompile(`\n---\n`)
 	for _, resourceYAML := range re.Split(string(stream), -1) {
@@ -217,13 +221,14 @@ func NewResourcesFromBuffer(stream []byte, namespace string) ([]Resource, error)
 
 		u := unstructured.Unstructured{Object: map[string]interface{}{}}
 		if err := k8syaml.Unmarshal([]byte(resourceYAML), &u.Object); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("resource %s: %s", filepath, err)
 		}
 		gvk := u.GroupVersionKind()
 		u.SetNamespace(namespace)
 
 		resources = append(resources,
 			Resource{
+				Filepath:         filepath,
 				GroupVersionKind: &gvk,
 				Object:           u,
 			})
