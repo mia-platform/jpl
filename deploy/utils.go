@@ -65,7 +65,6 @@ var (
 )
 
 type Resource struct {
-	Filepath         string
 	GroupVersionKind *schema.GroupVersionKind
 	Object           unstructured.Unstructured
 }
@@ -225,7 +224,6 @@ func NewResourcesFromBuffer(stream []byte, namespace string) ([]Resource, error)
 
 		resources = append(resources,
 			Resource{
-				Filepath:         "default",
 				GroupVersionKind: &gvk,
 				Object:           u,
 			})

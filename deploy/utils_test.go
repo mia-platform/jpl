@@ -66,7 +66,7 @@ func TestNewResources(t *testing.T) {
 	t.Run("Read an invalid kubernetes resource", func(t *testing.T) {
 		filePath := filepath.Join(testdata, "invalidresource.yaml")
 		_, err := NewResourcesFromFile(filePath, "default")
-		require.EqualError(t, err, "resource testdata/utils/invalidresource.yaml: error converting YAML to JSON: yaml: line 3: could not find expected ':'")
+		require.EqualError(t, err, "error converting YAML to JSON: yaml: line 3: could not find expected ':'")
 	})
 }
 
