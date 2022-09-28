@@ -212,7 +212,6 @@ func NewResourcesFromBuffer(stream []byte, namespace string) ([]Resource, error)
 	var resources []Resource
 	re := regexp.MustCompile(`\n---\n`)
 	for _, resourceYAML := range re.Split(string(stream), -1) {
-
 		if len(resourceYAML) == 0 {
 			continue
 		}
