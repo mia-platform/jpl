@@ -177,7 +177,7 @@ func IsNotUsingSemver(target *Resource) (bool, error) {
 func MakeResources(filePaths []string, namespace string) ([]Resource, error) {
 	resources := []Resource{}
 	for _, path := range filePaths {
-		res, err := NewResources(path, namespace)
+		res, err := NewResourcesFromFile(path, namespace)
 		if err != nil {
 			return nil, err
 		}
@@ -188,10 +188,9 @@ func MakeResources(filePaths []string, namespace string) ([]Resource, error) {
 	return resources, nil
 }
 
-// NewResources creates new Resources from a file at `filepath`
-// support multiple documents inside a single file
-func NewResources(filepath, namespace string) ([]Resource, error) {
-	var resources []Resource
+// NewResourcesFromFile creates new Resources from a file at `filepath`
+// Supports multiple documents inside a single file
+func NewResourcesFromFile(filepath, namespace string) ([]Resource, error) {
 	var stream []byte
 	var err error
 
@@ -204,27 +203,35 @@ func NewResources(filepath, namespace string) ([]Resource, error) {
 		return nil, err
 	}
 
-	// split resources on --- yaml document delimiter
+	return NewResourcesFromBuffer(stream, namespace)
+}
+
+// NewResourcesFromBuffer creates new Resources from a byte stream
+// Supports multiple resources divided by `---`
+func NewResourcesFromBuffer(stream []byte, namespace string) ([]Resource, error) {
+	var resources []Resource
 	re := regexp.MustCompile(`\n---\n`)
 	for _, resourceYAML := range re.Split(string(stream), -1) {
+
 		if len(resourceYAML) == 0 {
 			continue
 		}
 
 		u := unstructured.Unstructured{Object: map[string]interface{}{}}
 		if err := k8syaml.Unmarshal([]byte(resourceYAML), &u.Object); err != nil {
-			return nil, fmt.Errorf("resource %s: %s", filepath, err)
+			return nil, err
 		}
 		gvk := u.GroupVersionKind()
 		u.SetNamespace(namespace)
 
 		resources = append(resources,
 			Resource{
-				Filepath:         filepath,
+				Filepath:         "default",
 				GroupVersionKind: &gvk,
 				Object:           u,
 			})
 	}
+	resources = SortResourcesByKind(resources, nil)
 	return resources, nil
 }
 
