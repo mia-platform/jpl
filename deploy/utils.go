@@ -203,15 +203,18 @@ func NewResourcesFromFile(filepath, namespace string) ([]Resource, error) {
 		return nil, err
 	}
 
-	return NewResourcesFromBuffer(stream, namespace, filepath)
+	return createResourcesFromBuffer(stream, namespace, filepath)
 }
 
-// NewResourcesFromBuffer creates new Resources from a byte stream
-// Supports multiple resources divided by `---`
+// NewResourcesFromBuffer exposes the createResourcesFromBuffer function
+// setting the filepath to "buffer"
 func NewResourcesFromBuffer(stream []byte, namespace string, filepath string) ([]Resource, error) {
-	if filepath == "" {
-		filepath = "buffer"
-	}
+	return createResourcesFromBuffer(stream, namespace, "buffer")
+}
+
+// createResourcesFromBuffer creates new Resources from a byte stream
+// Supports multiple resources divided by `---`
+func createResourcesFromBuffer(stream []byte, namespace string, filepath string) ([]Resource, error) {
 	var resources []Resource
 	re := regexp.MustCompile(`\n---\n`)
 	for _, resourceYAML := range re.Split(string(stream), -1) {
@@ -224,7 +227,10 @@ func NewResourcesFromBuffer(stream []byte, namespace string, filepath string) ([
 			return nil, fmt.Errorf("resource %s: %s", filepath, err)
 		}
 		gvk := u.GroupVersionKind()
-		u.SetNamespace(namespace)
+
+		if namespace != "" {
+			u.SetNamespace(namespace)
+		}
 
 		resources = append(resources,
 			Resource{
