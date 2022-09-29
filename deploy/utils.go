@@ -177,7 +177,7 @@ func IsNotUsingSemver(target *Resource) (bool, error) {
 func MakeResources(filePaths []string, namespace string) ([]Resource, error) {
 	resources := []Resource{}
 	for _, path := range filePaths {
-		res, err := NewResources(path, namespace)
+		res, err := NewResourcesFromFile(path, namespace)
 		if err != nil {
 			return nil, err
 		}
@@ -188,10 +188,9 @@ func MakeResources(filePaths []string, namespace string) ([]Resource, error) {
 	return resources, nil
 }
 
-// NewResources creates new Resources from a file at `filepath`
-// support multiple documents inside a single file
-func NewResources(filepath, namespace string) ([]Resource, error) {
-	var resources []Resource
+// NewResourcesFromFile creates new Resources from a file at `filepath`
+// Supports multiple documents inside a single file
+func NewResourcesFromFile(filepath, namespace string) ([]Resource, error) {
 	var stream []byte
 	var err error
 
@@ -204,7 +203,19 @@ func NewResources(filepath, namespace string) ([]Resource, error) {
 		return nil, err
 	}
 
-	// split resources on --- yaml document delimiter
+	return createResourcesFromBuffer(stream, namespace, filepath)
+}
+
+// NewResourcesFromBuffer exposes the createResourcesFromBuffer function
+// setting the filepath to "buffer"
+func NewResourcesFromBuffer(stream []byte, namespace string, filepath string) ([]Resource, error) {
+	return createResourcesFromBuffer(stream, namespace, "buffer")
+}
+
+// createResourcesFromBuffer creates new Resources from a byte stream
+// Supports multiple resources divided by `---`
+func createResourcesFromBuffer(stream []byte, namespace string, filepath string) ([]Resource, error) {
+	var resources []Resource
 	re := regexp.MustCompile(`\n---\n`)
 	for _, resourceYAML := range re.Split(string(stream), -1) {
 		if len(resourceYAML) == 0 {
@@ -216,7 +227,10 @@ func NewResources(filepath, namespace string) ([]Resource, error) {
 			return nil, fmt.Errorf("resource %s: %s", filepath, err)
 		}
 		gvk := u.GroupVersionKind()
-		u.SetNamespace(namespace)
+
+		if namespace != "" {
+			u.SetNamespace(namespace)
+		}
 
 		resources = append(resources,
 			Resource{
@@ -225,6 +239,7 @@ func NewResources(filepath, namespace string) ([]Resource, error) {
 				Object:           u,
 			})
 	}
+	resources = SortResourcesByKind(resources, nil)
 	return resources, nil
 }
 

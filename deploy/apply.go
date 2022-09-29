@@ -176,7 +176,6 @@ func annotateWithLastApplied(res Resource) (unstructured.Unstructured, error) {
 func createPatch(currentObj unstructured.Unstructured, target Resource) ([]byte, types.PatchType, error) {
 	// Get last applied config from current object annotation
 	lastAppliedConfigJSON := currentObj.GetAnnotations()[corev1.LastAppliedConfigAnnotation]
-
 	// Get the desired configuration
 	annotatedTarget, err := annotateWithLastApplied(target)
 	if err != nil {
