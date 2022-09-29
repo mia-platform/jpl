@@ -208,7 +208,7 @@ func NewResourcesFromFile(filepath, namespace string) ([]Resource, error) {
 
 // NewResourcesFromBuffer exposes the createResourcesFromBuffer function
 // setting the filepath to "buffer"
-func NewResourcesFromBuffer(stream []byte, namespace string, filepath string) ([]Resource, error) {
+func NewResourcesFromBuffer(stream []byte, namespace string) ([]Resource, error) {
 	return createResourcesFromBuffer(stream, namespace, "buffer")
 }
 
