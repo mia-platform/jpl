@@ -136,12 +136,13 @@ var _ = Describe("deploy on mock kubernetes", func() {
 })
 
 // execDeploy combines the deploy function with its helper to apply a configuration
-// on the test environment
+// on the test environment.
+// The function implements the 2-step apply to deploy CRDs before anything else
 func execDeploy(clients *K8sClients, namespace string, inputPaths []string, deployConfig DeployConfig) error {
 	filePaths, err := ExtractYAMLFiles(inputPaths)
 	CheckError(err, "Error extracting yaml files")
 
-	resources, err := MakeResources(filePaths, namespace)
+	_, resources, err := MakeResources(filePaths, namespace)
 	if err != nil {
 		fmt.Printf("fails to make resources: %s\n", err)
 		return err
@@ -149,7 +150,7 @@ func execDeploy(clients *K8sClients, namespace string, inputPaths []string, depl
 
 	err = Deploy(clients, namespace, resources, deployConfig, defaultApplyResource)
 	if err != nil {
-		fmt.Printf("fails to deploy: %s", err)
+		fmt.Printf("fails to deploy resources: %s", err)
 		return err
 	}
 

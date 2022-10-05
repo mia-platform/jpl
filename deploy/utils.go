@@ -58,6 +58,7 @@ var fs = &afero.Afero{Fs: afero.NewOsFs()}
 
 var (
 	gvrSecrets     = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
+	gvrCRDs        = schema.GroupVersionResource{Group: "apiextensions.k8s.io", Version: "v1", Resource: "customresourcedefinitions"}
 	gvrNamespaces  = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
 	gvrConfigMaps  = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
 	gvrDeployments = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
@@ -173,24 +174,29 @@ func IsNotUsingSemver(target *Resource) (bool, error) {
 	return false, nil
 }
 
-// MakeResources takes a filepath/buffer and returns the Kubernetes resources in them
-func MakeResources(filePaths []string, namespace string) ([]Resource, error) {
+// MakeResources takes a filepath/buffer. It returns two arrays of resources,
+// respectively for CRDs and other kinds, to allow the implementation of the 2-step apply.
+func MakeResources(filePaths []string, namespace string) ([]Resource, []Resource, error) {
+	crdList := []Resource{}
 	resources := []Resource{}
 	for _, path := range filePaths {
-		res, err := NewResourcesFromFile(path, namespace)
+		res, crds, err := NewResourcesFromFile(path, namespace)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
+		crdList = append(crdList, crds...)
 		resources = append(resources, res...)
 	}
 
 	resources = SortResourcesByKind(resources, nil)
-	return resources, nil
+	return resources, crdList, nil
 }
 
-// NewResourcesFromFile creates new Resources from a file at `filepath`
+// NewResourcesFromFile creates new Resources from a file at `filepath`.
+// It returns two arrays of resources, respectively for CRDs and other kinds,
+// to allow the implementation of the 2-step apply.
 // Supports multiple documents inside a single file
-func NewResourcesFromFile(filepath, namespace string) ([]Resource, error) {
+func NewResourcesFromFile(filepath, namespace string) ([]Resource, []Resource, error) {
 	var stream []byte
 	var err error
 
@@ -200,7 +206,7 @@ func NewResourcesFromFile(filepath, namespace string) ([]Resource, error) {
 		stream, err = os.ReadFile(filepath)
 	}
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	return createResourcesFromBuffer(stream, namespace, filepath)
@@ -208,13 +214,16 @@ func NewResourcesFromFile(filepath, namespace string) ([]Resource, error) {
 
 // NewResourcesFromBuffer exposes the createResourcesFromBuffer function
 // setting the filepath to "buffer"
-func NewResourcesFromBuffer(stream []byte, namespace string) ([]Resource, error) {
+func NewResourcesFromBuffer(stream []byte, namespace string) ([]Resource, []Resource, error) {
 	return createResourcesFromBuffer(stream, namespace, "buffer")
 }
 
-// createResourcesFromBuffer creates new Resources from a byte stream
+// createResourcesFromBuffer creates new Resources from a byte stream.
+// It returns two arrays of resources, respectively for CRDs and other kinds,
+// to allow the implementation of the 2-step apply.
 // Supports multiple resources divided by `---`
-func createResourcesFromBuffer(stream []byte, namespace string, filepath string) ([]Resource, error) {
+func createResourcesFromBuffer(stream []byte, namespace string, filepath string) ([]Resource, []Resource, error) {
+	var crds []Resource
 	var resources []Resource
 	re := regexp.MustCompile(`\n---\n`)
 	for _, resourceYAML := range re.Split(string(stream), -1) {
@@ -224,7 +233,7 @@ func createResourcesFromBuffer(stream []byte, namespace string, filepath string)
 
 		u := unstructured.Unstructured{Object: map[string]interface{}{}}
 		if err := k8syaml.Unmarshal([]byte(resourceYAML), &u.Object); err != nil {
-			return nil, fmt.Errorf("resource %s: %s", filepath, err)
+			return nil, nil, fmt.Errorf("resource %s: %s", filepath, err)
 		}
 		gvk := u.GroupVersionKind()
 
@@ -232,15 +241,24 @@ func createResourcesFromBuffer(stream []byte, namespace string, filepath string)
 			u.SetNamespace(namespace)
 		}
 
-		resources = append(resources,
-			Resource{
-				Filepath:         filepath,
-				GroupVersionKind: &gvk,
-				Object:           u,
-			})
+		if gvk.Kind == "CustomResourceDefinition" {
+			crds = append(crds,
+				Resource{
+					Filepath:         filepath,
+					GroupVersionKind: &gvk,
+					Object:           u,
+				})
+		} else {
+			resources = append(resources,
+				Resource{
+					Filepath:         filepath,
+					GroupVersionKind: &gvk,
+					Object:           u,
+				})
+		}
 	}
 	resources = SortResourcesByKind(resources, nil)
-	return resources, nil
+	return crds, resources, nil
 }
 
 // makeResourceMap groups the resources list by kind and embeds them in a `ResourceList` struct

@@ -39,31 +39,34 @@ func Deploy(clients *K8sClients, namespace string, resources []Resource, deployC
 	// on no namespace passed to the function and no namespace in yaml
 	// The namespace given to the function overrides yaml namespace
 	for _, res := range resources {
-		if namespace == "" {
-			resourceNamespace := res.Object.GetNamespace()
-			if resourceNamespace != "" && deployConfig.EnsureNamespace {
-				if err := ensureNamespaceExistence(clients, resourceNamespace); err != nil {
-					return err
+		if res.Object.GetKind() != "CustomResourceDefinition" {
+			if namespace == "" {
+				resourceNamespace := res.Object.GetNamespace()
+				if resourceNamespace != "" && deployConfig.EnsureNamespace {
+					if err := ensureNamespaceExistence(clients, resourceNamespace); err != nil {
+						return fmt.Errorf("error ensuring namespace existence for namespace %s: %w", resourceNamespace, err)
+					}
+				} else if resourceNamespace == "" {
+					return fmt.Errorf("no namespace passed and no namespace in resource: %s %s", res.GroupVersionKind.Kind, res.Object.GetName())
 				}
-			} else if resourceNamespace == "" {
-				return fmt.Errorf("no namespace passed and no namespace in resource: %s %s", res.GroupVersionKind.Kind, res.Object.GetName())
+			} else {
+				res.Object.SetNamespace(namespace)
 			}
-		} else {
-			res.Object.SetNamespace(namespace)
 		}
 	}
 
 	if namespace != "" && deployConfig.EnsureNamespace {
 		if err := ensureNamespaceExistence(clients, namespace); err != nil {
-			return err
+			return fmt.Errorf("error ensuring namespace existence for namespace %s: %w", namespace, err)
 		}
 	}
 
+	fmt.Printf("RESOURCES: %+v\n", resources)
 	// apply the resources
 	for _, res := range resources {
 		err := apply(clients, res, deployConfig)
 		if err != nil {
-			return err
+			return fmt.Errorf("error applying resource %+v: %w", res, err)
 		}
 	}
 	return nil

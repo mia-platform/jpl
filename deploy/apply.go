@@ -91,7 +91,7 @@ func CreateResource(gvr schema.GroupVersionResource, clients *K8sClients, res Re
 
 	// creates kubectl.kubernetes.io/last-applied-configuration annotation
 	// inside the resource except for Secrets and ConfigMaps
-	if res.Object.GetKind() != "Secret" && res.Object.GetKind() != "ConfigMap" {
+	if res.Object.GetKind() != "Secret" && res.Object.GetKind() != "ConfigMap" && res.Object.GetKind() != "CustomResourceDefinition" {
 		orignAnn := res.Object.GetAnnotations()
 		if orignAnn == nil {
 			orignAnn = make(map[string]string)
@@ -118,7 +118,7 @@ func CreateResource(gvr schema.GroupVersionResource, clients *K8sClients, res Re
 }
 
 // ReplaceResource handles resource replacement on the cluster
-// e.g. for Secrets and ConfigMaps
+// e.g. for Secrets, ConfigMaps, and CRDs
 func ReplaceResource(gvr schema.GroupVersionResource, clients *K8sClients, res Resource) error {
 	_, err := clients.dynamic.Resource(gvr).
 		Namespace(res.Object.GetNamespace()).
