@@ -17,13 +17,17 @@ package jpl
 import (
 	"context"
 	"fmt"
+	"sync"
 
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
+	"k8s.io/kubectl/pkg/scheme"
 )
 
 // DeployConfig are all the specific configurations used in deploy phase
@@ -87,9 +91,21 @@ func InitRealK8sClients(opts *Options) *K8sClients {
 	return CreateK8sClients(restConfig)
 }
 
+var addToScheme sync.Once
+
 // CreateK8sClients returns an initialized K8sClients struct,
 // given a REST config
 func CreateK8sClients(cfg *rest.Config) *K8sClients {
+	// Add CRDs to the scheme. They are missing by default.
+	addToScheme.Do(func() {
+		if err := apiextv1.AddToScheme(scheme.Scheme); err != nil {
+			// This should never happen.
+			panic(err)
+		}
+		if err := apiextv1beta1.AddToScheme(scheme.Scheme); err != nil {
+			panic(err)
+		}
+	})
 	clients := &K8sClients{
 		dynamic:   dynamic.NewForConfigOrDie(cfg),
 		discovery: discovery.NewDiscoveryClientForConfigOrDie(cfg),
