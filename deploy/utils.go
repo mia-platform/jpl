@@ -177,11 +177,11 @@ func IsNotUsingSemver(target *Resource) (bool, error) {
 
 // MakeResources takes a filepath/buffer. It returns two arrays of resources,
 // respectively for CRDs and other kinds, to allow the implementation of the 2-step apply.
-func MakeResources(filePaths []string, namespace string, discovery discovery.DiscoveryInterface) ([]Resource, []Resource, error) {
+func MakeResources(filePaths []string, namespace string, supportedResourcesGetter SupportedResourcesGetter, discovery discovery.DiscoveryInterface) ([]Resource, []Resource, error) {
 	crdList := []Resource{}
 	resources := []Resource{}
 	for _, path := range filePaths {
-		res, crds, err := NewResourcesFromFile(path, namespace, discovery)
+		res, crds, err := NewResourcesFromFile(path, namespace, supportedResourcesGetter, discovery)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -197,7 +197,7 @@ func MakeResources(filePaths []string, namespace string, discovery discovery.Dis
 // It returns two arrays of resources, respectively for CRDs and other kinds,
 // to allow the implementation of the 2-step apply.
 // Supports multiple documents inside a single file
-func NewResourcesFromFile(filepath, namespace string, discovery discovery.DiscoveryInterface) ([]Resource, []Resource, error) {
+func NewResourcesFromFile(filepath, namespace string, supportedResourcesGetter SupportedResourcesGetter, discovery discovery.DiscoveryInterface) ([]Resource, []Resource, error) {
 	var stream []byte
 	var err error
 
@@ -210,24 +210,24 @@ func NewResourcesFromFile(filepath, namespace string, discovery discovery.Discov
 		return nil, nil, err
 	}
 
-	return createResourcesFromBuffer(stream, namespace, filepath, discovery)
+	return createResourcesFromBuffer(stream, namespace, filepath, supportedResourcesGetter, discovery)
 }
 
 // NewResourcesFromBuffer exposes the createResourcesFromBuffer function
 // setting the filepath to "buffer"
-func NewResourcesFromBuffer(stream []byte, namespace string, discovery discovery.DiscoveryInterface) ([]Resource, []Resource, error) {
-	return createResourcesFromBuffer(stream, namespace, "buffer", discovery)
+func NewResourcesFromBuffer(stream []byte, namespace string, supportedResourcesGetter SupportedResourcesGetter, discovery discovery.DiscoveryInterface) ([]Resource, []Resource, error) {
+	return createResourcesFromBuffer(stream, namespace, "buffer", supportedResourcesGetter, discovery)
 }
 
 // createResourcesFromBuffer creates new Resources from a byte stream.
 // It returns two arrays of resources, respectively for CRDs and other kinds,
 // to allow the implementation of the 2-step apply.
 // Supports multiple resources divided by `---`
-func createResourcesFromBuffer(stream []byte, namespace string, filepath string, discovery discovery.DiscoveryInterface) ([]Resource, []Resource, error) {
+func createResourcesFromBuffer(stream []byte, namespace string, filepath string, supportedResourcesGetter SupportedResourcesGetter, discovery discovery.DiscoveryInterface) ([]Resource, []Resource, error) {
 	var crds []Resource
 	var resources []Resource
 
-	supportedResources, err := initSupportedResourcesMap(discovery)
+	supportedResources, err := supportedResourcesGetter.GetSupportedResourcesDictionary(discovery)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error initializing map of supported resources: %w", err)
 	}
@@ -271,15 +271,28 @@ func createResourcesFromBuffer(stream []byte, namespace string, filepath string,
 	return crds, resources, nil
 }
 
-// initSupportedResourcesMap initializes the map containing all the resources supported by the cluster
-// indexed by their GVK.The map serves to optimize fetching of API resources' features (e.g. if the resource is namespaced)
-func initSupportedResourcesMap(discovery discovery.DiscoveryInterface) (map[schema.GroupVersionKind]metav1.APIResource, error) {
+// SupportedResourcesGetter is a type for handling real and mock dictionaries of supported resources
+type SupportedResourcesGetter interface {
+	GetSupportedResourcesDictionary(discovery discovery.DiscoveryInterface) (map[schema.GroupVersionKind]metav1.APIResource, error)
+}
+
+// RealSupportedResourcesGetter is a type to identify the real getter function for the supported resources dictionary
+type RealSupportedResourcesGetter struct{}
+
+// GetSupportedResourcesDictionary exposes the getSupportedResourcesDictionary function for the real getter
+func (supportedResourcesGetter RealSupportedResourcesGetter) GetSupportedResourcesDictionary(discovery discovery.DiscoveryInterface) (map[schema.GroupVersionKind]metav1.APIResource, error) {
+	return getSupportedResourcesDictionary(discovery)
+}
+
+// getSupportedResourcesDictionary initializes the dictionary containing all the resources supported by the cluster
+// indexed by their GVK. The dictionary serves to optimize fetching of API resources' features (e.g. if the resource is namespaced)
+func getSupportedResourcesDictionary(discovery discovery.DiscoveryInterface) (map[schema.GroupVersionKind]metav1.APIResource, error) {
 	_, supportedResourcesPerGV, err := discovery.ServerGroupsAndResources()
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve supported resources: %w", err)
 	}
 
-	supportedResourcesMap := make(map[schema.GroupVersionKind]metav1.APIResource)
+	supportedResourcesDict := make(map[schema.GroupVersionKind]metav1.APIResource)
 
 	for _, resourcesList := range supportedResourcesPerGV {
 		for _, res := range resourcesList.APIResources {
@@ -299,7 +312,7 @@ func initSupportedResourcesMap(discovery discovery.DiscoveryInterface) (map[sche
 				// if the resource list GroupVersion is group/version, pick the second element of the array resulting from the split
 				case 2:
 					version = listGroupVersion[1]
-				// otherwise, pick the first (and only) element of the array
+				// otherwise, pick the first (and only) element of the array (e.g. GroupVersion="v1")
 				default:
 					version = listGroupVersion[0]
 				}
@@ -307,11 +320,11 @@ func initSupportedResourcesMap(discovery discovery.DiscoveryInterface) (map[sche
 				version = res.Version
 			}
 			resGVK := schema.GroupVersionKind{Group: group, Version: version, Kind: res.Kind}
-			supportedResourcesMap[resGVK] = res
+			supportedResourcesDict[resGVK] = res
 		}
 	}
 
-	return supportedResourcesMap, nil
+	return supportedResourcesDict, nil
 }
 
 // makeResourceMap groups the resources list by kind and embeds them in a `ResourceList` struct
