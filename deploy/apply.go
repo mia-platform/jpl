@@ -108,11 +108,20 @@ func CreateResource(gvr schema.GroupVersionResource, clients *K8sClients, res Re
 		return err
 	}
 
-	_, err := clients.dynamic.Resource(gvr).
-		Namespace(res.Object.GetNamespace()).
-		Create(context.Background(),
-			&res.Object,
-			metav1.CreateOptions{})
+	var err error
+
+	if res.Namespaced {
+		_, err = clients.dynamic.Resource(gvr).
+			Namespace(res.Object.GetNamespace()).
+			Create(context.Background(),
+				&res.Object,
+				metav1.CreateOptions{})
+	} else {
+		_, err = clients.dynamic.Resource(gvr).
+			Create(context.Background(),
+				&res.Object,
+				metav1.CreateOptions{})
+	}
 
 	return err
 }

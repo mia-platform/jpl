@@ -43,7 +43,7 @@ func Deploy(clients *K8sClients, namespace string, resources []Resource, deployC
 	// on no namespace passed to the function and no namespace in yaml
 	// The namespace given to the function overrides yaml namespace
 	for _, res := range resources {
-		if res.Object.GetKind() != "CustomResourceDefinition" {
+		if res.Namespaced {
 			if namespace == "" {
 				resourceNamespace := res.Object.GetNamespace()
 				if resourceNamespace != "" && deployConfig.EnsureNamespace {
@@ -65,7 +65,6 @@ func Deploy(clients *K8sClients, namespace string, resources []Resource, deployC
 		}
 	}
 
-	fmt.Printf("RESOURCES: %+v\n", resources)
 	// apply the resources
 	for _, res := range resources {
 		err := apply(clients, res, deployConfig)

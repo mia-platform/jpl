@@ -69,6 +69,7 @@ type Resource struct {
 	Filepath         string
 	GroupVersionKind *schema.GroupVersionKind
 	Object           unstructured.Unstructured
+	Namespaced       bool
 }
 
 type ResourceList struct {
@@ -176,11 +177,11 @@ func IsNotUsingSemver(target *Resource) (bool, error) {
 
 // MakeResources takes a filepath/buffer. It returns two arrays of resources,
 // respectively for CRDs and other kinds, to allow the implementation of the 2-step apply.
-func MakeResources(filePaths []string, namespace string) ([]Resource, []Resource, error) {
+func MakeResources(filePaths []string, namespace string, discovery discovery.DiscoveryInterface) ([]Resource, []Resource, error) {
 	crdList := []Resource{}
 	resources := []Resource{}
 	for _, path := range filePaths {
-		res, crds, err := NewResourcesFromFile(path, namespace)
+		res, crds, err := NewResourcesFromFile(path, namespace, discovery)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -196,7 +197,7 @@ func MakeResources(filePaths []string, namespace string) ([]Resource, []Resource
 // It returns two arrays of resources, respectively for CRDs and other kinds,
 // to allow the implementation of the 2-step apply.
 // Supports multiple documents inside a single file
-func NewResourcesFromFile(filepath, namespace string) ([]Resource, []Resource, error) {
+func NewResourcesFromFile(filepath, namespace string, discovery discovery.DiscoveryInterface) ([]Resource, []Resource, error) {
 	var stream []byte
 	var err error
 
@@ -209,22 +210,28 @@ func NewResourcesFromFile(filepath, namespace string) ([]Resource, []Resource, e
 		return nil, nil, err
 	}
 
-	return createResourcesFromBuffer(stream, namespace, filepath)
+	return createResourcesFromBuffer(stream, namespace, filepath, discovery)
 }
 
 // NewResourcesFromBuffer exposes the createResourcesFromBuffer function
 // setting the filepath to "buffer"
-func NewResourcesFromBuffer(stream []byte, namespace string) ([]Resource, []Resource, error) {
-	return createResourcesFromBuffer(stream, namespace, "buffer")
+func NewResourcesFromBuffer(stream []byte, namespace string, discovery discovery.DiscoveryInterface) ([]Resource, []Resource, error) {
+	return createResourcesFromBuffer(stream, namespace, "buffer", discovery)
 }
 
 // createResourcesFromBuffer creates new Resources from a byte stream.
 // It returns two arrays of resources, respectively for CRDs and other kinds,
 // to allow the implementation of the 2-step apply.
 // Supports multiple resources divided by `---`
-func createResourcesFromBuffer(stream []byte, namespace string, filepath string) ([]Resource, []Resource, error) {
+func createResourcesFromBuffer(stream []byte, namespace string, filepath string, discovery discovery.DiscoveryInterface) ([]Resource, []Resource, error) {
 	var crds []Resource
 	var resources []Resource
+
+	supportedResources, err := initSupportedResourcesMap(discovery)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error initializing map of supported resources: %w", err)
+	}
+
 	re := regexp.MustCompile(`\n---\n`)
 	for _, resourceYAML := range re.Split(string(stream), -1) {
 		if len(resourceYAML) == 0 {
@@ -236,8 +243,9 @@ func createResourcesFromBuffer(stream []byte, namespace string, filepath string)
 			return nil, nil, fmt.Errorf("resource %s: %s", filepath, err)
 		}
 		gvk := u.GroupVersionKind()
+		isNamespaced := supportedResources[gvk].Namespaced
 
-		if namespace != "" {
+		if namespace != "" && isNamespaced {
 			u.SetNamespace(namespace)
 		}
 
@@ -247,6 +255,7 @@ func createResourcesFromBuffer(stream []byte, namespace string, filepath string)
 					Filepath:         filepath,
 					GroupVersionKind: &gvk,
 					Object:           u,
+					Namespaced:       isNamespaced,
 				})
 		} else {
 			resources = append(resources,
@@ -254,11 +263,55 @@ func createResourcesFromBuffer(stream []byte, namespace string, filepath string)
 					Filepath:         filepath,
 					GroupVersionKind: &gvk,
 					Object:           u,
+					Namespaced:       isNamespaced,
 				})
 		}
 	}
 	resources = SortResourcesByKind(resources, nil)
 	return crds, resources, nil
+}
+
+// initSupportedResourcesMap initializes the map containing all the resources supported by the cluster
+// indexed by their GVK.The map serves to optimize fetching of API resources' features (e.g. if the resource is namespaced)
+func initSupportedResourcesMap(discovery discovery.DiscoveryInterface) (map[schema.GroupVersionKind]metav1.APIResource, error) {
+	_, supportedResourcesPerGV, err := discovery.ServerGroupsAndResources()
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve supported resources: %w", err)
+	}
+
+	supportedResourcesMap := make(map[schema.GroupVersionKind]metav1.APIResource)
+
+	for _, resourcesList := range supportedResourcesPerGV {
+		for _, res := range resourcesList.APIResources {
+			var group, version string
+			// listGroupVersion is the GroupVersion string of the resource list.
+			// The string may include only the version (eg. "v1"), or group and version separated by a / (e.g. "apps/v1")
+			listGroupVersion := strings.Split(resourcesList.GroupVersion, "/")
+			// if the resource's group or version is empty, it is inferred from the containing resource list
+			// (https://pkg.go.dev/k8s.io/apimachinery/pkg/apis/meta/v1#APIResource)
+			if group == "" && len(listGroupVersion) == 2 {
+				group = listGroupVersion[0]
+			} else {
+				group = res.Group
+			}
+			if version == "" {
+				switch len(listGroupVersion) {
+				// if the resource list GroupVersion is group/version, pick the second element of the array resulting from the split
+				case 2:
+					version = listGroupVersion[1]
+				// otherwise, pick the first (and only) element of the array
+				default:
+					version = listGroupVersion[0]
+				}
+			} else {
+				version = res.Version
+			}
+			resGVK := schema.GroupVersionKind{Group: group, Version: version, Kind: res.Kind}
+			supportedResourcesMap[resGVK] = res
+		}
+	}
+
+	return supportedResourcesMap, nil
 }
 
 // makeResourceMap groups the resources list by kind and embeds them in a `ResourceList` struct
