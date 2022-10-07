@@ -67,7 +67,7 @@ func TestCronJobAutoCreate(t *testing.T) {
 
 	for _, tt := range testcases {
 		t.Run(tt.description, func(t *testing.T) {
-			_, cronjob, err := NewResourcesFromFile("testdata/apply/cronjob-test.cronjob.yml", "default", FakeSupportedResourcesGetter{Testing: t}, nil)
+			_, cronjob, err := NewResourcesFromFile("testdata/apply/cronjob-test.cronjob.yml", "default", FakeSupportedResourcesGetter{Testing: t}, FakeK8sClients())
 			require.Nil(t, err)
 			tt.setup(&cronjob[0].Object)
 			dynamicClient := dynamicFake.NewSimpleDynamicClient(scheme)
@@ -82,7 +82,7 @@ func TestCronJobAutoCreate(t *testing.T) {
 }
 
 func TestCreateJobFromCronJob(t *testing.T) {
-	_, cron, err := NewResourcesFromFile("testdata/apply/cronjob-test.cronjob.yml", "default", FakeSupportedResourcesGetter{Testing: t}, nil)
+	_, cron, err := NewResourcesFromFile("testdata/apply/cronjob-test.cronjob.yml", "default", FakeSupportedResourcesGetter{Testing: t}, FakeK8sClients())
 	require.Nil(t, err)
 	expected := map[string]interface{}{"apiVersion": "batch/v1", "kind": "Job", "metadata": map[string]interface{}{"annotations": map[string]interface{}{"cronjob.kubernetes.io/instantiate": "manual"}, "creationTimestamp": interface{}(nil), "generateName": "hello-", "namespace": "default"}, "spec": map[string]interface{}{"template": map[string]interface{}{"metadata": map[string]interface{}{"creationTimestamp": interface{}(nil)}, "spec": map[string]interface{}{"containers": []interface{}{map[string]interface{}{"args": []interface{}{"/bin/sh", "-c", "date; sleep 120"}, "image": "busybox", "name": "hello", "resources": map[string]interface{}{}}}, "restartPolicy": "OnFailure"}}}, "status": map[string]interface{}{}}
 
@@ -104,7 +104,7 @@ func TestCreateJobFromCronJob(t *testing.T) {
 func TestCreatePatch(t *testing.T) {
 	createDeployment := func(annotation string, lastApplied *Resource) *Resource {
 		t.Helper()
-		_, deployments, err := NewResourcesFromFile("testdata/apply/test-deployment.yaml", "default", FakeSupportedResourcesGetter{Testing: t}, nil)
+		_, deployments, err := NewResourcesFromFile("testdata/apply/test-deployment.yaml", "default", FakeSupportedResourcesGetter{Testing: t}, FakeK8sClients())
 		require.Nil(t, err)
 
 		deployment := deployments[0]
