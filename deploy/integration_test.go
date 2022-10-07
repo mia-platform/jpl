@@ -132,6 +132,13 @@ var _ = Describe("deploy on mock kubernetes", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(jobList.Items[0].GetLabels()["job-name"]).To(ContainSubstring("test-cronjob"))
 		})
+		It("creates non-namespaced resources", func() {
+			err := execDeploy(clients, "test4", []string{"testdata/integration/apply-resources/non-namespaced.yaml"}, deployConfig)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = clients.dynamic.Resource(gvrCRDs).
+				List(context.Background(), metav1.ListOptions{})
+			Expect(err).NotTo(HaveOccurred())
+		})
 	})
 })
 
@@ -142,9 +149,15 @@ func execDeploy(clients *K8sClients, namespace string, inputPaths []string, depl
 	filePaths, err := ExtractYAMLFiles(inputPaths)
 	CheckError(err, "Error extracting yaml files")
 
-	_, resources, err := MakeResources(filePaths, namespace)
+	crds, resources, err := MakeResources(filePaths, namespace, clients.discovery)
 	if err != nil {
 		fmt.Printf("fails to make resources: %s\n", err)
+		return err
+	}
+
+	err = Deploy(clients, namespace, crds, deployConfig, defaultApplyResource)
+	if err != nil {
+		fmt.Printf("fails to deploy crds: %s", err)
 		return err
 	}
 
