@@ -78,6 +78,13 @@ func defaultApplyResource(clients *K8sClients, res Resource, deployConfig Deploy
 	return PatchResource(gvr, clients, res, onClusterObj)
 }
 
+// ListResources returns the list of resources with the given GVR across all namespaces.
+// If no resource exists, returns a NotFound error
+func ListResources(gvr schema.GroupVersionResource, clients *K8sClients) (*unstructured.UnstructuredList, error) {
+	return clients.dynamic.Resource(gvr).
+		List(context.Background(), metav1.ListOptions{})
+}
+
 // GetResource returns the identified resource if present on the cluster
 // if the resource does not exist, returns a NotFound error
 func GetResource(gvr schema.GroupVersionResource, clients *K8sClients, res Resource) (*unstructured.Unstructured, error) {

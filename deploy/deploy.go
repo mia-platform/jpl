@@ -112,11 +112,6 @@ func CreateK8sClients(cfg *rest.Config) *K8sClients {
 	return clients
 }
 
-// GetDynamicClient returns the K8sClients dynamic interface
-func GetDynamicClient(clients *K8sClients) dynamic.Interface {
-	return clients.dynamic
-}
-
 // Cleanup removes the resources no longer deployed and updates
 // the secret in the cluster with the updated set of resources
 func Cleanup(clients *K8sClients, namespace string, resources []Resource) error {
