@@ -48,7 +48,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	clients = CreateK8sClients(cfg)
+	clients = createRealK8sClients(cfg)
 }, 60)
 
 var _ = AfterSuite(func() {
@@ -149,7 +149,7 @@ func execDeploy(clients *K8sClients, namespace string, inputPaths []string, depl
 	filePaths, err := ExtractYAMLFiles(inputPaths)
 	CheckError(err, "Error extracting yaml files")
 
-	crds, resources, err := MakeResources(filePaths, namespace, RealSupportedResourcesGetter{}, clients.discovery)
+	crds, resources, err := MakeResources(filePaths, namespace, RealSupportedResourcesGetter{}, clients)
 	if err != nil {
 		fmt.Printf("fails to make resources: %s\n", err)
 		return err

@@ -177,11 +177,11 @@ func IsNotUsingSemver(target *Resource) (bool, error) {
 
 // MakeResources takes a filepath/buffer. It returns two arrays of resources,
 // respectively for CRDs and other kinds, to allow the implementation of the 2-step apply.
-func MakeResources(filePaths []string, namespace string, supportedResourcesGetter SupportedResourcesGetter, discovery discovery.DiscoveryInterface) ([]Resource, []Resource, error) {
+func MakeResources(filePaths []string, namespace string, supportedResourcesGetter SupportedResourcesGetter, clients *K8sClients) ([]Resource, []Resource, error) {
 	crdList := []Resource{}
 	resources := []Resource{}
 	for _, path := range filePaths {
-		res, crds, err := NewResourcesFromFile(path, namespace, supportedResourcesGetter, discovery)
+		res, crds, err := NewResourcesFromFile(path, namespace, supportedResourcesGetter, clients)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -197,7 +197,7 @@ func MakeResources(filePaths []string, namespace string, supportedResourcesGette
 // It returns two arrays of resources, respectively for CRDs and other kinds,
 // to allow the implementation of the 2-step apply.
 // Supports multiple documents inside a single file
-func NewResourcesFromFile(filepath, namespace string, supportedResourcesGetter SupportedResourcesGetter, discovery discovery.DiscoveryInterface) ([]Resource, []Resource, error) {
+func NewResourcesFromFile(filepath, namespace string, supportedResourcesGetter SupportedResourcesGetter, clients *K8sClients) ([]Resource, []Resource, error) {
 	var stream []byte
 	var err error
 
@@ -210,13 +210,13 @@ func NewResourcesFromFile(filepath, namespace string, supportedResourcesGetter S
 		return nil, nil, err
 	}
 
-	return createResourcesFromBuffer(stream, namespace, filepath, supportedResourcesGetter, discovery)
+	return createResourcesFromBuffer(stream, namespace, filepath, supportedResourcesGetter, clients.discovery)
 }
 
 // NewResourcesFromBuffer exposes the createResourcesFromBuffer function
 // setting the filepath to "buffer"
-func NewResourcesFromBuffer(stream []byte, namespace string, supportedResourcesGetter SupportedResourcesGetter, discovery discovery.DiscoveryInterface) ([]Resource, []Resource, error) {
-	return createResourcesFromBuffer(stream, namespace, "buffer", supportedResourcesGetter, discovery)
+func NewResourcesFromBuffer(stream []byte, namespace string, supportedResourcesGetter SupportedResourcesGetter, clients *K8sClients) ([]Resource, []Resource, error) {
+	return createResourcesFromBuffer(stream, namespace, "buffer", supportedResourcesGetter, clients.discovery)
 }
 
 // createResourcesFromBuffer creates new Resources from a byte stream.

@@ -25,7 +25,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/discovery"
+	discoveryFake "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/dynamic"
+	dynamicFake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 )
@@ -87,14 +89,14 @@ func InitRealK8sClients(opts *Options) *K8sClients {
 	restConfig.QPS = 500.0
 	restConfig.Burst = 500
 
-	return CreateK8sClients(restConfig)
+	return createRealK8sClients(restConfig)
 }
 
 var addToScheme sync.Once
 
-// CreateK8sClients returns an initialized K8sClients struct,
+// createRealK8sClients returns an initialized K8sClients struct,
 // given a REST config
-func CreateK8sClients(cfg *rest.Config) *K8sClients {
+func createRealK8sClients(cfg *rest.Config) *K8sClients {
 	// Add CRDs to the scheme. They are missing by default.
 	addToScheme.Do(func() {
 		if err := apiextv1.AddToScheme(scheme.Scheme); err != nil {
@@ -110,6 +112,14 @@ func CreateK8sClients(cfg *rest.Config) *K8sClients {
 		discovery: discovery.NewDiscoveryClientForConfigOrDie(cfg),
 	}
 	return clients
+}
+
+// FakeK8sClients returns a struct of fake k8s clients for testing purposes
+func FakeK8sClients() *K8sClients {
+	return &K8sClients{
+		dynamic:   &dynamicFake.FakeDynamicClient{},
+		discovery: &discoveryFake.FakeDiscovery{},
+	}
 }
 
 // Cleanup removes the resources no longer deployed and updates
