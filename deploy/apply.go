@@ -35,6 +35,8 @@ import (
 	"k8s.io/kubectl/pkg/scheme"
 )
 
+const CustomResourceDefinitionName = "CustomResourceDefinition"
+
 type ApplyFunction func(clients *K8sClients, res Resource, deployConfig DeployConfig) error
 
 // DecorateApplyFunction allows to generate an apply function with a generic number of decorators
@@ -68,7 +70,7 @@ func defaultApplyResource(clients *K8sClients, res Resource, deployConfig Deploy
 		return err
 	}
 
-	if res.Object.GetKind() == "Secret" || res.Object.GetKind() == "ConfigMap" || res.Object.GetKind() == "CustomResourceDefinition" {
+	if res.Object.GetKind() == "Secret" || res.Object.GetKind() == "ConfigMap" || res.Object.GetKind() == CustomResourceDefinitionName {
 		fmt.Printf("Replacing %s: %s\n", res.Object.GetKind(), res.Object.GetName())
 		return ReplaceResource(gvr, clients, res)
 	}
@@ -91,7 +93,7 @@ func CreateResource(gvr schema.GroupVersionResource, clients *K8sClients, res Re
 
 	// creates kubectl.kubernetes.io/last-applied-configuration annotation
 	// inside the resource except for Secrets and ConfigMaps
-	if res.Object.GetKind() != "Secret" && res.Object.GetKind() != "ConfigMap" && res.Object.GetKind() != "CustomResourceDefinition" {
+	if res.Object.GetKind() != "Secret" && res.Object.GetKind() != "ConfigMap" && res.Object.GetKind() != CustomResourceDefinitionName {
 		orignAnn := res.Object.GetAnnotations()
 		if orignAnn == nil {
 			orignAnn = make(map[string]string)

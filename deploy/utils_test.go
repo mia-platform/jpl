@@ -516,6 +516,7 @@ func (supportedResourcesGetter FakeSupportedResourcesGetter) GetSupportedResourc
 
 // fakeSupportedResourcesDictionary returns a fake dictionary of supported resources for testing purposes
 func fakeSupportedResourcesDictionary(t *testing.T) map[schema.GroupVersionKind]metav1.APIResource {
+	t.Helper()
 	fakeDictionary := make(map[schema.GroupVersionKind]metav1.APIResource)
 	gvkConfigMaps := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
 	gvkIngressRoute := schema.GroupVersionKind{Group: "traefik.containo.us", Version: "v1alpha1", Kind: "IngressRoute"}

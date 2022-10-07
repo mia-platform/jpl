@@ -300,6 +300,7 @@ func getSupportedResourcesDictionary(discovery discovery.DiscoveryInterface) (ma
 			// listGroupVersion is the GroupVersion string of the resource list.
 			// The string may include only the version (eg. "v1"), or group and version separated by a / (e.g. "apps/v1")
 			listGroupVersion := strings.Split(resourcesList.GroupVersion, "/")
+			listGroupVersionMaxLen := 2
 			// if the resource's group or version is empty, it is inferred from the containing resource list
 			// (https://pkg.go.dev/k8s.io/apimachinery/pkg/apis/meta/v1#APIResource)
 			if group == "" && len(listGroupVersion) == 2 {
@@ -310,7 +311,7 @@ func getSupportedResourcesDictionary(discovery discovery.DiscoveryInterface) (ma
 			if version == "" {
 				switch len(listGroupVersion) {
 				// if the resource list GroupVersion is group/version, pick the second element of the array resulting from the split
-				case 2:
+				case listGroupVersionMaxLen:
 					version = listGroupVersion[1]
 				// otherwise, pick the first (and only) element of the array (e.g. GroupVersion="v1")
 				default:
