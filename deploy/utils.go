@@ -58,6 +58,7 @@ var fs = &afero.Afero{Fs: afero.NewOsFs()}
 
 var (
 	gvrSecrets     = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
+	gvrCRDs        = schema.GroupVersionResource{Group: "apiextensions.k8s.io", Version: "v1", Resource: "customresourcedefinitions"}
 	gvrNamespaces  = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
 	gvrConfigMaps  = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
 	gvrDeployments = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
@@ -68,6 +69,7 @@ type Resource struct {
 	Filepath         string
 	GroupVersionKind *schema.GroupVersionKind
 	Object           unstructured.Unstructured
+	Namespaced       bool
 }
 
 type ResourceList struct {
@@ -173,24 +175,29 @@ func IsNotUsingSemver(target *Resource) (bool, error) {
 	return false, nil
 }
 
-// MakeResources takes a filepath/buffer and returns the Kubernetes resources in them
-func MakeResources(filePaths []string, namespace string) ([]Resource, error) {
+// MakeResources takes a filepath/buffer. It returns two arrays of resources,
+// respectively for CRDs and other kinds, to allow the implementation of the 2-step apply.
+func MakeResources(filePaths []string, namespace string, supportedResourcesGetter SupportedResourcesGetter, clients *K8sClients) ([]Resource, []Resource, error) {
+	crdList := []Resource{}
 	resources := []Resource{}
 	for _, path := range filePaths {
-		res, err := NewResourcesFromFile(path, namespace)
+		res, crds, err := NewResourcesFromFile(path, namespace, supportedResourcesGetter, clients)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
+		crdList = append(crdList, crds...)
 		resources = append(resources, res...)
 	}
 
 	resources = SortResourcesByKind(resources, nil)
-	return resources, nil
+	return resources, crdList, nil
 }
 
-// NewResourcesFromFile creates new Resources from a file at `filepath`
+// NewResourcesFromFile creates new Resources from a file at `filepath`.
+// It returns two arrays of resources, respectively for CRDs and other kinds,
+// to allow the implementation of the 2-step apply.
 // Supports multiple documents inside a single file
-func NewResourcesFromFile(filepath, namespace string) ([]Resource, error) {
+func NewResourcesFromFile(filepath, namespace string, supportedResourcesGetter SupportedResourcesGetter, clients *K8sClients) ([]Resource, []Resource, error) {
 	var stream []byte
 	var err error
 
@@ -200,22 +207,31 @@ func NewResourcesFromFile(filepath, namespace string) ([]Resource, error) {
 		stream, err = os.ReadFile(filepath)
 	}
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return createResourcesFromBuffer(stream, namespace, filepath)
+	return createResourcesFromBuffer(stream, namespace, filepath, supportedResourcesGetter, clients.discovery)
 }
 
 // NewResourcesFromBuffer exposes the createResourcesFromBuffer function
 // setting the filepath to "buffer"
-func NewResourcesFromBuffer(stream []byte, namespace string) ([]Resource, error) {
-	return createResourcesFromBuffer(stream, namespace, "buffer")
+func NewResourcesFromBuffer(stream []byte, namespace string, supportedResourcesGetter SupportedResourcesGetter, clients *K8sClients) ([]Resource, []Resource, error) {
+	return createResourcesFromBuffer(stream, namespace, "buffer", supportedResourcesGetter, clients.discovery)
 }
 
-// createResourcesFromBuffer creates new Resources from a byte stream
+// createResourcesFromBuffer creates new Resources from a byte stream.
+// It returns two arrays of resources, respectively for CRDs and other kinds,
+// to allow the implementation of the 2-step apply.
 // Supports multiple resources divided by `---`
-func createResourcesFromBuffer(stream []byte, namespace string, filepath string) ([]Resource, error) {
+func createResourcesFromBuffer(stream []byte, namespace string, filepath string, supportedResourcesGetter SupportedResourcesGetter, discovery discovery.DiscoveryInterface) ([]Resource, []Resource, error) {
+	var crds []Resource
 	var resources []Resource
+
+	supportedResources, err := supportedResourcesGetter.GetSupportedResourcesDictionary(discovery)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error initializing map of supported resources: %w", err)
+	}
+
 	re := regexp.MustCompile(`\n---\n`)
 	for _, resourceYAML := range re.Split(string(stream), -1) {
 		if len(resourceYAML) == 0 {
@@ -224,23 +240,92 @@ func createResourcesFromBuffer(stream []byte, namespace string, filepath string)
 
 		u := unstructured.Unstructured{Object: map[string]interface{}{}}
 		if err := k8syaml.Unmarshal([]byte(resourceYAML), &u.Object); err != nil {
-			return nil, fmt.Errorf("resource %s: %s", filepath, err)
+			return nil, nil, fmt.Errorf("resource %s: %s", filepath, err)
 		}
 		gvk := u.GroupVersionKind()
+		isNamespaced := supportedResources[gvk].Namespaced
 
-		if namespace != "" {
+		if namespace != "" && isNamespaced {
 			u.SetNamespace(namespace)
 		}
 
-		resources = append(resources,
-			Resource{
-				Filepath:         filepath,
-				GroupVersionKind: &gvk,
-				Object:           u,
-			})
+		if gvk.Kind == "CustomResourceDefinition" {
+			crds = append(crds,
+				Resource{
+					Filepath:         filepath,
+					GroupVersionKind: &gvk,
+					Object:           u,
+					Namespaced:       isNamespaced,
+				})
+		} else {
+			resources = append(resources,
+				Resource{
+					Filepath:         filepath,
+					GroupVersionKind: &gvk,
+					Object:           u,
+					Namespaced:       isNamespaced,
+				})
+		}
 	}
 	resources = SortResourcesByKind(resources, nil)
-	return resources, nil
+	return crds, resources, nil
+}
+
+// SupportedResourcesGetter is a type for handling real and mock dictionaries of supported resources
+type SupportedResourcesGetter interface {
+	GetSupportedResourcesDictionary(discovery discovery.DiscoveryInterface) (map[schema.GroupVersionKind]metav1.APIResource, error)
+}
+
+// RealSupportedResourcesGetter is a type to identify the real getter function for the supported resources dictionary
+type RealSupportedResourcesGetter struct{}
+
+// GetSupportedResourcesDictionary exposes the getSupportedResourcesDictionary function for the real getter
+func (supportedResourcesGetter RealSupportedResourcesGetter) GetSupportedResourcesDictionary(discovery discovery.DiscoveryInterface) (map[schema.GroupVersionKind]metav1.APIResource, error) {
+	return getSupportedResourcesDictionary(discovery)
+}
+
+// getSupportedResourcesDictionary initializes the dictionary containing all the resources supported by the cluster
+// indexed by their GVK. The dictionary serves to optimize fetching of API resources' features (e.g. if the resource is namespaced)
+func getSupportedResourcesDictionary(discovery discovery.DiscoveryInterface) (map[schema.GroupVersionKind]metav1.APIResource, error) {
+	_, supportedResourcesPerGV, err := discovery.ServerGroupsAndResources()
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve supported resources: %w", err)
+	}
+
+	supportedResourcesDict := make(map[schema.GroupVersionKind]metav1.APIResource)
+
+	for _, resourcesList := range supportedResourcesPerGV {
+		for _, res := range resourcesList.APIResources {
+			var group, version string
+			// listGroupVersion is the GroupVersion string of the resource list.
+			// The string may include only the version (eg. "v1"), or group and version separated by a / (e.g. "apps/v1")
+			listGroupVersion := strings.Split(resourcesList.GroupVersion, "/")
+			listGroupVersionMaxLen := 2
+			// if the resource's group or version is empty, it is inferred from the containing resource list
+			// (https://pkg.go.dev/k8s.io/apimachinery/pkg/apis/meta/v1#APIResource)
+			if group == "" && len(listGroupVersion) == 2 {
+				group = listGroupVersion[0]
+			} else {
+				group = res.Group
+			}
+			if version == "" {
+				switch len(listGroupVersion) {
+				// if the resource list GroupVersion is group/version, pick the second element of the array resulting from the split
+				case listGroupVersionMaxLen:
+					version = listGroupVersion[1]
+				// otherwise, pick the first (and only) element of the array (e.g. GroupVersion="v1")
+				default:
+					version = listGroupVersion[0]
+				}
+			} else {
+				version = res.Version
+			}
+			resGVK := schema.GroupVersionKind{Group: group, Version: version, Kind: res.Kind}
+			supportedResourcesDict[resGVK] = res
+		}
+	}
+
+	return supportedResourcesDict, nil
 }
 
 // makeResourceMap groups the resources list by kind and embeds them in a `ResourceList` struct

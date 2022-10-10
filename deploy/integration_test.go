@@ -48,7 +48,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	clients = CreateK8sClients(cfg)
+	clients = createRealK8sClients(cfg)
 }, 60)
 
 var _ = AfterSuite(func() {
@@ -132,24 +132,40 @@ var _ = Describe("deploy on mock kubernetes", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(jobList.Items[0].GetLabels()["job-name"]).To(ContainSubstring("test-cronjob"))
 		})
+		It("creates non-namespaced resources", func() {
+			err := execDeploy(clients, "test4", []string{"testdata/integration/apply-resources/non-namespaced.yaml"}, deployConfig)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = clients.dynamic.Resource(gvrCRDs).
+				List(context.Background(), metav1.ListOptions{})
+			Expect(err).NotTo(HaveOccurred())
+		})
 	})
 })
 
 // execDeploy combines the deploy function with its helper to apply a configuration
-// on the test environment
+// on the test environment.
+// The function implements the 2-step apply to deploy CRDs before anything else
 func execDeploy(clients *K8sClients, namespace string, inputPaths []string, deployConfig DeployConfig) error {
 	filePaths, err := ExtractYAMLFiles(inputPaths)
 	CheckError(err, "Error extracting yaml files")
 
-	resources, err := MakeResources(filePaths, namespace)
+	crds, resources, err := MakeResources(filePaths, namespace, RealSupportedResourcesGetter{}, clients)
 	if err != nil {
 		fmt.Printf("fails to make resources: %s\n", err)
 		return err
 	}
 
+	// deploy CRDs first (simplified example of 2-step deployment w/o checks on CRDs' status)...
+	err = Deploy(clients, namespace, crds, deployConfig, defaultApplyResource)
+	if err != nil {
+		fmt.Printf("fails to deploy crds: %s", err)
+		return err
+	}
+
+	// ...and then all the remaining resources
 	err = Deploy(clients, namespace, resources, deployConfig, defaultApplyResource)
 	if err != nil {
-		fmt.Printf("fails to deploy: %s", err)
+		fmt.Printf("fails to deploy resources: %s", err)
 		return err
 	}
 

@@ -17,12 +17,18 @@ package jpl
 import (
 	"context"
 	"fmt"
+	"sync"
 
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/discovery"
+	discoveryFake "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/dynamic"
+	dynamicFake "k8s.io/client-go/dynamic/fake"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 )
 
@@ -39,23 +45,25 @@ func Deploy(clients *K8sClients, namespace string, resources []Resource, deployC
 	// on no namespace passed to the function and no namespace in yaml
 	// The namespace given to the function overrides yaml namespace
 	for _, res := range resources {
-		if namespace == "" {
-			resourceNamespace := res.Object.GetNamespace()
-			if resourceNamespace != "" && deployConfig.EnsureNamespace {
-				if err := ensureNamespaceExistence(clients, resourceNamespace); err != nil {
-					return err
+		if res.Namespaced {
+			if namespace == "" {
+				resourceNamespace := res.Object.GetNamespace()
+				if resourceNamespace != "" && deployConfig.EnsureNamespace {
+					if err := ensureNamespaceExistence(clients, resourceNamespace); err != nil {
+						return fmt.Errorf("error ensuring namespace existence for namespace %s: %w", resourceNamespace, err)
+					}
+				} else if resourceNamespace == "" {
+					return fmt.Errorf("no namespace passed and no namespace in resource: %s %s", res.GroupVersionKind.Kind, res.Object.GetName())
 				}
-			} else if resourceNamespace == "" {
-				return fmt.Errorf("no namespace passed and no namespace in resource: %s %s", res.GroupVersionKind.Kind, res.Object.GetName())
+			} else {
+				res.Object.SetNamespace(namespace)
 			}
-		} else {
-			res.Object.SetNamespace(namespace)
 		}
 	}
 
 	if namespace != "" && deployConfig.EnsureNamespace {
 		if err := ensureNamespaceExistence(clients, namespace); err != nil {
-			return err
+			return fmt.Errorf("error ensuring namespace existence for namespace %s: %w", namespace, err)
 		}
 	}
 
@@ -63,7 +71,7 @@ func Deploy(clients *K8sClients, namespace string, resources []Resource, deployC
 	for _, res := range resources {
 		err := apply(clients, res, deployConfig)
 		if err != nil {
-			return err
+			return fmt.Errorf("error applying resource %+v: %w", res, err)
 		}
 	}
 	return nil
@@ -81,17 +89,37 @@ func InitRealK8sClients(opts *Options) *K8sClients {
 	restConfig.QPS = 500.0
 	restConfig.Burst = 500
 
-	return CreateK8sClients(restConfig)
+	return createRealK8sClients(restConfig)
 }
 
-// CreateK8sClients returns an initialized K8sClients struct,
+var addToScheme sync.Once
+
+// createRealK8sClients returns an initialized K8sClients struct,
 // given a REST config
-func CreateK8sClients(cfg *rest.Config) *K8sClients {
+func createRealK8sClients(cfg *rest.Config) *K8sClients {
+	// Add CRDs to the scheme. They are missing by default.
+	addToScheme.Do(func() {
+		if err := apiextv1.AddToScheme(scheme.Scheme); err != nil {
+			// This should never happen.
+			panic(err)
+		}
+		if err := apiextv1beta1.AddToScheme(scheme.Scheme); err != nil {
+			panic(err)
+		}
+	})
 	clients := &K8sClients{
 		dynamic:   dynamic.NewForConfigOrDie(cfg),
 		discovery: discovery.NewDiscoveryClientForConfigOrDie(cfg),
 	}
 	return clients
+}
+
+// FakeK8sClients returns a struct of fake k8s clients for testing purposes
+func FakeK8sClients() *K8sClients {
+	return &K8sClients{
+		dynamic:   &dynamicFake.FakeDynamicClient{},
+		discovery: &discoveryFake.FakeDiscovery{},
+	}
 }
 
 // Cleanup removes the resources no longer deployed and updates

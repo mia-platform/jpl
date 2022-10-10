@@ -35,6 +35,8 @@ import (
 	"k8s.io/kubectl/pkg/scheme"
 )
 
+const CustomResourceDefinitionName = "CustomResourceDefinition"
+
 type ApplyFunction func(clients *K8sClients, res Resource, deployConfig DeployConfig) error
 
 // DecorateApplyFunction allows to generate an apply function with a generic number of decorators
@@ -68,12 +70,19 @@ func defaultApplyResource(clients *K8sClients, res Resource, deployConfig Deploy
 		return err
 	}
 
-	if res.Object.GetKind() == "Secret" || res.Object.GetKind() == "ConfigMap" || res.Object.GetKind() == "CustomResourceDefinition" {
+	if res.Object.GetKind() == "Secret" || res.Object.GetKind() == "ConfigMap" || res.Object.GetKind() == CustomResourceDefinitionName {
 		fmt.Printf("Replacing %s: %s\n", res.Object.GetKind(), res.Object.GetName())
 		return ReplaceResource(gvr, clients, res)
 	}
 
 	return PatchResource(gvr, clients, res, onClusterObj)
+}
+
+// ListResources returns the list of resources with the given GVR across all namespaces.
+// If no resource exists, returns a NotFound error
+func ListResources(gvr schema.GroupVersionResource, clients *K8sClients) (*unstructured.UnstructuredList, error) {
+	return clients.dynamic.Resource(gvr).
+		List(context.Background(), metav1.ListOptions{})
 }
 
 // GetResource returns the identified resource if present on the cluster
@@ -91,7 +100,7 @@ func CreateResource(gvr schema.GroupVersionResource, clients *K8sClients, res Re
 
 	// creates kubectl.kubernetes.io/last-applied-configuration annotation
 	// inside the resource except for Secrets and ConfigMaps
-	if res.Object.GetKind() != "Secret" && res.Object.GetKind() != "ConfigMap" {
+	if res.Object.GetKind() != "Secret" && res.Object.GetKind() != "ConfigMap" && res.Object.GetKind() != CustomResourceDefinitionName {
 		orignAnn := res.Object.GetAnnotations()
 		if orignAnn == nil {
 			orignAnn = make(map[string]string)
@@ -108,17 +117,26 @@ func CreateResource(gvr schema.GroupVersionResource, clients *K8sClients, res Re
 		return err
 	}
 
-	_, err := clients.dynamic.Resource(gvr).
-		Namespace(res.Object.GetNamespace()).
-		Create(context.Background(),
-			&res.Object,
-			metav1.CreateOptions{})
+	var err error
+
+	if res.Namespaced {
+		_, err = clients.dynamic.Resource(gvr).
+			Namespace(res.Object.GetNamespace()).
+			Create(context.Background(),
+				&res.Object,
+				metav1.CreateOptions{})
+	} else {
+		_, err = clients.dynamic.Resource(gvr).
+			Create(context.Background(),
+				&res.Object,
+				metav1.CreateOptions{})
+	}
 
 	return err
 }
 
 // ReplaceResource handles resource replacement on the cluster
-// e.g. for Secrets and ConfigMaps
+// e.g. for Secrets, ConfigMaps, and CRDs
 func ReplaceResource(gvr schema.GroupVersionResource, clients *K8sClients, res Resource) error {
 	_, err := clients.dynamic.Resource(gvr).
 		Namespace(res.Object.GetNamespace()).
