@@ -139,6 +139,13 @@ var _ = Describe("deploy on mock kubernetes", func() {
 				List(context.Background(), metav1.ListOptions{})
 			Expect(err).NotTo(HaveOccurred())
 		})
+		It("replaces non-namespaced resources", func() {
+			err := execDeploy(clients, "test4", []string{"testdata/integration/apply-resources/non-namespaced.yaml"}, deployConfig)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = clients.dynamic.Resource(gvrCRDs).
+				List(context.Background(), metav1.ListOptions{})
+			Expect(err).NotTo(HaveOccurred())
+		})
 	})
 })
 
