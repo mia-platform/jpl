@@ -72,6 +72,7 @@ func defaultApplyResource(clients *K8sClients, res Resource, deployConfig Deploy
 
 	if res.Object.GetKind() == "Secret" || res.Object.GetKind() == "ConfigMap" || res.Object.GetKind() == CustomResourceDefinitionName {
 		fmt.Printf("Replacing %s: %s\n", res.Object.GetKind(), res.Object.GetName())
+		res.Object.SetResourceVersion(onClusterObj.GetResourceVersion())
 		return ReplaceResource(gvr, clients, res)
 	}
 
@@ -99,7 +100,7 @@ func CreateResource(gvr schema.GroupVersionResource, clients *K8sClients, res Re
 	fmt.Printf("Creating %s: %s\n", res.Object.GetKind(), res.Object.GetName())
 
 	// creates kubectl.kubernetes.io/last-applied-configuration annotation
-	// inside the resource except for Secrets and ConfigMaps
+	// inside the resource except for Secrets, ConfigMaps, and CRDs
 	if res.Object.GetKind() != "Secret" && res.Object.GetKind() != "ConfigMap" && res.Object.GetKind() != CustomResourceDefinitionName {
 		orignAnn := res.Object.GetAnnotations()
 		if orignAnn == nil {
@@ -138,19 +139,11 @@ func CreateResource(gvr schema.GroupVersionResource, clients *K8sClients, res Re
 // ReplaceResource handles resource replacement on the cluster
 // e.g. for Secrets, ConfigMaps, and CRDs
 func ReplaceResource(gvr schema.GroupVersionResource, clients *K8sClients, res Resource) error {
-	var err error
-	if res.Namespaced {
-		_, err = clients.dynamic.Resource(gvr).
-			Namespace(res.Object.GetNamespace()).
-			Update(context.Background(),
-				&res.Object,
-				metav1.UpdateOptions{})
-	} else {
-		_, err = clients.dynamic.Resource(gvr).
-			Update(context.Background(),
-				&res.Object,
-				metav1.UpdateOptions{})
-	}
+	_, err := clients.dynamic.Resource(gvr).
+		Namespace(res.Object.GetNamespace()).
+		Update(context.Background(),
+			&res.Object,
+			metav1.UpdateOptions{})
 	return err
 }
 
@@ -163,7 +156,8 @@ func PatchResource(gvr schema.GroupVersionResource, clients *K8sClients, res Res
 		return errors.Wrap(err, "failed to create patch")
 	}
 
-	if _, err := clients.dynamic.Resource(gvr).
+	// TODO: handle non-namespaced resources
+	if _, err = clients.dynamic.Resource(gvr).
 		Namespace(res.Object.GetNamespace()).
 		Patch(context.Background(),
 			res.Object.GetName(), patchType, patch, metav1.PatchOptions{}); err != nil {
