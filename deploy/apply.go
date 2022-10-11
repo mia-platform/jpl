@@ -138,11 +138,19 @@ func CreateResource(gvr schema.GroupVersionResource, clients *K8sClients, res Re
 // ReplaceResource handles resource replacement on the cluster
 // e.g. for Secrets, ConfigMaps, and CRDs
 func ReplaceResource(gvr schema.GroupVersionResource, clients *K8sClients, res Resource) error {
-	_, err := clients.dynamic.Resource(gvr).
-		Namespace(res.Object.GetNamespace()).
-		Update(context.Background(),
-			&res.Object,
-			metav1.UpdateOptions{})
+	var err error
+	if res.Namespaced {
+		_, err = clients.dynamic.Resource(gvr).
+			Namespace(res.Object.GetNamespace()).
+			Update(context.Background(),
+				&res.Object,
+				metav1.UpdateOptions{})
+	} else {
+		_, err = clients.dynamic.Resource(gvr).
+			Update(context.Background(),
+				&res.Object,
+				metav1.UpdateOptions{})
+	}
 	return err
 }
 
