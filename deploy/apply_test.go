@@ -185,7 +185,7 @@ func TestCreatePatch(t *testing.T) {
 			patch, patchType, err := createPatch(*tC.current, *tC.target)
 
 			require.Equal(t, tC.expected, string(patch))
-			require.Equal(t, patchType, types.StrategicMergePatchType)
+			require.Equal(t, types.StrategicMergePatchType, patchType)
 			require.Nil(t, err)
 		})
 	}

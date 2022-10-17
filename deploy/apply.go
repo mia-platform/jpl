@@ -32,7 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/mergepatch"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/kubectl/pkg/scheme"
+	"k8s.io/client-go/kubernetes/scheme"
 )
 
 const CustomResourceDefinitionName = "CustomResourceDefinition"
@@ -70,12 +70,6 @@ func defaultApplyResource(clients *K8sClients, res Resource, deployConfig Deploy
 		return err
 	}
 
-	// if res.Object.GetKind() == "Secret" || res.Object.GetKind() == "ConfigMap" || res.Object.GetKind() == CustomResourceDefinitionName {
-	// 	fmt.Printf("Replacing %s: %s\n", res.Object.GetKind(), res.Object.GetName())
-	// 	res.Object.SetResourceVersion(onClusterObj.GetResourceVersion())
-	// 	return ReplaceResource(gvr, clients, res)
-	// }
-
 	return PatchResource(gvr, clients, res, onClusterObj)
 }
 
@@ -101,7 +95,10 @@ func CreateResource(gvr schema.GroupVersionResource, clients *K8sClients, res Re
 
 	// creates kubectl.kubernetes.io/last-applied-configuration annotation
 	// inside the resource except for Secrets, ConfigMaps, and CRDs
-	if res.Object.GetKind() != "Secret" && res.Object.GetKind() != "ConfigMap" && res.Object.GetKind() != CustomResourceDefinitionName {
+	switch res.Object.GetKind() {
+	case "Secret", "ConfigMap", CustomResourceDefinitionName:
+		// Do nothing
+	default:
 		orignAnn := res.Object.GetAnnotations()
 		if orignAnn == nil {
 			orignAnn = make(map[string]string)
@@ -118,32 +115,14 @@ func CreateResource(gvr schema.GroupVersionResource, clients *K8sClients, res Re
 		return err
 	}
 
-	var err error
-
+	var resourceInterface dynamic.ResourceInterface
 	if res.Namespaced {
-		_, err = clients.dynamic.Resource(gvr).
-			Namespace(res.Object.GetNamespace()).
-			Create(context.Background(),
-				&res.Object,
-				metav1.CreateOptions{})
+		resourceInterface = clients.dynamic.Resource(gvr).Namespace(res.Object.GetNamespace())
 	} else {
-		_, err = clients.dynamic.Resource(gvr).
-			Create(context.Background(),
-				&res.Object,
-				metav1.CreateOptions{})
+		resourceInterface = clients.dynamic.Resource(gvr)
 	}
 
-	return err
-}
-
-// ReplaceResource handles resource replacement on the cluster
-// e.g. for Secrets, ConfigMaps, and CRDs
-func ReplaceResource(gvr schema.GroupVersionResource, clients *K8sClients, res Resource) error {
-	_, err := clients.dynamic.Resource(gvr).
-		Namespace(res.Object.GetNamespace()).
-		Update(context.Background(),
-			&res.Object,
-			metav1.UpdateOptions{})
+	_, err := resourceInterface.Create(context.Background(), &res.Object, metav1.CreateOptions{})
 	return err
 }
 
@@ -156,13 +135,14 @@ func PatchResource(gvr schema.GroupVersionResource, clients *K8sClients, res Res
 		return errors.Wrap(err, "failed to create patch")
 	}
 
-	// TODO: handle non-namespaced resources
-	if _, err = clients.dynamic.Resource(gvr).
-		Namespace(res.Object.GetNamespace()).
-		Patch(context.Background(),
-			res.Object.GetName(), patchType, patch, metav1.PatchOptions{}); err != nil {
-		return errors.Wrap(err, "failed to patch")
+	var resourceInterface dynamic.ResourceInterface
+	if res.Namespaced {
+		resourceInterface = clients.dynamic.Resource(gvr).Namespace(res.Object.GetNamespace())
+	} else {
+		resourceInterface = clients.dynamic.Resource(gvr)
 	}
+
+	_, err = resourceInterface.Patch(context.Background(), res.Object.GetName(), patchType, patch, metav1.PatchOptions{})
 	return err
 }
 
@@ -194,58 +174,36 @@ func annotateWithLastApplied(res Resource) (unstructured.Unstructured, error) {
 // object annotation, the actual resource state deployed inside the cluster and the desired state after
 // the update.
 func createPatch(currentObj unstructured.Unstructured, target Resource) ([]byte, types.PatchType, error) {
-
-	patchType := types.StrategicMergePatchType
-
-	if target.Object.GetKind() == "Secret" && target.Object.GetKind() == "ConfigMap" && target.Object.GetKind() == CustomResourceDefinitionName {
-		// Get the resource scheme
-		versionedObject, err := scheme.Scheme.New(*target.GroupVersionKind)
-		if err != nil {
-			return nil, types.StrategicMergePatchType, err
-		}
-		patchMeta, err := strategicpatch.NewPatchMetaFromStruct(versionedObject)
-		if err != nil {
-			return nil, types.StrategicMergePatchType, errors.Wrap(err, "unable to create patch metadata from object")
-		}
-		currentJSON, err := currentObj.MarshalJSON()
-		if err != nil {
-			return nil, types.StrategicMergePatchType, err
-		}
-		targetJSON, err := target.Object.MarshalJSON()
-		if err != nil {
-			return nil, types.StrategicMergePatchType, err
-		}
-
-		preconditions := []mergepatch.PreconditionFunc{}
-		if runtime.IsNotRegisteredError(err) {
-			patchType = types.MergePatchType
-			preconditions = []mergepatch.PreconditionFunc{mergepatch.RequireKeyUnchanged("apiVersion"),
-				mergepatch.RequireKeyUnchanged("kind"), mergepatch.RequireMetadataKeyUnchanged("name")}
-		}
-
-		patch, err := strategicpatch.CreateTwoWayMergePatch(currentJSON, targetJSON, patchMeta, preconditions...)
-		return patch, patchType, err
-	}
-	// Get last applied config from current object annotation
-	lastAppliedConfigJSON := currentObj.GetAnnotations()[corev1.LastAppliedConfigAnnotation]
-	// Get the desired configuration
-	annotatedTarget, err := annotateWithLastApplied(target)
-	if err != nil {
-		return nil, types.StrategicMergePatchType, err
-	}
-	targetJSON, err := annotatedTarget.MarshalJSON()
-	if err != nil {
-		return nil, types.StrategicMergePatchType, err
-	}
-
 	// Get the resource in the cluster
 	currentJSON, err := currentObj.MarshalJSON()
 	if err != nil {
-		return nil, types.StrategicMergePatchType, errors.Wrap(err, "serializing live configuration")
+		return nil, "", errors.Wrap(err, "serializing live configuration")
 	}
 
-	// Get the resource scheme
+	// Get last applied config from annotation if exists
+	lastAppliedConfigJSON := ""
+	var targetJSON []byte
+	if annotations := currentObj.GetAnnotations(); annotations != nil {
+		lastAppliedConfigJSON = annotations[corev1.LastAppliedConfigAnnotation]
+		annotatedTarget, err := annotateWithLastApplied(target)
+		if err != nil {
+			return nil, "", err
+		}
+		targetJSON, err = annotatedTarget.MarshalJSON()
+		if err != nil {
+			return nil, "", err
+		}
+	} else {
+		targetJSON, err = target.Object.MarshalJSON()
+		if err != nil {
+			return nil, "", err
+		}
+	}
+
 	versionedObject, err := scheme.Scheme.New(*target.GroupVersionKind)
+	if err != nil && !runtime.IsNotRegisteredError(err) {
+		return nil, "", err
+	}
 
 	// use a three way json merge if the resource is a CRD
 	if runtime.IsNotRegisteredError(err) {
@@ -255,8 +213,6 @@ func createPatch(currentObj unstructured.Unstructured, target Resource) ([]byte,
 			mergepatch.RequireKeyUnchanged("kind"), mergepatch.RequireMetadataKeyUnchanged("name")}
 		patch, err := jsonmergepatch.CreateThreeWayJSONMergePatch([]byte(lastAppliedConfigJSON), targetJSON, currentJSON, preconditions...)
 		return patch, patchType, err
-	} else if err != nil {
-		return nil, types.StrategicMergePatchType, err
 	}
 
 	patchMeta, err := strategicpatch.NewPatchMetaFromStruct(versionedObject)
