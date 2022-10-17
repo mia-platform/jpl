@@ -70,11 +70,11 @@ func defaultApplyResource(clients *K8sClients, res Resource, deployConfig Deploy
 		return err
 	}
 
-	if res.Object.GetKind() == "Secret" || res.Object.GetKind() == "ConfigMap" || res.Object.GetKind() == CustomResourceDefinitionName {
-		fmt.Printf("Replacing %s: %s\n", res.Object.GetKind(), res.Object.GetName())
-		res.Object.SetResourceVersion(onClusterObj.GetResourceVersion())
-		return ReplaceResource(gvr, clients, res)
-	}
+	// if res.Object.GetKind() == "Secret" || res.Object.GetKind() == "ConfigMap" || res.Object.GetKind() == CustomResourceDefinitionName {
+	// 	fmt.Printf("Replacing %s: %s\n", res.Object.GetKind(), res.Object.GetName())
+	// 	res.Object.SetResourceVersion(onClusterObj.GetResourceVersion())
+	// 	return ReplaceResource(gvr, clients, res)
+	// }
 
 	return PatchResource(gvr, clients, res, onClusterObj)
 }
@@ -194,6 +194,38 @@ func annotateWithLastApplied(res Resource) (unstructured.Unstructured, error) {
 // object annotation, the actual resource state deployed inside the cluster and the desired state after
 // the update.
 func createPatch(currentObj unstructured.Unstructured, target Resource) ([]byte, types.PatchType, error) {
+
+	patchType := types.StrategicMergePatchType
+
+	if target.Object.GetKind() == "Secret" && target.Object.GetKind() == "ConfigMap" && target.Object.GetKind() == CustomResourceDefinitionName {
+		// Get the resource scheme
+		versionedObject, err := scheme.Scheme.New(*target.GroupVersionKind)
+		if err != nil {
+			return nil, types.StrategicMergePatchType, err
+		}
+		patchMeta, err := strategicpatch.NewPatchMetaFromStruct(versionedObject)
+		if err != nil {
+			return nil, types.StrategicMergePatchType, errors.Wrap(err, "unable to create patch metadata from object")
+		}
+		currentJSON, err := currentObj.MarshalJSON()
+		if err != nil {
+			return nil, types.StrategicMergePatchType, err
+		}
+		targetJSON, err := target.Object.MarshalJSON()
+		if err != nil {
+			return nil, types.StrategicMergePatchType, err
+		}
+
+		preconditions := []mergepatch.PreconditionFunc{}
+		if runtime.IsNotRegisteredError(err) {
+			patchType = types.MergePatchType
+			preconditions = []mergepatch.PreconditionFunc{mergepatch.RequireKeyUnchanged("apiVersion"),
+				mergepatch.RequireKeyUnchanged("kind"), mergepatch.RequireMetadataKeyUnchanged("name")}
+		}
+
+		patch, err := strategicpatch.CreateTwoWayMergePatch(currentJSON, targetJSON, patchMeta, preconditions...)
+		return patch, patchType, err
+	}
 	// Get last applied config from current object annotation
 	lastAppliedConfigJSON := currentObj.GetAnnotations()[corev1.LastAppliedConfigAnnotation]
 	// Get the desired configuration
