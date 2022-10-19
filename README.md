@@ -1,5 +1,7 @@
 # jpl
 
+[![Common Changelog](https://common-changelog.org/badge.svg)](https://common-changelog.org)
+
 `jpl` is a library for managing the connection and application of Kubernetes manifest to a cluster.
 
 The library will also provide functions for adding additional behaviours during the apply.
