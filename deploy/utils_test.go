@@ -36,19 +36,19 @@ const testdata = "testdata/utils/"
 func TestNewResources(t *testing.T) {
 	t.Run("Read a valid kubernetes resource", func(t *testing.T) {
 		filePath := filepath.Join(testdata, "kubernetesersource.yaml")
-		_, actual, err := NewResourcesFromFile(filePath, "default", FakeSupportedResourcesGetter{Testing: t}, FakeK8sClients())
+		_, actual, err := NewResourcesFromFile(filePath)
 		require.Nil(t, err)
-		expected := map[string]interface{}{"apiVersion": "v1", "data": map[string]interface{}{"dueKey": "deuValue", "unaKey": "unValue"}, "kind": "ConfigMap", "metadata": map[string]interface{}{"name": "literal", "namespace": "default"}}
+		expected := map[string]interface{}{"apiVersion": "v1", "data": map[string]interface{}{"dueKey": "deuValue", "unaKey": "unValue"}, "kind": "ConfigMap", "metadata": map[string]interface{}{"name": "literal"}}
 		require.Nil(t, err, "Reading a valid k8s file err must be nil")
 		require.Equal(t, len(actual), 1, "1 Resource")
-		require.Equal(t, actual[0].GroupVersionKind.Kind, "ConfigMap")
+		require.Equal(t, "ConfigMap", actual[0].GroupVersionKind.Kind)
 		require.EqualValues(t, expected, actual[0].Object.Object, "confimap on disk different")
 	})
 	t.Run("Read 2 valid kubernetes resource", func(t *testing.T) {
 		filePath := filepath.Join(testdata, "tworesources.yaml")
-		_, actual, err := NewResourcesFromFile(filePath, "default", FakeSupportedResourcesGetter{Testing: t}, FakeK8sClients())
-		expected1 := map[string]interface{}{"apiVersion": "v1", "data": map[string]interface{}{"dueKey": "deuValue", "unaKey": "unValue"}, "kind": "ConfigMap", "metadata": map[string]interface{}{"name": "literal", "namespace": "default"}}
-		expected2 := map[string]interface{}{"apiVersion": "v1", "data": map[string]interface{}{"dueKey": "deuValue2", "unaKey": "unValue2"}, "kind": "ConfigMap", "metadata": map[string]interface{}{"name": "literal2", "namespace": "default"}}
+		_, actual, err := NewResourcesFromFile(filePath)
+		expected1 := map[string]interface{}{"apiVersion": "v1", "data": map[string]interface{}{"dueKey": "deuValue", "unaKey": "unValue"}, "kind": "ConfigMap", "metadata": map[string]interface{}{"name": "literal"}}
+		expected2 := map[string]interface{}{"apiVersion": "v1", "data": map[string]interface{}{"dueKey": "deuValue2", "unaKey": "unValue2"}, "kind": "ConfigMap", "metadata": map[string]interface{}{"name": "literal2"}}
 		require.Nil(t, err, "Reading two valid k8s file err must be nil")
 		require.Equal(t, len(actual), 2, "2 Resource")
 		require.Equal(t, actual[0].GroupVersionKind.Kind, "ConfigMap")
@@ -58,15 +58,15 @@ func TestNewResources(t *testing.T) {
 	})
 	t.Run("Read not standard resource", func(t *testing.T) {
 		filePath := filepath.Join(testdata, "non-standard-resource.yaml")
-		_, actual, err := NewResourcesFromFile(filePath, "default", FakeSupportedResourcesGetter{Testing: t}, FakeK8sClients())
-		expected := map[string]interface{}{"apiVersion": "traefik.containo.us/v1alpha1", "kind": "IngressRoute", "metadata": map[string]interface{}{"name": "ingressroute1", "namespace": "default"}, "spec": map[string]interface{}{"entryPoints": []interface{}{"websecure"}, "routes": []interface{}{}}}
+		_, actual, err := NewResourcesFromFile(filePath)
+		expected := map[string]interface{}{"apiVersion": "traefik.containo.us/v1alpha1", "kind": "IngressRoute", "metadata": map[string]interface{}{"name": "ingressroute1"}, "spec": map[string]interface{}{"entryPoints": []interface{}{"websecure"}, "routes": []interface{}{}}}
 		require.Nil(t, err, "Reading non standard k8s file err must be nil")
-		require.Equal(t, len(actual), 1, "1 Resource")
+		require.Equal(t, 1, len(actual), "1 Resource")
 		require.EqualValues(t, expected, actual[0].Object.Object, "even a crd is unstructurable")
 	})
 	t.Run("Read an invalid kubernetes resource", func(t *testing.T) {
 		filePath := filepath.Join(testdata, "invalidresource.yaml")
-		_, _, err := NewResourcesFromFile(filePath, "default", FakeSupportedResourcesGetter{Testing: t}, FakeK8sClients())
+		_, _, err := NewResourcesFromFile(filePath)
 		require.EqualError(t, err, "resource testdata/utils/invalidresource.yaml: error converting YAML to JSON: yaml: line 3: could not find expected ':'")
 	})
 }
@@ -99,7 +99,7 @@ func TestMakeResources(t *testing.T) {
 			for _, v := range tC.inputFiles {
 				filePath = append(filePath, filepath.Join(testdata, v))
 			}
-			crds, res, err := MakeResources(filePath, "default", FakeSupportedResourcesGetter{Testing: t}, FakeK8sClients())
+			crds, res, err := MakeResources(filePath, "default", FakeK8sClients())
 			require.Nil(t, err)
 			require.Equal(t, tC.expected, []int{len(crds), len(res)})
 		})
@@ -161,7 +161,7 @@ func TestIsNotUsingSemver(t *testing.T) {
 		}
 		for _, typ := range types {
 			t.Run(fmt.Sprintf("%s - %s", typ.typ, tt.description), func(t *testing.T) {
-				_, targetObject, err := NewResourcesFromFile(typ.path, "default", FakeSupportedResourcesGetter{Testing: t}, FakeK8sClients())
+				_, targetObject, err := NewResourcesFromFile(typ.path)
 				require.Nil(t, err)
 				err = unstructured.SetNestedField(targetObject[0].Object.Object, tt.input, typ.containersPath...)
 				require.Nil(t, err)

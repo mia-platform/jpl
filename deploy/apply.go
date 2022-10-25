@@ -116,10 +116,13 @@ func CreateResource(gvr schema.GroupVersionResource, clients *K8sClients, res Re
 	}
 
 	var resourceInterface dynamic.ResourceInterface
-	if res.Namespaced {
+	switch res.Namespaced {
+	case True:
 		resourceInterface = clients.dynamic.Resource(gvr).Namespace(res.Object.GetNamespace())
-	} else {
+	case False:
 		resourceInterface = clients.dynamic.Resource(gvr)
+	case None:
+		return fmt.Errorf("resource %s %s is unknown in cluster, can't apply it", res.Object.GetName(), gvr)
 	}
 
 	_, err := resourceInterface.Create(context.Background(), &res.Object, metav1.CreateOptions{})
@@ -136,10 +139,13 @@ func PatchResource(gvr schema.GroupVersionResource, clients *K8sClients, res Res
 	}
 
 	var resourceInterface dynamic.ResourceInterface
-	if res.Namespaced {
+	switch res.Namespaced {
+	case True:
 		resourceInterface = clients.dynamic.Resource(gvr).Namespace(res.Object.GetNamespace())
-	} else {
+	case False:
 		resourceInterface = clients.dynamic.Resource(gvr)
+	case None:
+		return fmt.Errorf("resource %s %s is unknown in cluster, can't patch it", res.Object.GetName(), gvr)
 	}
 
 	_, err = resourceInterface.Patch(context.Background(), res.Object.GetName(), patchType, patch, metav1.PatchOptions{})

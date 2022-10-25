@@ -65,11 +65,19 @@ var (
 	gvrJobs        = schema.GroupVersionResource{Group: batchv1.SchemeGroupVersion.Group, Version: batchv1.SchemeGroupVersion.Version, Resource: "jobs"}
 )
 
+type ResourceNamespace int8
+
+const (
+	None ResourceNamespace = iota
+	True
+	False
+)
+
 type Resource struct {
 	Filepath         string
 	GroupVersionKind *schema.GroupVersionKind
 	Object           unstructured.Unstructured
-	Namespaced       bool
+	Namespaced       ResourceNamespace
 }
 
 type ResourceList struct {
@@ -177,11 +185,11 @@ func IsNotUsingSemver(target *Resource) (bool, error) {
 
 // MakeResources takes a filepath/buffer. It returns two arrays of resources,
 // respectively for CRDs and other kinds, to allow the implementation of the 2-step apply.
-func MakeResources(filePaths []string, namespace string, supportedResourcesGetter SupportedResourcesGetter, clients *K8sClients) ([]Resource, []Resource, error) {
+func MakeResources(filePaths []string, namespace string, clients *K8sClients) ([]Resource, []Resource, error) {
 	crdList := []Resource{}
 	resources := []Resource{}
 	for _, path := range filePaths {
-		res, crds, err := NewResourcesFromFile(path, namespace, supportedResourcesGetter, clients)
+		res, crds, err := NewResourcesFromFile(path)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -197,7 +205,7 @@ func MakeResources(filePaths []string, namespace string, supportedResourcesGette
 // It returns two arrays of resources, respectively for CRDs and other kinds,
 // to allow the implementation of the 2-step apply.
 // Supports multiple documents inside a single file
-func NewResourcesFromFile(filepath, namespace string, supportedResourcesGetter SupportedResourcesGetter, clients *K8sClients) ([]Resource, []Resource, error) {
+func NewResourcesFromFile(filepath string) ([]Resource, []Resource, error) {
 	var stream []byte
 	var err error
 
@@ -210,27 +218,22 @@ func NewResourcesFromFile(filepath, namespace string, supportedResourcesGetter S
 		return nil, nil, err
 	}
 
-	return createResourcesFromBuffer(stream, namespace, filepath, supportedResourcesGetter, clients.discovery)
+	return createResourcesFromBuffer(stream, filepath)
 }
 
 // NewResourcesFromBuffer exposes the createResourcesFromBuffer function
 // setting the filepath to "buffer"
-func NewResourcesFromBuffer(stream []byte, namespace string, supportedResourcesGetter SupportedResourcesGetter, clients *K8sClients) ([]Resource, []Resource, error) {
-	return createResourcesFromBuffer(stream, namespace, "buffer", supportedResourcesGetter, clients.discovery)
+func NewResourcesFromBuffer(stream []byte) ([]Resource, []Resource, error) {
+	return createResourcesFromBuffer(stream, "buffer")
 }
 
 // createResourcesFromBuffer creates new Resources from a byte stream.
 // It returns two arrays of resources, respectively for CRDs and other kinds,
 // to allow the implementation of the 2-step apply.
 // Supports multiple resources divided by `---`
-func createResourcesFromBuffer(stream []byte, namespace string, filepath string, supportedResourcesGetter SupportedResourcesGetter, discovery discovery.DiscoveryInterface) ([]Resource, []Resource, error) {
+func createResourcesFromBuffer(stream []byte, filepath string) ([]Resource, []Resource, error) {
 	var crds []Resource
 	var resources []Resource
-
-	supportedResources, err := supportedResourcesGetter.GetSupportedResourcesDictionary(discovery)
-	if err != nil {
-		return nil, nil, fmt.Errorf("error initializing map of supported resources: %w", err)
-	}
 
 	re := regexp.MustCompile(`\n---\n`)
 	for _, resourceYAML := range re.Split(string(stream), -1) {
@@ -243,32 +246,56 @@ func createResourcesFromBuffer(stream []byte, namespace string, filepath string,
 			return nil, nil, fmt.Errorf("resource %s: %s", filepath, err)
 		}
 		gvk := u.GroupVersionKind()
-		isNamespaced := supportedResources[gvk].Namespaced
 
-		if namespace != "" && isNamespaced {
-			u.SetNamespace(namespace)
+		resource := Resource{
+			Filepath:         filepath,
+			GroupVersionKind: &gvk,
+			Object:           u,
+			Namespaced:       None,
 		}
-
 		if gvk.Kind == "CustomResourceDefinition" {
-			crds = append(crds,
-				Resource{
-					Filepath:         filepath,
-					GroupVersionKind: &gvk,
-					Object:           u,
-					Namespaced:       isNamespaced,
-				})
+			resource.Namespaced = True
+			crds = append(crds, resource)
 		} else {
-			resources = append(resources,
-				Resource{
-					Filepath:         filepath,
-					GroupVersionKind: &gvk,
-					Object:           u,
-					Namespaced:       isNamespaced,
-				})
+			resources = append(resources, resource)
 		}
 	}
+
 	resources = SortResourcesByKind(resources, nil)
 	return crds, resources, nil
+}
+
+func validateResourcesOnCluster(resources []Resource, namespace string, supportedResourcesGetter SupportedResourcesGetter, clients *K8sClients) ([]Resource, []Resource, error) {
+	supportedResources, err := supportedResourcesGetter.GetSupportedResourcesDictionary(clients.discovery)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error initializing map of supported resources: %w", err)
+	}
+
+	valid := []Resource{}
+	unknown := []Resource{}
+	for _, resource := range resources {
+		apiResource, found := supportedResources[*resource.GroupVersionKind]
+
+		if !found {
+			unknown = append(unknown, resource)
+			continue
+		}
+
+		switch apiResource.Namespaced {
+		case true:
+			resource.Namespaced = True
+			if namespace != "" {
+				resource.Object.SetNamespace(namespace)
+			}
+		case false:
+			resource.Namespaced = False
+			resource.Object.SetNamespace("")
+		}
+
+		valid = append(valid, resource)
+	}
+
+	return valid, unknown, nil
 }
 
 // SupportedResourcesGetter is a type for handling real and mock dictionaries of supported resources

@@ -36,35 +36,24 @@ type DeployConfig struct {
 }
 
 // Deploy ensures namespace existence and applies the resources to the cluster
-func Deploy(clients *K8sClients, namespace string, resources []Resource, deployConfig DeployConfig, apply ApplyFunction) error {
-	// for each resource ensure namespace if a namespace is not passed to the function ensure namespace in the resource, gives error
-	// on no namespace passed to the function and no namespace in yaml
-	// The namespace given to the function overrides yaml namespace
-	for _, res := range resources {
-		if res.Namespaced {
-			if namespace == "" {
-				resourceNamespace := res.Object.GetNamespace()
-				if resourceNamespace != "" && deployConfig.EnsureNamespace {
-					if err := ensureNamespaceExistence(clients, resourceNamespace); err != nil {
-						return fmt.Errorf("error ensuring namespace existence for namespace %s: %w", resourceNamespace, err)
-					}
-				} else if resourceNamespace == "" {
-					return fmt.Errorf("no namespace passed and no namespace in resource: %s %s", res.GroupVersionKind.Kind, res.Object.GetName())
-				}
-			} else {
-				res.Object.SetNamespace(namespace)
-			}
-		}
-	}
-
+func Deploy(clients *K8sClients, namespace string, resources []Resource, deployConfig DeployConfig, supportedResourcesGetter SupportedResourcesGetter, apply ApplyFunction) error {
 	if namespace != "" && deployConfig.EnsureNamespace {
 		if err := ensureNamespaceExistence(clients, namespace); err != nil {
 			return fmt.Errorf("error ensuring namespace existence for namespace %s: %w", namespace, err)
 		}
 	}
 
+	validResources, unknownResources, err := validateResourcesOnCluster(resources, namespace, supportedResourcesGetter, clients)
+	if err != nil {
+		return err
+	}
+
+	if len(unknownResources) > 0 {
+		return fmt.Errorf("trying to deploy unknown resources in the cluster")
+	}
+
 	// apply the resources
-	for _, res := range resources {
+	for _, res := range validResources {
 		err := apply(clients, res, deployConfig)
 		if err != nil {
 			return fmt.Errorf("error applying resource %+v: %w", res, err)

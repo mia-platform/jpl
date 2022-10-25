@@ -156,19 +156,19 @@ func execDeploy(clients *K8sClients, namespace string, inputPaths []string, depl
 	filePaths, err := ExtractYAMLFiles(inputPaths)
 	CheckError(err, "Error extracting yaml files")
 
-	crds, resources, err := MakeResources(filePaths, namespace, RealSupportedResourcesGetter{}, clients)
+	crds, resources, err := MakeResources(filePaths, namespace, clients)
 	if err != nil {
 		return fmt.Errorf("fails to make resources: %w", err)
 	}
 
 	// deploy CRDs first (simplified example of 2-step deployment w/o checks on CRDs' status)...
-	err = Deploy(clients, namespace, crds, deployConfig, defaultApplyResource)
+	err = Deploy(clients, namespace, crds, deployConfig, RealSupportedResourcesGetter{}, defaultApplyResource)
 	if err != nil {
 		return fmt.Errorf("fails to deploy crds: %w", err)
 	}
 
 	// ...and then all the remaining resources
-	err = Deploy(clients, namespace, resources, deployConfig, defaultApplyResource)
+	err = Deploy(clients, namespace, resources, deployConfig, RealSupportedResourcesGetter{}, defaultApplyResource)
 	if err != nil {
 		return fmt.Errorf("fails to deploy resources: %w", err)
 	}
