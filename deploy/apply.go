@@ -187,10 +187,15 @@ func createPatch(currentObj unstructured.Unstructured, target Resource) ([]byte,
 	}
 
 	// Get last applied config from annotation if exists
-	lastAppliedConfigJSON := ""
+	lastAppliedConfigAnnotation := ""
+	lastAppliedConfigAnnotationFound := false
 	var targetJSON []byte
-	if annotations := currentObj.GetAnnotations(); annotations != nil {
-		lastAppliedConfigJSON = annotations[corev1.LastAppliedConfigAnnotation]
+	annotations := currentObj.GetAnnotations()
+	if annotations != nil {
+		lastAppliedConfigAnnotation, lastAppliedConfigAnnotationFound = annotations[corev1.LastAppliedConfigAnnotation]
+	}
+
+	if lastAppliedConfigAnnotationFound {
 		annotatedTarget, err := annotateWithLastApplied(target)
 		if err != nil {
 			return nil, "", err
@@ -217,7 +222,7 @@ func createPatch(currentObj unstructured.Unstructured, target Resource) ([]byte,
 		patchType := types.MergePatchType
 		preconditions := []mergepatch.PreconditionFunc{mergepatch.RequireKeyUnchanged("apiVersion"),
 			mergepatch.RequireKeyUnchanged("kind"), mergepatch.RequireMetadataKeyUnchanged("name")}
-		patch, err := jsonmergepatch.CreateThreeWayJSONMergePatch([]byte(lastAppliedConfigJSON), targetJSON, currentJSON, preconditions...)
+		patch, err := jsonmergepatch.CreateThreeWayJSONMergePatch([]byte(lastAppliedConfigAnnotation), targetJSON, currentJSON, preconditions...)
 		return patch, patchType, err
 	}
 
@@ -226,7 +231,7 @@ func createPatch(currentObj unstructured.Unstructured, target Resource) ([]byte,
 		return nil, types.StrategicMergePatchType, errors.Wrap(err, "unable to create patch metadata from object")
 	}
 
-	patch, err := strategicpatch.CreateThreeWayMergePatch([]byte(lastAppliedConfigJSON), targetJSON, currentJSON, patchMeta, true)
+	patch, err := strategicpatch.CreateThreeWayMergePatch([]byte(lastAppliedConfigAnnotation), targetJSON, currentJSON, patchMeta, true)
 	return patch, types.StrategicMergePatchType, err
 }
 
