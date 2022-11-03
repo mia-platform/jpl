@@ -2,37 +2,37 @@ name: Build and Test
 on:
   push:
     branches:
-      - "main"
+    - "main"
   pull_request:
     branches:
-      - "main"
+    - "main"
 
 env:
-  GO_VERSION: 1.18.6
+  GO_VERSION: 1.18.8
   GO_CACHE: true
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: false
-      - name: Set golangci-lint cache key
-        id: create-sha
-        run: |
-          echo "GOLANGCILINT_SHA=$(make lintgo-dep --dry-run | sha256sum - | awk '{ print $1 }')" >> $GITHUB_ENV
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-            ./tools/bin
-          key: ${{ runner.os }}-go-${{ env.GOLANGCILINT_SHA }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-      - run: make lint MODE="github-actions"
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v3
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: false
+    - name: Set golangci-lint cache key
+      id: create-sha
+      run: |
+        echo "GOLANGCILINT_SHA=$(make lintgo-dep --dry-run | sha256sum - | awk '{ print $1 }')" >> $GITHUB_ENV
+    - uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+          ./tools/bin
+        key: ${{ runner.os }}-go-${{ env.GOLANGCILINT_SHA }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    - run: make lint MODE="github-actions"
 
   test:
     name: Test jpl with Kubernetes ${{ matrix.k8s_version }} on os ${{matrix.os}}
@@ -44,15 +44,9 @@ jobs:
       ENVTEST_K8S_VERSION: ${{matrix.k8s_version}}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        with:
-          path: ./tools/bin
-          key: ${{ runner.os }}-jpl-tools-${{ env.k8s_version }}
-          restore-keys: |
-            ${{ runner.os }}-jpl-tools-
-      - uses: actions/setup-go@v3
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: ${{ env.GO_CACHE }}
-      - run: make test-coverage
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v3
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: ${{ env.GO_CACHE }}
+    - run: make test-coverage
