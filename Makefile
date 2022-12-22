@@ -12,93 +12,95 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# General variables
-
-# Set Output Directory Path
-PROJECT_DIR := $(shell pwd -P)
-TOOLS_DIR := $(PROJECT_DIR)/tools
-TOOLS_BIN := $(TOOLS_DIR)/bin
-
-ENVTEST_K8S_VERSION?=1.24
-GOLANCI_LINT_VERSION=1.50.1
-ENVTEST_VERSION=latest
-
-##@ Test
-
-TEST_VERBOSE ?= "false"
-.PHONY: test
-test: envtest-dep envtest-assets
-ifneq ($(TEST_VERBOSE), "false")
-	@KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) go test -test.v ./...
+DEBUG_MAKEFILE ?=
+ifeq ($(DEBUG_MAKEFILE),1)
+    $(warning ***** executing goal(s) "$(MAKECMDGOALS)")
+    $(warning ***** $(shell date))
 else
-	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) go test ./...
+    # If we're not debugging the Makefile, always hide the commands inside the goals
+    MAKEFLAGS += -s
 endif
 
-.PHONY: test-coverage
-test-coverage: envtest-dep envtest-assets
-	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) go test ./... -race -coverprofile=coverage.xml -covermode=atomic
+# It's necessary to set this because some environments don't link sh -> bash.
+# Using env is more portable than setting the path directly
+SHELL := /usr/bin/env bash
 
-envtest-assets:
-	$(eval KUBEBUILDER_ASSETS := $(shell $(TOOLS_BIN)/setup-envtest use $(ENVTEST_K8S_VERSION) --bin-dir $(TOOLS_BIN) -p path))
+.EXPORT_ALL_VARIABLES:
 
-.PHONY: show-coverage
-show-coverage: test-coverage
-	go tool cover -func=coverage.xml
+.SUFFIXES:
 
-##@ Clean project
+## Set all variables
+ifeq ($(origin PROJECT_DIR),undefined)
+PROJECT_DIR := $(abspath $(shell  pwd -P))
+endif
 
-.PHONY: clean
-clean:
-	@echo "Clean all artifact files..."
-	@rm -fr coverage.xml
+ifeq ($(origin OUTPUT_DIR),undefined)
+OUTPUT_DIR := $(PROJECT_DIR)/bin
+endif
 
-.PHONY: clean-go
-clean-go:
-	@echo "Clean golang cache..."
-	@go clean -cache
+ifeq ($(origin TOOLS_DIR),undefined)
+TOOLS_DIR := $(PROJECT_DIR)/tools
+endif
 
-.PHONY: clean-tools
-clean-tools:
-	@echo "Clean tools folder..."
-	@[ -d tools/bin/k8s ] && chmod +w tools/bin/k8s/* || true
-	@rm -fr ./tools/bin
+ifeq ($(origin TOOLS_BIN),undefined)
+TOOLS_BIN := $(TOOLS_DIR)/bin
+endif
 
-.PHONY: clean-all
-clean-all: clean clean-go clean-tools
+# Set here the name of the package you want to build
+CMDNAME := jpl
 
-##@ Lint
+## Golang variables
+ifeq ($(origin GOBIN), undefined)
+	GOBIN := $(GOPATH)/bin
+endif
 
-MODE ?= "colored-line-number"
+# enable modules
+GO111MODULE=on
 
-.PHONY: lint
-lint: lint-mod lint-vet lint-ci
+GOOS := $(shell go env GOOS)
+GOARCH := $(shell go env GOARCH)
+GOPATH := $(shell go env GOPATH)
+GOARM := $(shell go env GOARM)
 
-lint-ci: lintgo-dep
-	@echo "Linting go files..."
-	$(TOOLS_BIN)/golangci-lint run --out-format=$(MODE) --config=$(TOOLS_DIR)/.golangci.yml
+## Build Variables
+GIT_REV := $(shell git rev-parse --short HEAD 2>/dev/null)
+VERSION := $(shell git describe --tags 2>/dev/null || (echo $(GIT_REV) | cut -c1-12))
+# insert here the go module where to add the version metadata
+VERSION_MODULE_NAME := github.com/mia-platform/jpl/pkg/version
 
-lint-fix: lintgo-dep
-	@echo "Run lint with fix flag..."
-	$(TOOLS_BIN)/golangci-lint run --config=$(TOOLS_DIR)/.golangci.yml --fix
+# supported platforms for container creation, these are a subset of the supported
+# platforms of the base image.
+# Or if you start from scratch the platforms you want to support in your image
+# This link contains the rules on how the strings must be formed https://github.com/containerd/containerd/blob/v1.4.3/platforms/platforms.go#L63
+SUPPORTED_PLATFORMS := linux/386 linux/amd64 linux/arm/v6 linux/arm/v7
+# Default platform for which building the docker image (darwin can run linux images for the same arch)
+# as SUPPORTED_PLATFORMS it highly depends on which platform are supported by the base image
+DEFAULT_DOCKER_PLATFORM := linux/$(GOARCH)/$(GOARM)
+# List of one or more container registries for tagging the resulting docker images
+CONTAINER_REGISTRIES := docker.io/miaplatform ghcr.io/mia-platform
+# The description used on the org.opencontainers.description label of the container
+DESCRIPTION := THE_PROJECT_DESCRIPTION
+# The vendor name used on the org.opencontainers.image.vendor label of the container
+VENDOR_NAME := Mia s.r.l.
+# The license used on the org.opencontainers.image.license label of the container
+LICENSE := Apache-2.0
+# The documentation url used on the org.opencontainers.image.documentation label of the container
+DOCUMENTATION_URL := https://docs.mia-platform.eu
+# The source url used on the org.opencontainers.image.source label of the container
+SOURCE_URL := https://github.com/mia-platform/jpl
 
-lint-mod:
-	@echo "Run go mod tidy"
-	@go mod tidy -compat=1.18
-## ensure all changes have been committed
-	git diff --exit-code -- go.mod
-	git diff --exit-code -- go.sum
+# Add additional targets that you want to run when calling make without arguments
+.PHONY: all
+all: lint test
 
-lint-vet:
-	@echo "Run go vet"
-	@go vet ./...
+## Includes
+include tools/make/clean.mk
+include tools/make/lint.mk
+include tools/make/test.mk
+# include tools/make/build.mk
+# include tools/make/container.mk
 
-##@ Dependencies
-
-.PHONY: install-dep
-install-dep: lintgo-dep envtest-dep
-
-lintgo-dep:
-	@GOBIN=$(TOOLS_BIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@v$(GOLANCI_LINT_VERSION)
-
-envtest-dep:
-	@GOBIN=$(TOOLS_BIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@$(ENVTEST_VERSION)
+# Uncomment the correct test suite to run during CI
+.PHONY: ci
+# ci: test-coverage
+ci: test-integration-coverage

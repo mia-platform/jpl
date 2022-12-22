@@ -1,52 +1,90 @@
-name: Build and Test
+name: Continuous Integration Pipeline
 on:
   push:
     branches:
-    - "main"
+    - main
   pull_request:
     branches:
-    - "main"
+    - main
+    paths-ignore:
+    - "**/*.md"
+    - docs/**
 
 env:
-  GO_VERSION: 1.18.8
+  GO_VERSION: 1.19.4
   GO_CACHE: true
 jobs:
   lint:
+    name: Lint Code
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-go@v3
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+    - name: Setup Golang
+      uses: actions/setup-go@v3
       with:
         go-version: ${{ env.GO_VERSION }}
         cache: false
-    - name: Set golangci-lint cache key
+    - name: Set golangci-lint Cache Key
       id: create-sha
       run: |
-        echo "GOLANGCILINT_SHA=$(make lintgo-dep --dry-run | sha256sum - | awk '{ print $1 }')" >> $GITHUB_ENV
-    - uses: actions/cache@v3
+        echo "GOLANGCILINT_SHA=$(cat ./tools/GOLANGCI_LINT_VERSION | sha256sum - | awk '{ print $1 }')" >> $GITHUB_ENV
+    - name: Setup golangci-lint Cache
+      uses: actions/cache@v3
       with:
         path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
           ./tools/bin
         key: ${{ runner.os }}-go-${{ env.GOLANGCILINT_SHA }}
         restore-keys: |
-          ${{ runner.os }}-go-
-    - run: make lint MODE="github-actions"
+          ${{ runner.os }}-go-${{ env.GOLANGCILINT_SHA }}
+    - name: Run Lint CI
+      run: make lint-ci GOLANGCI_LINT_MODE="github-actions"
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+    - name: Dependency Review
+      uses: actions/dependency-review-action@v3
 
   test:
-    name: Test jpl with Kubernetes ${{ matrix.k8s_version }} on os ${{matrix.os}}
+    name: Testing on ${{ matrix.os }}
     strategy:
       matrix:
-        k8s_version: ["1.24", "1.23", "1.22", "1.21"]
-        os: ["ubuntu-latest", "macos-latest"]
+        os:
+        - ubuntu-latest
+        - macos-latest
+        k8s_version:
+        - "1.22"
+        - "1.23"
+        - "1.24"
+    runs-on: ${{ matrix.os }}
     env:
       ENVTEST_K8S_VERSION: ${{matrix.k8s_version}}
-    runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-go@v3
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+    - name: Setup Golang
+      uses: actions/setup-go@v3
       with:
         go-version: ${{ env.GO_VERSION }}
-        cache: ${{ env.GO_CACHE }}
-    - run: make test-coverage
+        cache: true
+    - name: Run Test Coverage
+      run: make ci
+
+  # build:
+  #   name: Build for Supported Architectures
+  #   runs-on: ubuntu-latest
+  #   needs: [lint, test, dependency-review]
+  #   steps:
+  #   - name: Checkout Repository
+  #     uses: actions/checkout@v3
+  #   - name: Setup Golang
+  #     uses: actions/setup-go@v3
+  #     with:
+  #       go-version: ${{ env.GO_VERSION }}
+  #       cache: true
+  #   - name: Run Build Multiarchitecture
+  #     run: make build-multiarch
