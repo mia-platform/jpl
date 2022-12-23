@@ -48,6 +48,7 @@ endif
 
 # Set here the name of the package you want to build
 CMDNAME := jpl
+BUILD_PATH := $(PROJECT_DIR)/deploy
 
 ## Golang variables
 ifeq ($(origin GOBIN), undefined)
@@ -97,7 +98,7 @@ all: lint test
 include tools/make/clean.mk
 include tools/make/lint.mk
 include tools/make/test.mk
-# include tools/make/build.mk
+include tools/make/build.mk
 # include tools/make/container.mk
 
 # Uncomment the correct test suite to run during CI
