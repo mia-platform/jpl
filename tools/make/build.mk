@@ -31,7 +31,7 @@ build/%:
 	$(eval ARM := $(word 3,$(subst /, ,$*)))
 	echo "Building for ${OS} ${ARCH} ${ARM}"
 
-	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) GOARM=$(ARM) go build -ldflags "$(GO_LDFLAGS)" \
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) GOARM=$(ARM) go build -trimpath -ldflags "$(GO_LDFLAGS)" \
 		-o $(OUTPUT_DIR)/$*/$(CMDNAME) $(BUILD_PATH)
 
 # By default run the build for the host machine only
