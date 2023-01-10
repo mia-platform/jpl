@@ -9,6 +9,7 @@ on:
     paths-ignore:
     - "**/*.md"
     - docs/**
+    - examples/**
 
 env:
   GO_VERSION: 1.19.4
@@ -50,7 +51,7 @@ jobs:
       uses: actions/dependency-review-action@v3
 
   test:
-    name: Testing on ${{ matrix.os }}
+    name: Testing on ${{ matrix.os }} and kubernetes ${{ matrix.k8s_version}}
     strategy:
       matrix:
         os:

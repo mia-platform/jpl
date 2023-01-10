@@ -1,4 +1,5 @@
-# Copyright 2022 Mia srl
+# Copyright Mia srl
+# SPDX-License-Identifier: Apache-2.0
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +28,7 @@ lint: golangci-lint
 lint-deps: $(TOOLS_BIN)/golangci-lint
 golangci-lint: $(TOOLS_BIN)/golangci-lint
 	echo "Running golangci-lint with .golangci.yaml config file..."
-	$(TOOLS_BIN)/golangci-lint run --out-format=$(GOLANGCI_LINT_MODE) --config=.golangci.yaml
+	$(TOOLS_BIN)/golangci-lint run --out-format=$(GOLANGCI_LINT_MODE) --config=.golangci.yaml --build-tags=conformance,integration
 
 $(TOOLS_BIN)/golangci-lint: $(TOOLS_DIR)/GOLANGCI_LINT_VERSION
 	$(eval GOLANGCI_LINT_VERSION := $(shell cat $<))

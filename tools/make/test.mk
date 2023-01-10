@@ -1,4 +1,5 @@
-# Copyright 2022 Mia srl
+# Copyright Mia srl
+# SPDX-License-Identifier: Apache-2.0
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,6 +44,13 @@ test/integration-coverage: $(TOOLS_BIN)/setup-envtest envtest-assets
 	echo "Running ci tests with coverage on..."
 	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) go test --tags=integration -race -coverprofile=coverage.txt -covermode=atomic ./...
 
+.PHONY: test/conformance test/conformance/setup test/conformance/teardown
+test/conformance/setup:
+test/conformance:
+	echo "Running conformance tests..."
+	go test --tags=conformance -race $(GO_TEST_DEBUG_FLAG) $(CONFORMANCE_TEST_PATH)
+test/conformance/teardown:
+
 .PHONY: test
 test: test/unit
 
@@ -55,8 +63,15 @@ test-coverage: test/coverage
 .PHONY: test-integration-coverage
 test-integration-coverage: test/integration-coverage
 
+.PHONY: conformance-test
+conformance-test: test/conformance/setup test/conformance test/conformance/teardown
+
 .PHONY: show-coverage
 show-coverage: test-coverage
+	go tool cover -func=coverage.txt
+
+.PHONY: show-integration-coverage
+show-integration-coverage: test-integration-coverage
 	go tool cover -func=coverage.txt
 
 $(TOOLS_BIN)/setup-envtest: $(TOOLS_DIR)/ENVTEST_VERSION
