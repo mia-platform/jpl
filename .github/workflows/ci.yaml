@@ -39,7 +39,7 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-${{ env.GOLANGCILINT_SHA }}
     - name: Run Lint CI
-      run: make lint-ci GOLANGCI_LINT_MODE="github-actions"
+      run: make ci-lint GOLANGCI_LINT_MODE="github-actions"
 
   dependency-review:
     name: Dependency Review
@@ -75,17 +75,50 @@ jobs:
     - name: Run Test Coverage
       run: make ci
 
-  # build:
-  #   name: Build for Supported Architectures
-  #   runs-on: ubuntu-latest
-  #   needs: [lint, test, dependency-review]
-  #   steps:
-  #   - name: Checkout Repository
-  #     uses: actions/checkout@v3
-  #   - name: Setup Golang
-  #     uses: actions/setup-go@v3
-  #     with:
-  #       go-version: ${{ env.GO_VERSION }}
-  #       cache: true
-  #   - name: Run Build Multiarchitecture
-  #     run: make build-multiarch
+  build:
+    name: Build for Supported Architectures
+    runs-on: ubuntu-latest
+    needs: [lint, test, dependency-review]
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+    - name: Setup Golang
+      uses: actions/setup-go@v3
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+    - name: Run Build Multiarchitecture
+      run: make build-multiarch
+    - name: Upload Binaries Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: artifacts
+        path: bin/
+
+  publish-docker:
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+    - name: Download Binaries
+      uses: actions/download-artifact@v3
+      with:
+        name: artifacts
+        path: bin/
+    - name: Docker Login to GitHub Repository
+      uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Docker Login to DockerHub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.BOT_DOCKER_USERNAME }}
+        password: ${{ secrets.BOT_DOCKER_TOKEN }}
+    - name: Setup QEMU
+      run: make docker-setup-multiarch
+    - name: Build Latest Image
+      run: make ci-docker

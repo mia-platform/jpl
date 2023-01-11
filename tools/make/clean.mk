@@ -21,24 +21,24 @@ clean:
 .PHONY: clean/coverage
 clean: clean/coverage
 clean/coverage:
-	echo "Clean coverage file..."
+	$(info Clean coverage file...)
 	rm -fr coverage.txt
 
 .PHONY: clean/bin
 clean: clean/bin
 clean/bin:
-	echo "Clean artifacts files..."
+	$(info Clean artifacts files...)
 	rm -fr $(OUTPUT_DIR)
 
 .PHONY: clean/tools
 clean/tools:
-	echo "Clean tools folder..."
+	$(info Clean tools folder...)
 	[ -d $(TOOLS_BIN)/k8s ] && chmod +w $(TOOLS_BIN)/k8s/* || true
 	rm -fr $(TOOLS_BIN)
 
 .PHONY: clean/go
 clean/go:
-	echo "Clean golang cache..."
+	$(info Clean golang cache...)
 	go clean -cache
 
 .PHONY: clean-all

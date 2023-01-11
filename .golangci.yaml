@@ -61,3 +61,8 @@ issues:
   - path: zz_generated
     linters:
     - goimports
+  - path: _test\.go
+    linters:
+    - errcheck
+    - gosec
+    - tagliatelle

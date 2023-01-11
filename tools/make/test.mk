@@ -17,70 +17,71 @@
 
 DEBUG_TEST ?=
 ifeq ($(DEBUG_TEST),1)
-GO_TEST_DEBUG_FLAG := -v
+GO_TEST_DEBUG_FLAG:= -v
 else
 GO_TEST_DEBUG_FLAG :=
 endif
 
-ENVTEST_K8S_VERSION ?= $(shell cat $(TOOLS_DIR)/ENVTEST_K8S_VERSION)
+ENVTEST_K8S_VERSION?= $(shell cat $(TOOLS_DIR)/ENVTEST_K8S_VERSION)
 
 .PHONY: test/unit
 test/unit:
-	echo "Running tests..."
+	$(info Running tests...)
 	go test $(GO_TEST_DEBUG_FLAG) -race ./...
 
 .PHONY: test/integration
-test/integration: $(TOOLS_BIN)/setup-envtest envtest-assets
-	echo "Running integration tests..."
-	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) go test $(GO_TEST_DEBUG_FLAG) --tags=integration -race ./...
+test/integration:
+	$(info Running integration tests...)
+	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) go test $(GO_TEST_DEBUG_FLAG) -tags=integration -race ./...
 
 .PHONY: test/coverage
 test/coverage:
-	echo "Running tests with coverage on..."
+	$(info Running tests with coverage on...)
 	go test $(GO_TEST_DEBUG_FLAG) -race -coverprofile=coverage.txt -covermode=atomic ./...
 
-.PHONY: test/integration-coverage
-test/integration-coverage: $(TOOLS_BIN)/setup-envtest envtest-assets
-	echo "Running ci tests with coverage on..."
-	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) go test --tags=integration -race -coverprofile=coverage.txt -covermode=atomic ./...
+.PHONY: test/integration/coverage
+test/integration/coverage:
+	$(info Running ci tests with coverage on...)
+	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) go test -tags=integration -race -coverprofile=coverage.txt -covermode=atomic ./...
 
 .PHONY: test/conformance test/conformance/setup test/conformance/teardown
 test/conformance/setup:
 test/conformance:
-	echo "Running conformance tests..."
-	go test --tags=conformance -race $(GO_TEST_DEBUG_FLAG) $(CONFORMANCE_TEST_PATH)
+	$(info Running conformance tests...)
+	go test -tags=conformance -race $(GO_TEST_DEBUG_FLAG) $(CONFORMANCE_TEST_PATH)
 test/conformance/teardown:
+
+test/show/coverage:
+	go tool cover -func=coverage.txt
 
 .PHONY: test
 test: test/unit
 
-.PHONY: integration-test
-integration-test: test/integration
-
 .PHONY: test-coverage
 test-coverage: test/coverage
 
-.PHONY: test-integration-coverage
-test-integration-coverage: test/integration-coverage
+.PHONY: test-integration
+test-integration: $(TOOLS_BIN)/setup-envtest envtest-assets test/integration
 
-.PHONY: conformance-test
-conformance-test: test/conformance/setup test/conformance test/conformance/teardown
+.PHONY: test-integration-coverage
+test-integration-coverage: $(TOOLS_BIN)/setup-envtest envtest-assets test/integration/coverage
+
+.PHONY: test-conformance
+test-conformance: test/conformance/setup test/conformance test/conformance/teardown
 
 .PHONY: show-coverage
-show-coverage: test-coverage
-	go tool cover -func=coverage.txt
+show-coverage: test-coverage test/show/coverage
 
 .PHONY: show-integration-coverage
-show-integration-coverage: test-integration-coverage
-	go tool cover -func=coverage.txt
+show-integration-coverage: test-integration-coverage test/show/coverage
 
 $(TOOLS_BIN)/setup-envtest: $(TOOLS_DIR)/ENVTEST_VERSION
-	$(eval ENVTEST_VERSION := $(shell cat $<))
+	$(eval ENVTEST_VERSION:= $(shell cat $<))
 	mkdir -p $(TOOLS_BIN)
-	echo "Installing testenv $(ENVTEST_VERSION) bin in $(TOOLS_BIN)..."
+	$(info Installing testenv $(ENVTEST_VERSION) bin in $(TOOLS_BIN)...)
 	GOBIN=$(TOOLS_BIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@$(ENVTEST_VERSION)
 
 .PHONY: envtest-assets
 envtest-assets:
-	echo "Setup testenv with k8s $(ENVTEST_K8S_VERSION) version..."
-	$(eval KUBEBUILDER_ASSETS := $(shell $(TOOLS_BIN)/setup-envtest use $(ENVTEST_K8S_VERSION) --bin-dir $(TOOLS_BIN) -p path))
+	$(info Setup testenv with k8s $(ENVTEST_K8S_VERSION) version...)
+	$(eval KUBEBUILDER_ASSETS:= $(shell $(TOOLS_BIN)/setup-envtest use $(ENVTEST_K8S_VERSION) --bin-dir $(TOOLS_BIN) -p path))

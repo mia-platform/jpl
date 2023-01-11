@@ -27,24 +27,24 @@ lint-deps:
 lint: golangci-lint
 lint-deps: $(TOOLS_BIN)/golangci-lint
 golangci-lint: $(TOOLS_BIN)/golangci-lint
-	echo "Running golangci-lint with .golangci.yaml config file..."
+	$(info Running golangci-lint with .golangci.yaml config file...)
 	$(TOOLS_BIN)/golangci-lint run --out-format=$(GOLANGCI_LINT_MODE) --config=.golangci.yaml --build-tags=conformance,integration
 
 $(TOOLS_BIN)/golangci-lint: $(TOOLS_DIR)/GOLANGCI_LINT_VERSION
-	$(eval GOLANGCI_LINT_VERSION := $(shell cat $<))
+	$(eval GOLANGCI_LINT_VERSION:= $(shell cat $<))
 	mkdir -p $(TOOLS_BIN)
-	echo "Installing golangci-lint $(GOLANGCI_LINT_VERSION) bin in $(TOOLS_BIN)"
+	$(info Installing golangci-lint $(GOLANGCI_LINT_VERSION) bin in $(TOOLS_BIN))
 	GOBIN=$(TOOLS_BIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 .PHONY: gomod-lint
 lint: gomod-lint
 gomod-lint:
-	echo "Runining go mod tidy"
+	$(info Runining go mod tidy)
 # Always keep this version to latest -1 version of Go
 	go mod tidy -compat=1.18
 
-.PHONY: lint-ci
-lint-ci: lint
+.PHONY: ci-lint
+ci-lint: lint
 # Block the lint during ci if the go.mod and go.sum will be changed by go mod tidy
 	git diff --exit-code go.mod;
 	git diff --exit-code go.sum;
