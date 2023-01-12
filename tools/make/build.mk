@@ -22,9 +22,6 @@ GO_LDFLAGS += -X $(VERSION_MODULE_NAME).Version=$(VERSION)
 GO_LDFLAGS += -X $(VERSION_MODULE_NAME).BuildDate=$(BUILD_DATE)
 endif
 
-# one day I will find a nicer way to handle the arm versions but this is not the day...
-NORMALIZED_SUPPORTED_PLATFORMS:= $(subst v6,6,$(subst v7,7,$(SUPPORTED_PLATFORMS)))
-
 .PHONY: go/build/%
 go/build/%:
 	$(eval OS:= $(word 1,$(subst /, ,$*)))
@@ -32,7 +29,7 @@ go/build/%:
 	$(eval ARM:= $(word 3,$(subst /, ,$*)))
 	$(info Building for $(OS) $(ARCH) $(ARM))
 
-	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) GOARM=$(ARM) go build -trimpath -ldflags "$(GO_LDFLAGS)" \
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) GOARM=$(subst v,,$(ARM)) go build -trimpath -ldflags "$(GO_LDFLAGS)" \
 		-o $(OUTPUT_DIR)/$*/$(CMDNAME) $(BUILD_PATH)
 
 # By default run the build for the host machine only
@@ -40,4 +37,4 @@ go/build/%:
 build: go/build/$(GOOS)/$(GOARCH)/$(GOARM)
 
 .PHONY: build-multiarch
-build-multiarch: $(foreach PLATFORM,$(NORMALIZED_SUPPORTED_PLATFORMS),$(addprefix build/, $(PLATFORM)))
+build-multiarch: $(foreach PLATFORM,$(SUPPORTED_PLATFORMS),$(addprefix go/build/, $(PLATFORM)))

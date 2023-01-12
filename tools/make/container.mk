@@ -37,6 +37,18 @@ DOCKER_LABELS += --label "org.opencontainers.image.licenses=$(LICENSE)"
 DOCKER_LABELS += --label "org.opencontainers.image.documentation=$(DOCUMENTATION_URL)"
 DOCKER_LABELS += --label "org.opencontainers.image.vendor=$(VENDOR_NAME)"
 
+.PHONY: docker/%/multiarch
+docker/%/multiarch:
+	$(eval ACTION:= $(word 1,$(subst ., , $*)))
+	$(eval IS_PUSH:= $(filter push,$(ACTION)))
+	$(eval ADDITIONAL_PARAMETER:= $(if $(IS_PUSH), --push))
+	$(info Building image for following platforms: $(SUPPORTED_PLATFORMS))
+	$(DOCKER_CMD) buildx build --platform "$(DOCKER_SUPPORTED_PLATFORMS)" \
+		--build-arg CMD_NAME=$(CMDNAME) \
+		$(IMAGE_TAGS) \
+		$(DOCKER_LABELS) \
+		--file ./Dockerfile $(OUTPUT_DIR) $(ADDITIONAL_PARAMETER)
+
 .PHONY: docker/build/%
 docker/build/%:
 	$(eval OS:= $(word 1,$(subst ., ,$*)))
@@ -62,20 +74,8 @@ docker/buildx/setup:
 docker/buildx/teardown:
 	docker buildx rm $(BUILDX_CONTEXT)
 
-.PHONY: docker/%/multiarch
-docker/%/multiarch:
-	$(eval ACTION:= $(word 1,$(subst ., , $*)))
-	$(eval IS_PUSH:= $(filter push,$(ACTION)))
-	$(eval ADDITIONAL_PARAMETER:= $(if $(IS_PUSH), --push))
-	$(info Building image for following platforms: $(SUPPORTED_PLATFORMS))
-	$(DOCKER_CMD) buildx build --platform "$(DOCKER_SUPPORTED_PLATFORMS)" \
-		--build-arg CMD_NAME=$(CMDNAME) \
-		$(IMAGE_TAGS) \
-		$(DOCKER_LABELS) \
-		--file ./Dockerfile $(OUTPUT_DIR) $(ADDITIONAL_PARAMETER)
-
 .PHONY: docker-build
-docker-build: docker/build/$(DEFAULT_DOCKER_PLATFORM)
+docker-build: go/build/$(DEFAULT_DOCKER_PLATFORM) docker/build/$(DEFAULT_DOCKER_PLATFORM)
 
 .PHONY: docker-setup-multiarch
 docker-setup-multiarch: docker/setup/multiarch

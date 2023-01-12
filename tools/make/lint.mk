@@ -25,11 +25,11 @@ lint-deps:
 
 .PHONY: golangci-lint
 lint: golangci-lint
-lint-deps: $(TOOLS_BIN)/golangci-lint
 golangci-lint: $(TOOLS_BIN)/golangci-lint
 	$(info Running golangci-lint with .golangci.yaml config file...)
 	$(TOOLS_BIN)/golangci-lint run --out-format=$(GOLANGCI_LINT_MODE) --config=.golangci.yaml --build-tags=conformance,integration
 
+lint-deps: $(TOOLS_BIN)/golangci-lint
 $(TOOLS_BIN)/golangci-lint: $(TOOLS_DIR)/GOLANGCI_LINT_VERSION
 	$(eval GOLANGCI_LINT_VERSION:= $(shell cat $<))
 	mkdir -p $(TOOLS_BIN)

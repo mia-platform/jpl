@@ -61,10 +61,10 @@ test: test/unit
 test-coverage: test/coverage
 
 .PHONY: test-integration
-test-integration: $(TOOLS_BIN)/setup-envtest envtest-assets test/integration
+test-integration: $(TOOLS_BIN)/setup-envtest envtest/assets test/integration
 
 .PHONY: test-integration-coverage
-test-integration-coverage: $(TOOLS_BIN)/setup-envtest envtest-assets test/integration/coverage
+test-integration-coverage: $(TOOLS_BIN)/setup-envtest envtest/assets test/integration/coverage
 
 .PHONY: test-conformance
 test-conformance: test/conformance/setup test/conformance test/conformance/teardown
@@ -81,7 +81,7 @@ $(TOOLS_BIN)/setup-envtest: $(TOOLS_DIR)/ENVTEST_VERSION
 	$(info Installing testenv $(ENVTEST_VERSION) bin in $(TOOLS_BIN)...)
 	GOBIN=$(TOOLS_BIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@$(ENVTEST_VERSION)
 
-.PHONY: envtest-assets
-envtest-assets:
+.PHONY: envtest/assets
+envtest/assets:
 	$(info Setup testenv with k8s $(ENVTEST_K8S_VERSION) version...)
 	$(eval KUBEBUILDER_ASSETS:= $(shell $(TOOLS_BIN)/setup-envtest use $(ENVTEST_K8S_VERSION) --bin-dir $(TOOLS_BIN) -p path))
