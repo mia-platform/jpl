@@ -68,7 +68,7 @@ docker/setup/multiarch:
 
 .PHONY: docker/buildx/setup docker/buildx/teardown
 docker/buildx/setup:
-	docker buildx rm $(BUILDX_CONTEXT) || :
+	docker buildx rm $(BUILDX_CONTEXT) 2>/dev/null || :
 	docker buildx create --use --name $(BUILDX_CONTEXT) --platform "$(DOCKER_SUPPORTED_PLATFORMS)"
 
 docker/buildx/teardown:
@@ -84,4 +84,4 @@ docker-setup-multiarch: docker/setup/multiarch
 docker-build-multiarch: build-multiarch docker/buildx/setup docker/build/multiarch docker/buildx/teardown
 
 .PHONY: ci-docker
-ci-docker: docker/buildx/setup docker/push/multiarch docker/buildx/teardown
+ci-docker: docker/push/multiarch

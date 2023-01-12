@@ -120,5 +120,8 @@ jobs:
   #       password: ${{ secrets.BOT_DOCKER_TOKEN }}
   #   - name: Setup QEMU
   #     run: make docker-setup-multiarch
+  #   - name: Setup Buildx Context
+  #     id: buildx
+  #     uses: docker/setup-buildx-action@v2
   #   - name: Build Latest Image
-  #     run: make ci-docker
+  #     run: make ci-docker BUILDX_CONTEXT=${{ steps.buildx.outputs.name }}
