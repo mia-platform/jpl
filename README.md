@@ -24,8 +24,13 @@ Once you have all the correct dependencies installed and the code pulled you can
 make test
 ```
 
-The tests will run against envtest using [setup-envtest] with a default Kubernetes version that can be
-changed using the variable `ENVTEST_K8S_VERSION` before launching `make test`
+Other than unit tests we also have integrations tests that  will run against envtest using [setup-envtest]
+with a default Kubernetes version that can be changed using the variable `ENVTEST_K8S_VERSION`
+with the `make test-integration` command:
+
+```bash
+make test-integration ENVTEST_K8S_VERSION=1.24
+```
 
 We provide a devcontainer configuration that will setup the correct dependencies and predownload the tools used
 for linting. Also if you use VSCode it will setup three extensions that we recommend.
@@ -38,10 +43,7 @@ For linting your files make provide the following command:
 make lint
 ```
 
-This command will run `go vet` and `go mod tidy` for cleaning up the `go.mod` and `go.sum` files and stop if it senses
-that the files are changed and where not already commited or added to the git staging area, this check is done forcing
-the user to not forgetting this steps and for breaking the ci/cd on GitHub if those files are not
-in the correct shape.  
+This command will run `go mod tidy` for cleaning up the `go.mod` and `go.sum` files.  
 Additionally the command will download and use the [`golangci-lint`][golangci-lint] cli for running various linters
 on the code, the configuration used can be seen [here](/tools/.golangci.yml).
 
