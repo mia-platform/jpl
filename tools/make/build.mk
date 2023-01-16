@@ -15,26 +15,50 @@
 
 ##@ Go Builds Goals
 
+ifeq ($(IS_LIBRARY), 1)
+
 BUILD_DATE:= $(shell date -u "+%Y-%m-%d")
+GO_LDFLAGS += -s -w
 
 ifdef VERSION_MODULE_NAME
 GO_LDFLAGS += -X $(VERSION_MODULE_NAME).Version=$(VERSION)
 GO_LDFLAGS += -X $(VERSION_MODULE_NAME).BuildDate=$(BUILD_DATE)
 endif
 
-.PHONY: go/build/%
-go/build/%:
-	$(eval OS:= $(word 1,$(subst /, ,$*)))
-	$(eval ARCH:= $(word 2,$(subst /, ,$*)))
-	$(eval ARM:= $(word 3,$(subst /, ,$*)))
-	$(info Building for $(OS) $(ARCH) $(ARM))
-
-	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) GOARM=$(subst v,,$(ARM)) go build -trimpath -ldflags "$(GO_LDFLAGS)" \
-		-o $(OUTPUT_DIR)/$*/$(CMDNAME) $(BUILD_PATH)
+.PHONY: go/build
+go/build:
+	CGO_ENABLED=0 go build -trimpath -ldflags "$(GO_LDFLAGS)"  $(BUILD_PATH)
 
 # By default run the build for the host machine only
 .PHONY: build
-build: go/build/$(GOOS)/$(GOARCH)/$(GOARM)
+build: go/build
+
+else
+
+.PHONY: go/build
+go/build:
+	$(TOOLS_BIN)/goreleaser build --single-target --snapshot --rm-dist
+
+.PHONY: go/build/multiarch
+go/build/multiarch:
+	$(TOOLS_BIN)/goreleaser build --snapshot --rm-dist
+
+.PHONY: build-deps
+build-deps:
+
+$(TOOLS_BIN)/goreleaser: $(TOOLS_DIR)/GORELEASER_VERSION
+	$(eval GORELEASER_VERSION:= $(shell cat $<))
+	mkdir -p $(TOOLS_BIN)
+	$(info Installing goreleaser $(GORELEASER_VERSION) bin in $(TOOLS_BIN))
+	GOBIN=$(TOOLS_BIN) go install github.com/goreleaser/goreleaser@$(GORELEASER_VERSION)
+
+build-deps: $(TOOLS_BIN)/goreleaser
+
+# By default run the build for the host machine only
+.PHONY: build
+build: $(TOOLS_BIN)/goreleaser go/build
 
 .PHONY: build-multiarch
-build-multiarch: $(foreach PLATFORM,$(SUPPORTED_PLATFORMS),$(addprefix go/build/, $(PLATFORM)))
+build-multiarch: $(TOOLS_BIN)/goreleaser go/build/multiarch
+
+endif

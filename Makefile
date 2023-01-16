@@ -51,19 +51,10 @@ endif
 CMDNAME:= jpl
 BUILD_PATH:= $(PROJECT_DIR)/deploy
 CONFORMANCE_TEST_PATH:= $(PROJECT_DIR)/internal/e2e
-
-## Golang variables
-ifeq ($(origin GOBIN), undefined)
-	GOBIN:= $(GOPATH)/bin
-endif
+IS_LIBRARY:= 1
 
 # enable modules
 GO111MODULE=on
-
-GOOS:= $(shell go env GOOS)
-GOARCH:= $(shell go env GOARCH)
-GOPATH:= $(shell go env GOPATH)
-GOARM:= $(shell go env GOARM)
 
 ## Build Variables
 GIT_REV:= $(shell git rev-parse --short HEAD 2>/dev/null)
@@ -104,9 +95,10 @@ all: lint test
 include tools/make/clean.mk
 include tools/make/lint.mk
 include tools/make/test.mk
-# include tools/make/generate.mk
+# include tools/make/generate.mk
 include tools/make/build.mk
 # include tools/make/container.mk
+# include tools/make/release.mk
 
 # Uncomment the correct test suite to run during CI
 .PHONY: ci
