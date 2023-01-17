@@ -1,7 +1,7 @@
 # Custom gitignore rules
+
 bin/
-coverage.xml
-config.yaml
+coverage.txt
 
 # End of Custom gitignore rules
 
@@ -30,10 +30,6 @@ config.yaml
 
 # Go workspace file
 go.work
-
-### Go Patch ###
-/vendor/
-/Godeps/
 
 ### Linux ###
 *~
@@ -101,12 +97,6 @@ Temporary Items
 # Ignore all local history of files
 .history
 .ionide
-
-# Support for Project snippet scope
-.vscode/*.code-snippets
-
-# Ignore code-workspaces
-*.code-workspace
 
 ### Windows ###
 # Windows thumbnail cache files
