@@ -15,33 +15,44 @@
 
 ##@ Go Builds Goals
 
+.PHONY: build
+build:
+
 ifeq ($(IS_LIBRARY), 1)
 
 BUILD_DATE:= $(shell date -u "+%Y-%m-%d")
-GO_LDFLAGS += -s -w
+GO_LDFLAGS+= -s -w
 
 ifdef VERSION_MODULE_NAME
-GO_LDFLAGS += -X $(VERSION_MODULE_NAME).Version=$(VERSION)
-GO_LDFLAGS += -X $(VERSION_MODULE_NAME).BuildDate=$(BUILD_DATE)
+GO_LDFLAGS+= -X $(VERSION_MODULE_NAME).Version=$(VERSION)
+GO_LDFLAGS+= -X $(VERSION_MODULE_NAME).BuildDate=$(BUILD_DATE)
 endif
 
-.PHONY: go/build
-go/build:
-	CGO_ENABLED=0 go build -trimpath -ldflags "$(GO_LDFLAGS)"  $(BUILD_PATH)
+.PHONY: go/build/%
+go/build/%:
+	$(eval OS:= $(word 1,$(subst /, ,$*)))
+	$(eval ARCH:= $(word 2,$(subst /, ,$*)))
+	$(eval ARM:= $(word 3,$(subst /, ,$*)))
+	$(info Building image for $(OS) $(ARCH) $(ARM))
 
-# By default run the build for the host machine only
-.PHONY: build
-build: go/build
+	GOOS=$(OS) GOARCH=$(ARCH) GOARM=$(ARM) CGO_ENABLED=0 go build -trimpath \
+		-ldflags "$(GO_LDFLAGS)" $(BUILD_PATH)
 
 else
 
-.PHONY: go/build
-go/build:
-	$(TOOLS_BIN)/goreleaser build --single-target --snapshot --rm-dist
+.PHONY: go/build/%
+go/build/%:
+	$(eval OS:= $(word 1,$(subst /, ,$*)))
+	$(eval ARCH:= $(word 2,$(subst /, ,$*)))
+	$(eval ARM:= $(word 3,$(subst /, ,$*)))
+	$(info Building image for $(OS) $(ARCH) $(ARM))
+
+	GOOS=$(OS) GOARCH=$(ARCH) GOARM=$(ARM) $(TOOLS_BIN)/goreleaser build \
+		--single-target --snapshot --rm-dist --config=.goreleaser.yaml
 
 .PHONY: go/build/multiarch
 go/build/multiarch:
-	$(TOOLS_BIN)/goreleaser build --snapshot --rm-dist
+	$(TOOLS_BIN)/goreleaser build --snapshot --rm-dist --config=.goreleaser.yaml
 
 .PHONY: build-deps
 build-deps:
@@ -54,11 +65,12 @@ $(TOOLS_BIN)/goreleaser: $(TOOLS_DIR)/GORELEASER_VERSION
 
 build-deps: $(TOOLS_BIN)/goreleaser
 
-# By default run the build for the host machine only
-.PHONY: build
-build: $(TOOLS_BIN)/goreleaser go/build
+build: $(TOOLS_BIN)/goreleaser
 
 .PHONY: build-multiarch
 build-multiarch: $(TOOLS_BIN)/goreleaser go/build/multiarch
 
 endif
+
+.PHONY: build
+build: go/build/$(GOOS)/$(GOARCH)/$(GOARM)

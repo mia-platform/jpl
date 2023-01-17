@@ -24,10 +24,10 @@ endif
 
 .PHONY: goreleaser/release
 goreleaser/release:
-	$(TOOLS_BIN)/goreleaser release $(GORELEASER_SNAPSHOT) --rm-dist --config .goreleaser.yaml
+	$(TOOLS_BIN)/goreleaser release $(GORELEASER_SNAPSHOT) --rm-dist --config=.goreleaser.yaml
 
 goreleaser/check:
-	$(TOOLS_BIN)/goreleaser check --config .goreleaser.yaml
+	$(TOOLS_BIN)/goreleaser check --config=.goreleaser.yaml
 
 .PHONY: release-deps
 release-deps: $(TOOLS_BIN)/goreleaser

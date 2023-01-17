@@ -15,7 +15,7 @@
 
 ##@ Lint Goals
 
-GOLANGCI_LINT_MODE ?=colored-line-number
+GOLANGCI_LINT_MODE?= colored-line-number
 
 .PHONY: lint
 lint:

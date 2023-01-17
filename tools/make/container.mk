@@ -20,27 +20,27 @@ DOCKER_CMD:= DOCKER_BUILDKIT=1 docker
 REPO_TAG:= $(shell git describe --tags --exact-match 2>/dev/null || echo latest)
 # Making the subst function works with spaces and comas required this hack
 COMMA:= ,
-EMPTY :=
+EMPTY:=
 SPACE:= $(EMPTY) $(EMPTY)
 DOCKER_SUPPORTED_PLATFORMS:= $(subst $(SPACE),$(COMMA),$(SUPPORTED_PLATFORMS))
 PARSED_TAGS:= $(shell $(TOOLS_DIR)/parse-tags.sh $(REPO_TAG))
-IMAGE_TAGS:= $(foreach REGISTRY,$(CONTAINER_REGISTRIES), $(foreach TAG,$(PARSED_TAGS), $(addprefix --tag , $(REGISTRY)/$(CMDNAME):$(TAG))))
+IMAGE_TAGS:= $(addprefix --tag , $(foreach REGISTRY, $(CONTAINER_REGISTRIES), $(foreach TAG, $(PARSED_TAGS), $(REGISTRY)/$(CMDNAME):$(TAG))))
 CONTAINER_BUILD_DATE:= $(shell date -u "+%Y-%m-%dT%H:%M:%SZ")
 
 DOCKER_LABELS:= --label "org.opencontainers.image.title=$(CMDNAME)"
-DOCKER_LABELS += --label "org.opencontainers.image.description=$(DESCRIPTION)"
-DOCKER_LABELS += --label "org.opencontainers.image.url=$(SOURCE_URL)"
-DOCKER_LABELS += --label "org.opencontainers.image.source=$(SOURCE_URL)"
-DOCKER_LABELS += --label "org.opencontainers.image.version=$(REPO_TAG)"
-DOCKER_LABELS += --label "org.opencontainers.image.created=$(CONTAINER_BUILD_DATE)"
-DOCKER_LABELS += --label "org.opencontainers.image.revision=$(shell git rev-parse HEAD 2>/dev/null)"
-DOCKER_LABELS += --label "org.opencontainers.image.licenses=$(LICENSE)"
-DOCKER_LABELS += --label "org.opencontainers.image.documentation=$(DOCUMENTATION_URL)"
-DOCKER_LABELS += --label "org.opencontainers.image.vendor=$(VENDOR_NAME)"
+DOCKER_LABELS+= --label "org.opencontainers.image.description=$(DESCRIPTION)"
+DOCKER_LABELS+= --label "org.opencontainers.image.url=$(SOURCE_URL)"
+DOCKER_LABELS+= --label "org.opencontainers.image.source=$(SOURCE_URL)"
+DOCKER_LABELS+= --label "org.opencontainers.image.version=$(REPO_TAG)"
+DOCKER_LABELS+= --label "org.opencontainers.image.created=$(CONTAINER_BUILD_DATE)"
+DOCKER_LABELS+= --label "org.opencontainers.image.revision=$(shell git rev-parse HEAD 2>/dev/null)"
+DOCKER_LABELS+= --label "org.opencontainers.image.licenses=$(LICENSE)"
+DOCKER_LABELS+= --label "org.opencontainers.image.documentation=$(DOCUMENTATION_URL)"
+DOCKER_LABELS+= --label "org.opencontainers.image.vendor=$(VENDOR_NAME)"
 
 .PHONY: docker/%/multiarch
 docker/%/multiarch:
-	$(eval ACTION:= $(word 1,$(subst ., , $*)))
+	$(eval ACTION:= $(word 1,$(subst /, , $*)))
 	$(eval IS_PUSH:= $(filter push,$(ACTION)))
 	$(eval ADDITIONAL_PARAMETER:= $(if $(IS_PUSH), --push))
 	$(info Building image for following platforms: $(SUPPORTED_PLATFORMS))
@@ -52,9 +52,9 @@ docker/%/multiarch:
 
 .PHONY: docker/build/%
 docker/build/%:
-	$(eval OS:= $(word 1,$(subst ., ,$*)))
-	$(eval ARCH:= $(word 2,$(subst ., ,$*)))
-	$(eval ARM:= $(word 3,$(subst ., ,$*)))
+	$(eval OS:= $(word 1,$(subst /, ,$*)))
+	$(eval ARCH:= $(word 2,$(subst /, ,$*)))
+	$(eval ARM:= $(word 3,$(subst /, ,$*)))
 	$(info Building image for $(OS) $(ARCH) $(ARM))
 	$(DOCKER_CMD) build --platform $* \
 		--build-arg CMD_NAME=$(CMDNAME) \

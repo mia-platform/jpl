@@ -13,13 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-DEBUG_MAKEFILE ?=
+DEBUG_MAKEFILE?=
 ifeq ($(DEBUG_MAKEFILE),1)
 $(warning ***** executing goal(s) "$(MAKECMDGOALS)")
 $(warning ***** $(shell date))
 else
 # If we're not debugging the Makefile, always hide the commands inside the goals
-MAKEFLAGS += -s
+MAKEFLAGS+= -s
 endif
 
 # It's necessary to set this because some environments don't link sh -> bash.
@@ -54,7 +54,10 @@ CONFORMANCE_TEST_PATH:= $(PROJECT_DIR)/internal/e2e
 IS_LIBRARY:= 1
 
 # enable modules
-GO111MODULE=on
+GO111MODULE:= on
+GOOS:= $(shell go env GOOS)
+GOARCH:= $(shell go env GOARCH)
+GOARM:= $(shell go env GOARM)
 
 ## Build Variables
 GIT_REV:= $(shell git rev-parse --short HEAD 2>/dev/null)
@@ -95,7 +98,7 @@ all: lint test
 include tools/make/clean.mk
 include tools/make/lint.mk
 include tools/make/test.mk
-# include tools/make/generate.mk
+include tools/make/generate.mk
 include tools/make/build.mk
 # include tools/make/container.mk
 # include tools/make/release.mk
