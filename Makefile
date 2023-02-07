@@ -79,7 +79,7 @@ DEFAULT_DOCKER_PLATFORM:= linux/$(GOARCH)/$(GOARM)
 # List of one or more container registries for tagging the resulting docker images
 CONTAINER_REGISTRIES:= docker.io/miaplatform ghcr.io/mia-platform
 # The description used on the org.opencontainers.description label of the container
-DESCRIPTION:= jpl is a library for managing the connection and application of Kubernetes manifest to a cluster.
+DESCRIPTION:= jpl provides the functions used for connecting and applying manifests files to a kubernetes cluster
 # The vendor name used on the org.opencontainers.image.vendor label of the container
 VENDOR_NAME:= Mia s.r.l.
 # The license used on the org.opencontainers.image.license label of the container

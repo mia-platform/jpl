@@ -13,4 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// jpl provides the functions used for connecting and applying manifests files to a
+// kubernetes cluster. It is an abstraction to limit the interaction with the various
+// golang packages of kubernets to exposing only a subset of functions and helpers to
+// make it easier to interact with the updating of resources through yaml manifests.
 package jpl
