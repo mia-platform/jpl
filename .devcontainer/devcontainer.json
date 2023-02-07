@@ -1,6 +1,6 @@
 {
 	"name": "Go",
-	"image": "golang:1.19.4",
+	"image": "golang:1.19.5",
 	"containerUser": "root",
 	"features": {
 		"ghcr.io/devcontainers/features/common-utils:1": {},
@@ -14,6 +14,10 @@
 	"customizations": {
 		"vscode": {
 			"settings": {
+				"files.eol": "\n",
+				"files.insertFinalNewline": true,
+				"files.trimFinalNewlines": true,
+				"files.trimTrailingWhitespace": false,
 				"go.toolsManagement.checkForUpdates": "local",
 				"go.useLanguageServer": true,
 				"go.gopath": "/go",

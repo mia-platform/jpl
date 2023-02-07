@@ -48,11 +48,11 @@ go/build/%:
 	$(info Building image for $(OS) $(ARCH) $(ARM))
 
 	GOOS=$(OS) GOARCH=$(ARCH) GOARM=$(ARM) $(TOOLS_BIN)/goreleaser build \
-		--single-target --snapshot --rm-dist --config=.goreleaser.yaml
+		--single-target --snapshot --clean --config=.goreleaser.yaml
 
 .PHONY: go/build/multiarch
 go/build/multiarch:
-	$(TOOLS_BIN)/goreleaser build --snapshot --rm-dist --config=.goreleaser.yaml
+	$(TOOLS_BIN)/goreleaser build --snapshot --clean --config=.goreleaser.yaml
 
 .PHONY: build-deps
 build-deps:

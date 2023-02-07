@@ -15,7 +15,7 @@ maximize the chances of your PR being merged.
 
 Every PR, issue, code and documentation must be inclusive to all and must adhere to the following guidance:
 
-- Every documentation should follow an inclusive style. A nicde writeup has been done by google in its [Google Developer
+- Every documentation should follow an inclusive style. A nice writeup has been done by google in its [Google Developer
 	Documentation Style Guide].
 - Every contribution will be covered by our [Code of Conduct](./CODE_OF_CONDUCT.md) so read it carefully.
 - We will follow and will amend this list with the best practice and guidance that will emerge in the industry in the
