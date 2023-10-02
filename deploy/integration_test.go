@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 
 	. "github.com/onsi/ginkgo"
@@ -37,6 +38,12 @@ import (
 var testEnv *envtest.Environment
 var cfg *rest.Config
 var clients *K8sClients
+
+var (
+	gvrCRDs        = schema.GroupVersionResource{Group: "apiextensions.k8s.io", Version: "v1", Resource: "customresourcedefinitions"}
+	gvrConfigMaps  = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	gvrDeployments = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+)
 
 var _ = BeforeSuite(func() {
 
@@ -159,7 +166,7 @@ func execDeploy(clients *K8sClients, namespace string, inputPaths []string, depl
 	filePaths, err := ExtractYAMLFiles(inputPaths)
 	CheckError(err, "Error extracting yaml files")
 
-	crds, resources, err := MakeResources(filePaths, namespace, clients)
+	crds, resources, err := MakeResources(filePaths)
 	if err != nil {
 		return fmt.Errorf("fails to make resources: %w", err)
 	}

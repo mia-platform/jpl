@@ -58,12 +58,9 @@ const (
 var fs = &afero.Afero{Fs: afero.NewOsFs()}
 
 var (
-	gvrSecrets     = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
-	gvrCRDs        = schema.GroupVersionResource{Group: "apiextensions.k8s.io", Version: "v1", Resource: "customresourcedefinitions"}
-	gvrNamespaces  = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
-	gvrConfigMaps  = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
-	gvrDeployments = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
-	gvrJobs        = schema.GroupVersionResource{Group: batchv1.SchemeGroupVersion.Group, Version: batchv1.SchemeGroupVersion.Version, Resource: "jobs"}
+	gvrSecrets    = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
+	gvrNamespaces = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
+	gvrJobs       = schema.GroupVersionResource{Group: batchv1.SchemeGroupVersion.Group, Version: batchv1.SchemeGroupVersion.Version, Resource: "jobs"}
 )
 
 type ResourceNamespace int8
@@ -186,7 +183,7 @@ func IsNotUsingSemver(target *Resource) (bool, error) {
 
 // MakeResources takes a filepath/buffer. It returns two arrays of resources,
 // respectively for CRDs and other kinds, to allow the implementation of the 2-step apply.
-func MakeResources(filePaths []string, namespace string, clients *K8sClients) ([]Resource, []Resource, error) {
+func MakeResources(filePaths []string) ([]Resource, []Resource, error) {
 	crdList := []Resource{}
 	resources := []Resource{}
 	for _, path := range filePaths {
@@ -457,9 +454,8 @@ func prune(clients *K8sClients, namespace string, resourceGroup *ResourceList) e
 			if apierrors.IsNotFound(err) {
 				fmt.Printf("already not present on cluster\n")
 				continue
-			} else {
-				return err
 			}
+			return err
 		}
 		err = clients.dynamic.Resource(gvr).Namespace(namespace).
 			Delete(context.Background(), res, metav1.DeleteOptions{})

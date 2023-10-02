@@ -56,7 +56,7 @@ func DecorateDefaultApplyFunction(decorators ...func(ApplyFunction) ApplyFunctio
 
 // defaultApplyResource applies the resource to the cluster following
 // the default apply logic
-func defaultApplyResource(clients *K8sClients, res Resource, deployConfig DeployConfig) error {
+func defaultApplyResource(clients *K8sClients, res Resource, _ DeployConfig) error {
 	gvr, err := FromGVKtoGVR(clients.discovery, res.Object.GroupVersionKind())
 	if err != nil {
 		return err

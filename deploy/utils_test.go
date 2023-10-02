@@ -100,7 +100,7 @@ func TestMakeResources(t *testing.T) {
 			for _, v := range tC.inputFiles {
 				filePath = append(filePath, filepath.Join(testdata, v))
 			}
-			crds, res, err := MakeResources(filePath, "default", FakeK8sClients())
+			crds, res, err := MakeResources(filePath)
 			require.Nil(t, err)
 			require.Equal(t, tC.expected, []int{len(crds), len(res)})
 		})
@@ -307,6 +307,7 @@ func TestGetOldResourceMap(t *testing.T) {
 			},
 			expected: map[string]*ResourceList{"Secret": {Resources: []string{"foo", "bar"}}, "ConfigMap": {Resources: []string{}}},
 			error: func(t *testing.T, err error) {
+				t.Helper()
 				require.Nil(t, err)
 			},
 		},
@@ -322,6 +323,7 @@ func TestGetOldResourceMap(t *testing.T) {
 			},
 			expected: map[string]*ResourceList{"Deployment": {Resources: []string{"test-deployment", "test-deployment-2"}, Kind: &schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}}},
 			error: func(t *testing.T, err error) {
+				t.Helper()
 				require.Nil(t, err)
 			},
 		},
@@ -337,6 +339,7 @@ func TestGetOldResourceMap(t *testing.T) {
 			},
 			expected: nil,
 			error: func(t *testing.T, err error) {
+				t.Helper()
 				require.NotNil(t, err)
 				require.EqualError(t, err, "resource field is empty")
 			},
@@ -353,6 +356,7 @@ func TestGetOldResourceMap(t *testing.T) {
 			},
 			expected: nil,
 			error: func(t *testing.T, err error) {
+				t.Helper()
 				require.NotNil(t, err)
 			},
 		},
@@ -368,6 +372,7 @@ func TestGetOldResourceMap(t *testing.T) {
 			},
 			expected: map[string]*ResourceList{},
 			error: func(t *testing.T, err error) {
+				t.Helper()
 				require.Nil(t, err)
 			},
 		},
@@ -511,7 +516,7 @@ type FakeSupportedResourcesGetter struct {
 }
 
 // GetSupportedResourcesDictionary exposes the fakeSupportedResourcesDictionary function for the mock getter
-func (supportedResourcesGetter FakeSupportedResourcesGetter) GetSupportedResourcesDictionary(discovery discovery.DiscoveryInterface) (map[schema.GroupVersionKind]metav1.APIResource, error) {
+func (supportedResourcesGetter FakeSupportedResourcesGetter) GetSupportedResourcesDictionary(_ discovery.DiscoveryInterface) (map[schema.GroupVersionKind]metav1.APIResource, error) {
 	return fakeSupportedResourcesDictionary(supportedResourcesGetter.Testing), nil
 }
 
