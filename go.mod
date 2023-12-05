@@ -1,6 +1,6 @@
 module github.com/mia-platform/jpl
 
-go 1.21
+go 1.21.4
 
 require (
 	github.com/Masterminds/semver v1.5.0

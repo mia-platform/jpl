@@ -7,6 +7,12 @@ updates:
   schedule:
     interval: monthly
 
+# keep up to date the base docker image
+- package-ecosystem: docker
+  directory: /
+  schedule:
+    interval: daily
+
 # enable go dependencies security updates
 - directory: /
   open-pull-requests-limit: 0
