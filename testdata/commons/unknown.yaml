@@ -1,0 +1,4 @@
+apiVersion: unknown.example.com/v1
+kind: Unknown
+metadata:
+  name: unknown

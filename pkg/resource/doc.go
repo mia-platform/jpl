@@ -13,4 +13,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package jpl
+// resource package contains utility functions for working on Unstructured data
+package resource

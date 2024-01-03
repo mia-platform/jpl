@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret
+  namespace: secret
+  annotations:
+    config.kubernetes.io/local-config: "true"
+type: Opaque
+data:
+  key: dmFsdWU=

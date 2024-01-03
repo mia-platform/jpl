@@ -13,4 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package jpl
+// resourcereader package contains functions for reading, parsing and ordering kubernetes manifests from files or stdin.
+// to use stdin as input use the "-" character as path.
+package resourcereader

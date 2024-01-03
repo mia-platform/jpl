@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret
+  namespace: secret
+  annotations:
+    config.kubernetes.io/local-config: "true"
+type: Opaque
+data:
+  key: dmFsdWU=
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test

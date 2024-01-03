@@ -13,4 +13,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package jpl
+package testing
+
+import (
+	"net/http"
+
+	"k8s.io/apimachinery/pkg/runtime"
+)
+
+// DefaultHeaders return a base http.Header configured to mimik an api-server response headers
+func DefaultHeaders() http.Header {
+	headers := http.Header{}
+	headers.Set("Content-Type", runtime.ContentTypeJSON)
+	return headers
+}

@@ -13,4 +13,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package jpl
+// task package contains Tasks implementation that encapsulate actions against an api-server
+package task

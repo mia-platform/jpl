@@ -13,4 +13,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package jpl
+package resource
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+)
+
+func TestCustomError(t *testing.T) {
+	t.Parallel()
+	unknownGVK := schema.GroupVersionKind{
+		Group:   "example.com",
+		Version: "v1alpha1",
+		Kind:    "ResourceKindName",
+	}
+	err := &UnknownResourceTypeError{
+		ResourceGVK: unknownGVK,
+	}
+
+	assert.ErrorContains(t, err, "unknown resource type")
+	assert.ErrorContains(t, err, unknownGVK.Group)
+	assert.ErrorContains(t, err, unknownGVK.Version)
+	assert.ErrorContains(t, err, unknownGVK.Kind)
+}

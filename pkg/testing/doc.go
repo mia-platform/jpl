@@ -13,4 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package jpl
+// testing package provides structure and functions useful for create test and have predictable outcome
+// or avoid to call real external dependencies
+package testing

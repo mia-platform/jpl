@@ -13,4 +13,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package jpl
+package runner
+
+import "context"
+
+// Task provides abstractions that a Task must implement to be able to be used by a Runner
+type Task interface {
+	// Run is used to execute the action implemented by the Task, it expect an error as return if something goes wrong
+	Run(context.Context) error
+	// Cancel is used to interrupt the task if possible
+	Cancel()
+}
