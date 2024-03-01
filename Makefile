@@ -100,8 +100,8 @@ include tools/make/lint.mk
 include tools/make/test.mk
 include tools/make/generate.mk
 include tools/make/build.mk
-# include tools/make/container.mk
-# include tools/make/release.mk
+include tools/make/container.mk
+include tools/make/release.mk
 
 # Uncomment the correct test suite to run during CI
 .PHONY: ci
