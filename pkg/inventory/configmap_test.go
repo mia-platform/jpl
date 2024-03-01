@@ -16,10 +16,35 @@
 package inventory
 
 import (
+	"bytes"
+	"context"
+	"fmt"
+	"io"
+	"net/http"
 	"testing"
+	"time"
 
+	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest/fake"
 )
+
+func TestNewConfigMapStore(t *testing.T) {
+	name := "test-name"
+	namespace := "test-namespace"
+	factory := pkgtesting.NewTestClientFactory()
+	factory.Client = &fake.RESTClient{}
+
+	store, err := NewConfigMapStore(factory, name, namespace)
+	assert.NoError(t, err)
+	assert.NotNil(t, store)
+	assert.NotNil(t, store.clientset)
+	assert.Equal(t, name, store.name)
+	assert.Equal(t, namespace, store.namespace)
+}
 
 func TestKeyFromObjectMetadata(t *testing.T) {
 	testCases := map[string]struct {
@@ -155,6 +180,108 @@ func TestParseObjectMetadataFromKey(t *testing.T) {
 			ok, resMeta := parseObjectMetadataFromKey(testCase.key)
 			assert.Equal(t, testCase.expectedFound, ok)
 			assert.Equal(t, testCase.expectedResourceMetadata, resMeta)
+		})
+	}
+}
+
+func TestLoad(t *testing.T) {
+	t.Parallel()
+
+	name := "test-name"
+	notFound := "not-found"
+	forbidden := "forbidden"
+	namespace := "test-namespace"
+	codec := pkgtesting.Codecs.LegacyCodec(pkgtesting.Scheme.PrioritizedVersionsAllGroups()...)
+
+	testCases := map[string]struct {
+		name             string
+		namespace        string
+		body             *corev1.ConfigMap
+		expectedMetadata []ResourceMetadata
+		expectErr        bool
+		errMessage       string
+	}{
+		"parsing data inside config map": {
+			name:      name,
+			namespace: namespace,
+			body: &corev1.ConfigMap{Data: map[string]string{
+				"namespace_pod__Pod":               "",
+				"namespace_deploy_apps_Deployment": "",
+			}},
+			expectedMetadata: []ResourceMetadata{
+				{
+					Name:      "pod",
+					Namespace: "namespace",
+					Kind:      "Pod",
+				},
+				{
+					Name:      "deploy",
+					Namespace: "namespace",
+					Group:     "apps",
+					Kind:      "Deployment",
+				},
+			},
+		},
+		"empty data in config map": {
+			name:             name,
+			namespace:        namespace,
+			body:             &corev1.ConfigMap{Data: map[string]string{}},
+			expectedMetadata: []ResourceMetadata{},
+		},
+		"config map without data field": {
+			name:             name,
+			namespace:        namespace,
+			body:             &corev1.ConfigMap{},
+			expectedMetadata: []ResourceMetadata{},
+		},
+		"missing config map": {
+			name:             notFound,
+			namespace:        namespace,
+			expectedMetadata: []ResourceMetadata{},
+		},
+		"error during GET": {
+			name:       forbidden,
+			namespace:  namespace,
+			expectErr:  true,
+			errMessage: "failed to find inventory",
+		},
+	}
+
+	for testName, testCase := range testCases {
+		t.Run(testName, func(t *testing.T) {
+			factory := pkgtesting.NewTestClientFactory()
+			factory.Client = &fake.RESTClient{
+				Client: fake.CreateHTTPClient(func(r *http.Request) (*http.Response, error) {
+					switch path, method := r.URL.Path, r.Method; {
+					case method == http.MethodGet && path == fmt.Sprintf("/api/v1/namespaces/%s/configmaps/%s", namespace, name):
+						body := io.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(codec, testCase.body))))
+						return &http.Response{StatusCode: http.StatusOK, Header: pkgtesting.DefaultHeaders(), Body: body}, nil
+					case method == http.MethodGet && path == fmt.Sprintf("/api/v1/namespaces/%s/configmaps/%s", namespace, notFound):
+						return &http.Response{StatusCode: http.StatusNotFound, Header: pkgtesting.DefaultHeaders()}, nil
+					case method == http.MethodGet && path == fmt.Sprintf("/api/v1/namespaces/%s/configmaps/%s", namespace, forbidden):
+						return &http.Response{StatusCode: http.StatusForbidden, Header: pkgtesting.DefaultHeaders()}, nil
+					default:
+						t.Logf("unexpected request: %#v\n%#v", r.URL, r)
+						return nil, fmt.Errorf("unexpected request")
+					}
+				}),
+			}
+
+			store, err := NewConfigMapStore(factory, testCase.name, testCase.namespace)
+			require.NoError(t, err)
+
+			ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+			defer cancel()
+
+			metadata, err := store.Load(ctx)
+			if testCase.expectErr {
+				require.Error(t, err)
+				assert.ErrorContains(t, err, testCase.errMessage)
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.ElementsMatch(t, testCase.expectedMetadata, metadata)
 		})
 	}
 }

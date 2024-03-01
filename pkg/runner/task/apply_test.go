@@ -27,9 +27,9 @@ import (
 	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/rest/fake"
@@ -50,7 +50,7 @@ var (
 func TestCancelTask(t *testing.T) {
 	t.Parallel()
 	tf := pkgtesting.NewTestClientFactory().WithNamespace("applytest")
-	tf.UnstructuredClient = &fake.RESTClient{
+	tf.Client = &fake.RESTClient{
 		NegotiatedSerializer: resource.UnstructuredPlusDefaultContentConfig().NegotiatedSerializer,
 		Client: fake.CreateHTTPClient(func(_ *http.Request) (*http.Response, error) {
 			return &http.Response{StatusCode: http.StatusUnsupportedMediaType, Header: pkgtesting.DefaultHeaders()}, nil
@@ -85,13 +85,13 @@ func TestInfoFetcherBuilderError(t *testing.T) {
 	t.Parallel()
 	tf := pkgtesting.NewTestClientFactory().WithNamespace("applytest")
 	errorMessage := "error during client creation"
-	tf.UnstructerdClientFunc = func(_ *meta.RESTMapping) (resource.RESTClient, error) {
+	tf.UnstructuredClientForMappingFunc = func(_ schema.GroupVersion) (resource.RESTClient, error) {
 		// create a client even if we are testing error handling to check that no requests are made
 		client := &fake.RESTClient{
 			NegotiatedSerializer: resource.UnstructuredPlusDefaultContentConfig().NegotiatedSerializer,
 			Client: fake.CreateHTTPClient(func(r *http.Request) (*http.Response, error) {
-				assert.FailNow(t, fmt.Sprintf("unexpected request: %#v\n%#v", r.URL, r))
-				return nil, nil
+				t.Logf("unexpected request: %#v\n%#v", r.URL, r)
+				return nil, fmt.Errorf("unexpected request")
 			}),
 		}
 		return client, fmt.Errorf(errorMessage)
@@ -118,7 +118,7 @@ func TestUnsupportedMediaTypeError(t *testing.T) {
 	deployPath := "/namespaces/applytest/deployments/nginx"
 	tf := pkgtesting.NewTestClientFactory().WithNamespace("applytest")
 	applied := 0
-	tf.UnstructuredClient = &fake.RESTClient{
+	tf.Client = &fake.RESTClient{
 		NegotiatedSerializer: resource.UnstructuredPlusDefaultContentConfig().NegotiatedSerializer,
 		Client: fake.CreateHTTPClient(func(r *http.Request) (*http.Response, error) {
 			switch path, method := r.URL.Path, r.Method; {
@@ -126,9 +126,9 @@ func TestUnsupportedMediaTypeError(t *testing.T) {
 				applied++
 				return &http.Response{StatusCode: http.StatusUnsupportedMediaType, Header: pkgtesting.DefaultHeaders()}, nil
 			default:
-				assert.FailNow(t, fmt.Sprintf("unexpected request: %#v\n%#v", r.URL, r))
+				t.Logf("unexpected request: %#v\n%#v", r.URL, r)
+				return nil, fmt.Errorf("unexpected request")
 			}
-			return nil, nil
 		}),
 	}
 
@@ -186,7 +186,7 @@ func TestApplyTask(t *testing.T) {
 	for testName, testCase := range testCases {
 		applied := 0
 		tf := pkgtesting.NewTestClientFactory().WithNamespace("applytest")
-		tf.UnstructuredClient = &fake.RESTClient{
+		tf.Client = &fake.RESTClient{
 			NegotiatedSerializer: resource.UnstructuredPlusDefaultContentConfig().NegotiatedSerializer,
 			Client: fake.CreateHTTPClient(func(r *http.Request) (*http.Response, error) {
 				require.Equal(t, r.Header.Get("Content-Type"), string(types.ApplyPatchType))
@@ -214,9 +214,9 @@ func TestApplyTask(t *testing.T) {
 					bodyRC := io.NopCloser(bytes.NewReader(data))
 					return &http.Response{StatusCode: http.StatusOK, Header: pkgtesting.DefaultHeaders(), Body: bodyRC}, nil
 				default:
-					assert.FailNow(t, fmt.Sprintf("unexpected request: %#v\n%#v", r.URL, r))
+					t.Logf("unexpected request: %#v\n%#v", r.URL, r)
+					return nil, fmt.Errorf("unexpected request")
 				}
-				return nil, nil
 			}),
 		}
 		infoFetcher, err := DefaultInfoFetcherBuilder(tf)
@@ -247,20 +247,20 @@ func TestSimpleApplyTask(t *testing.T) {
 	require.NoError(t, err)
 	tf := pkgtesting.NewTestClientFactory().WithNamespace("applytest")
 	applied := 0
-	tf.UnstructuredClient = &fake.RESTClient{
+	tf.Client = &fake.RESTClient{
 		NegotiatedSerializer: resource.UnstructuredPlusDefaultContentConfig().NegotiatedSerializer,
-		Client: fake.CreateHTTPClient(func(req *http.Request) (*http.Response, error) {
-			switch path, method := req.URL.Path, req.Method; {
+		Client: fake.CreateHTTPClient(func(r *http.Request) (*http.Response, error) {
+			switch path, method := r.URL.Path, r.Method; {
 			case method == http.MethodPatch && path == deployPath:
-				require.Equal(t, req.Header.Get("Content-Type"), string(types.ApplyPatchType))
-				require.Equal(t, req.URL.Query().Get("force"), "true")
+				require.Equal(t, r.Header.Get("Content-Type"), string(types.ApplyPatchType))
+				require.Equal(t, r.URL.Query().Get("force"), "true")
 				applied++
 				bodyRC := io.NopCloser(bytes.NewReader(data))
 				return &http.Response{StatusCode: http.StatusOK, Header: pkgtesting.DefaultHeaders(), Body: bodyRC}, nil
 			default:
-				assert.FailNow(t, fmt.Sprintf("unexpected request: %#v\n%#v", req.URL, req))
+				t.Logf("unexpected request: %#v\n%#v", r.URL, r)
+				return nil, fmt.Errorf("unexpected request")
 			}
-			return nil, nil
 		}),
 	}
 

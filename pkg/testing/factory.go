@@ -16,12 +16,17 @@
 package testing
 
 import (
+	"fmt"
+
 	"github.com/mia-platform/jpl/pkg/util"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/meta/testrestmapper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/resource"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/rest/fake"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -31,10 +36,12 @@ import (
 type TestClientFactory struct {
 	util.ClientFactory
 
-	// UnstructuredClient custom RESTClient implementation to return in UnstructuredClientForMapping
-	UnstructuredClient resource.RESTClient
-	// UnstructerdClientFunc custom function to call when UnstructuredClientForMapping is invoked
-	UnstructerdClientFunc func(*meta.RESTMapping) (resource.RESTClient, error)
+	ClientConfig *rest.Config
+
+	// Client custom RESTClient implementation to return in UnstructuredClientForMapping and used in KubernetesClientSet
+	Client resource.RESTClient
+	// UnstructuredClientForMappingFunc custom function to call when UnstructuredClientForMapping is invoked
+	UnstructuredClientForMappingFunc resource.FakeClientFunc
 
 	testConfigFlags *genericclioptions.TestConfigFlags
 }
@@ -50,8 +57,14 @@ func NewTestClientFactory() *TestClientFactory {
 		WithClientConfig(clientConfig).
 		WithRESTMapper(fakeRESTMapper())
 
+	restConfig, err := clientConfig.ClientConfig()
+	if err != nil {
+		panic(fmt.Sprintf("unable to create a fake restclient config: %v", err))
+	}
+
 	return &TestClientFactory{
 		ClientFactory:   util.NewFactory(configFlags),
+		ClientConfig:    restConfig,
 		testConfigFlags: configFlags,
 	}
 }
@@ -64,11 +77,25 @@ func (f *TestClientFactory) WithNamespace(ns string) *TestClientFactory {
 
 // UnstructuredClientForMapping reimplement the method for returning the custom client set on the test factory
 func (f *TestClientFactory) UnstructuredClientForMapping(mapping *meta.RESTMapping) (resource.RESTClient, error) {
-	if f.UnstructerdClientFunc != nil {
-		return f.UnstructerdClientFunc(mapping)
+	if f.UnstructuredClientForMappingFunc != nil {
+		return f.UnstructuredClientForMappingFunc(mapping.GroupVersionKind.GroupVersion())
 	}
+	return f.Client, nil
+}
 
-	return f.UnstructuredClient, nil
+// ToRESTConfig reimplement the method for returning a fake clientConfgi
+func (f *TestClientFactory) ToRESTConfig() (*rest.Config, error) {
+	return f.ClientConfig, nil
+}
+
+// KubernetesClientSet reimplement the method for returning only selected kubernetes clients with fake client
+func (f *TestClientFactory) KubernetesClientSet() (*kubernetes.Clientset, error) {
+	fakeClient := f.Client.(*fake.RESTClient)
+	clientset := kubernetes.NewForConfigOrDie(f.ClientConfig)
+
+	clientset.CoreV1().RESTClient().(*rest.RESTClient).Client = fakeClient.Client
+
+	return clientset, nil
 }
 
 // fakeRESTMapper return a test RESTMapper useful for testing out the library

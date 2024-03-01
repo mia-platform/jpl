@@ -4,7 +4,7 @@ go 1.22.0
 
 require (
 	github.com/go-logr/logr v1.4.1
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	k8s.io/api v0.28.7
 	k8s.io/apiextensions-apiserver v0.28.7
 	k8s.io/apimachinery v0.28.7

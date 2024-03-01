@@ -21,9 +21,15 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	metav1beta1 "k8s.io/apimachinery/pkg/apis/meta/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
 )
 
 var (
@@ -34,6 +40,15 @@ var (
 
 	codec = Codecs.LegacyCodec(Scheme.PrioritizedVersionsAllGroups()...)
 )
+
+func init() {
+	// Register external types for Scheme
+	metav1.AddToGroupVersion(Scheme, schema.GroupVersion{Version: "v1"})
+	utilruntime.Must(metav1beta1.AddMetaToScheme(Scheme))
+	utilruntime.Must(metav1.AddMetaToScheme(Scheme))
+	utilruntime.Must(scheme.AddToScheme(Scheme))
+	utilruntime.Must(Scheme.SetVersionPriority(corev1.SchemeGroupVersion))
+}
 
 // UnstructuredFromFile returns an Unstructured resource reading it from file at path
 func UnstructuredFromFile(t *testing.T, path string) *unstructured.Unstructured {

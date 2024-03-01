@@ -22,9 +22,8 @@ import (
 	"strings"
 
 	"github.com/mia-platform/jpl/pkg/util"
-	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientv1 "k8s.io/client-go/applyconfigurations/core/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -52,13 +51,8 @@ type ConfigMapStore struct {
 // the ConfigMap store will be read and saved.
 func NewConfigMapStore(factory util.ClientFactory, name, namespace string) (*ConfigMapStore, error) {
 	var err error
-	config, err := factory.ToRESTConfig()
+	clientset, err := factory.KubernetesClientSet()
 	if err != nil {
-		return nil, err
-	}
-
-	var clientset *kubernetes.Clientset
-	if clientset, err = kubernetes.NewForConfig(config); err != nil {
 		return nil, err
 	}
 
@@ -70,16 +64,7 @@ func NewConfigMapStore(factory util.ClientFactory, name, namespace string) (*Con
 }
 
 func (s *ConfigMapStore) Save(ctx context.Context, fieldManager string) error {
-	gv := schema.GroupVersion{
-		Group:   corev1.GroupName,
-		Version: "v1",
-	}
-
 	opts := metav1.ApplyOptions{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ConfigMap",
-			APIVersion: gv.String(),
-		},
 		Force:        true,
 		FieldManager: fieldManager,
 	}
@@ -92,6 +77,9 @@ func (s *ConfigMapStore) Save(ctx context.Context, fieldManager string) error {
 func (s *ConfigMapStore) Load(ctx context.Context) ([]ResourceMetadata, error) {
 	cm, err := s.clientset.CoreV1().ConfigMaps(s.namespace).Get(ctx, s.name, metav1.GetOptions{})
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return []ResourceMetadata{}, nil
+		}
 		return nil, fmt.Errorf("failed to find inventory: %w", err)
 	}
 
