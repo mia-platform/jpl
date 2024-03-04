@@ -15,9 +15,29 @@
 
 package inventory
 
+import (
+	"context"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+)
+
+// ResourceMetadata reppresent the minimum subset of data to uniquily identify a resource deployed on a remote cluster
 type ResourceMetadata struct {
 	Name      string
 	Namespace string
 	Group     string
 	Kind      string
+}
+
+// Store define an interface for working with an inventory of deployed resources, without knowning the underling
+// technology that is used for persisting the data
+type Store interface {
+	// Save will persist the underling in memory inventory data for access on subsequent interaction
+	Save(ctx context.Context) error
+
+	// Load will retrieve the inventory data saved, if available, and return it in ResourceMetadata form
+	Load(ctx context.Context) ([]ResourceMetadata, error)
+
+	// SetObjects will replace the current in memory objects inventory data
+	SetObjects([]*unstructured.Unstructured)
 }

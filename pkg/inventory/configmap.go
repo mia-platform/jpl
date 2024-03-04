@@ -24,6 +24,7 @@ import (
 	"github.com/mia-platform/jpl/pkg/util"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	clientv1 "k8s.io/client-go/applyconfigurations/core/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -38,35 +39,40 @@ const (
 	regexKindChars      = "[[:alnum:]]*"
 )
 
-// ConfigMapStore is an inventory store backed by a ConfigMap saved on the remote server where the
+// keep it to always check if configMapStore implement correctly the Store interface
+var _ Store = &configMapStore{}
+
+// configMapStore is an inventory store backed by a ConfigMap saved on the remote server where the
 // operations are performed. It only keep track of what resources have been deployed but not their contents.
-type ConfigMapStore struct {
+type configMapStore struct {
 	name         string
 	namespace    string
+	fieldManager string
 	clientset    *kubernetes.Clientset
 	savedObjects []ResourceMetadata
 }
 
-// NewConfigMapStore return a new ConfigMapClient configured with the provided factory. The namespace is where
-// the ConfigMap store will be read and saved.
-func NewConfigMapStore(factory util.ClientFactory, name, namespace string) (*ConfigMapStore, error) {
+// NewConfigMapStore return a new Store instance configured with the provided factory that will persist
+// data via a ConfigMap resource. The namespace is where the backing ConfigMap will be read and saved.
+func NewConfigMapStore(factory util.ClientFactory, name, namespace, fieldManager string) (Store, error) {
 	var err error
 	clientset, err := factory.KubernetesClientSet()
 	if err != nil {
 		return nil, err
 	}
 
-	return &ConfigMapStore{
-		name:      name,
-		namespace: namespace,
-		clientset: clientset,
+	return &configMapStore{
+		name:         name,
+		namespace:    namespace,
+		fieldManager: fieldManager,
+		clientset:    clientset,
 	}, err
 }
 
-func (s *ConfigMapStore) Save(ctx context.Context, fieldManager string) error {
+func (s *configMapStore) Save(ctx context.Context) error {
 	opts := metav1.ApplyOptions{
 		Force:        true,
-		FieldManager: fieldManager,
+		FieldManager: s.fieldManager,
 	}
 
 	cm := clientv1.ConfigMap(s.name, s.namespace).WithData(dataForStore(s))
@@ -77,7 +83,7 @@ func (s *ConfigMapStore) Save(ctx context.Context, fieldManager string) error {
 	return nil
 }
 
-func (s *ConfigMapStore) Load(ctx context.Context) ([]ResourceMetadata, error) {
+func (s *configMapStore) Load(ctx context.Context) ([]ResourceMetadata, error) {
 	cm, err := s.clientset.CoreV1().ConfigMaps(s.namespace).Get(ctx, s.name, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -96,9 +102,27 @@ func (s *ConfigMapStore) Load(ctx context.Context) ([]ResourceMetadata, error) {
 	return metadata, nil
 }
 
+func (s *configMapStore) SetObjects(objects []*unstructured.Unstructured) {
+	savedObjects := make([]ResourceMetadata, 0, len(objects))
+	for _, resource := range objects {
+		gvk := resource.GroupVersionKind()
+		name := resource.GetName()
+		namespace := resource.GetNamespace()
+
+		savedObjects = append(savedObjects, ResourceMetadata{
+			Name:      name,
+			Namespace: namespace,
+			Kind:      gvk.Kind,
+			Group:     gvk.Group,
+		})
+	}
+
+	s.savedObjects = savedObjects
+}
+
 // dataForStore create a ConfigMap data map based on the savedObjects inside store.
 // The savedObjects would be encoded in a string format for easy storage.
-func dataForStore(store *ConfigMapStore) map[string]string {
+func dataForStore(store *configMapStore) map[string]string {
 	data := make(map[string]string)
 
 	for _, objMeta := range store.savedObjects {

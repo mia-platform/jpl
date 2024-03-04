@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest/fake"
@@ -36,15 +38,19 @@ import (
 func TestNewConfigMapStore(t *testing.T) {
 	name := "test-name"
 	namespace := "test-namespace"
+	fieldManager := "jpl-inventory-test"
 	factory := pkgtesting.NewTestClientFactory()
 	factory.Client = &fake.RESTClient{}
 
-	store, err := NewConfigMapStore(factory, name, namespace)
+	store, err := NewConfigMapStore(factory, name, namespace, fieldManager)
 	assert.NoError(t, err)
 	assert.NotNil(t, store)
-	assert.NotNil(t, store.clientset)
-	assert.Equal(t, name, store.name)
-	assert.Equal(t, namespace, store.namespace)
+	assert.IsType(t, &configMapStore{}, store)
+	cmStore := store.(*configMapStore)
+	assert.NotNil(t, cmStore.clientset)
+	assert.Equal(t, name, cmStore.name)
+	assert.Equal(t, namespace, cmStore.namespace)
+	assert.Equal(t, fieldManager, cmStore.fieldManager)
 }
 
 func TestKeyFromObjectMetadata(t *testing.T) {
@@ -266,7 +272,7 @@ func TestLoad(t *testing.T) {
 				}),
 			}
 
-			store, err := NewConfigMapStore(factory, testCase.name, namespace)
+			store, err := NewConfigMapStore(factory, testCase.name, namespace, "jpl-inventory-test")
 			require.NoError(t, err)
 
 			ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
@@ -373,14 +379,15 @@ func TestSave(t *testing.T) {
 				}),
 			}
 
-			store, err := NewConfigMapStore(factory, testCase.name, namespace)
+			store, err := NewConfigMapStore(factory, testCase.name, namespace, "jpl-inventory-test")
 			require.NoError(t, err)
+			cmStore := store.(*configMapStore)
 
 			ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 			defer cancel()
 
-			store.savedObjects = testCase.data
-			err = store.Save(ctx, "jpl-inventory-test")
+			cmStore.savedObjects = testCase.data
+			err = store.Save(ctx)
 			if testCase.expectedErr {
 				require.Error(t, err)
 				assert.ErrorContains(t, err, testCase.errMessage)
@@ -389,6 +396,55 @@ func TestSave(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, testCase.expectedData, configMap.Data)
+		})
+	}
+}
+
+func TestSetObjects(t *testing.T) {
+	t.Parallel()
+
+	testdataFolder := filepath.Join("..", "..", "testdata", "commons")
+	deploymentFilename := filepath.Join(testdataFolder, "deployment.yaml")
+	startingMetadata := ResourceMetadata{
+		Name:      "pod",
+		Namespace: "",
+		Kind:      "Pod",
+	}
+	deploymentMetadata := ResourceMetadata{
+		Name:      "nginx",
+		Namespace: "",
+		Kind:      "Deployment",
+		Group:     "apps",
+	}
+
+	testCases := map[string]struct {
+		resource                 *unstructured.Unstructured
+		startingMetadata         []ResourceMetadata
+		expectedResourceMetadata []ResourceMetadata
+	}{
+		"nil starting metatada": {
+			resource:                 pkgtesting.UnstructuredFromFile(t, deploymentFilename),
+			expectedResourceMetadata: []ResourceMetadata{deploymentMetadata},
+		},
+		"empty starting metadata": {
+			resource:                 pkgtesting.UnstructuredFromFile(t, deploymentFilename),
+			startingMetadata:         []ResourceMetadata{},
+			expectedResourceMetadata: []ResourceMetadata{deploymentMetadata},
+		},
+		"elements already in metadata": {
+			resource:                 pkgtesting.UnstructuredFromFile(t, deploymentFilename),
+			startingMetadata:         []ResourceMetadata{startingMetadata},
+			expectedResourceMetadata: []ResourceMetadata{deploymentMetadata},
+		},
+	}
+
+	for testName, testCase := range testCases {
+		t.Run(testName, func(t *testing.T) {
+			s := &configMapStore{
+				savedObjects: testCase.startingMetadata,
+			}
+			s.SetObjects([]*unstructured.Unstructured{testCase.resource})
+			assert.Equal(t, testCase.expectedResourceMetadata, s.savedObjects)
 		})
 	}
 }
