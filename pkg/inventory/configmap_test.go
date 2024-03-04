@@ -301,6 +301,7 @@ func TestSave(t *testing.T) {
 	testCases := map[string]struct {
 		name         string
 		data         []ResourceMetadata
+		dryRun       bool
 		expectedData map[string]string
 		expectedErr  bool
 		errMessage   string
@@ -342,6 +343,20 @@ func TestSave(t *testing.T) {
 				namespace + "_" + name + "__Pod":        "",
 			},
 		},
+		"save with dryRun": {
+			name: name,
+			data: []ResourceMetadata{
+				{
+					Kind:      "Pod",
+					Name:      name,
+					Namespace: namespace,
+				},
+			},
+			dryRun: true,
+			expectedData: map[string]string{
+				namespace + "_" + name + "__Pod": "",
+			},
+		},
 		"save end in error": {
 			name:        forbidden,
 			data:        []ResourceMetadata{},
@@ -358,6 +373,12 @@ func TestSave(t *testing.T) {
 			factory.Client = &fake.RESTClient{
 				Client: fake.CreateHTTPClient(func(r *http.Request) (*http.Response, error) {
 					assert.Equal(t, string(types.ApplyPatchType), r.Header.Get("Content-Type"))
+					switch testCase.dryRun {
+					case true:
+						assert.Equal(t, "All", r.URL.Query().Get("dryRun"))
+					default:
+						assert.Equal(t, "", r.URL.Query().Get("dryRun"))
+					}
 					switch path, method := r.URL.Path, r.Method; {
 					case method == http.MethodPatch && path == fmt.Sprintf("/api/v1/namespaces/%s/configmaps/%s", namespace, name):
 						data, err := io.ReadAll(r.Body)
@@ -387,7 +408,7 @@ func TestSave(t *testing.T) {
 			defer cancel()
 
 			cmStore.savedObjects = testCase.data
-			err = store.Save(ctx)
+			err = store.Save(ctx, testCase.dryRun)
 			if testCase.expectedErr {
 				require.Error(t, err)
 				assert.ErrorContains(t, err, testCase.errMessage)

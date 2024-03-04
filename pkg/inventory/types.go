@@ -33,7 +33,7 @@ type ResourceMetadata struct {
 // technology that is used for persisting the data
 type Store interface {
 	// Save will persist the underling in memory inventory data for access on subsequent interaction
-	Save(ctx context.Context) error
+	Save(ctx context.Context, dryRun bool) error
 
 	// Load will retrieve the inventory data saved, if available, and return it in ResourceMetadata form
 	Load(ctx context.Context) ([]ResourceMetadata, error)

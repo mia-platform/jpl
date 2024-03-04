@@ -69,10 +69,14 @@ func NewConfigMapStore(factory util.ClientFactory, name, namespace, fieldManager
 	}, err
 }
 
-func (s *configMapStore) Save(ctx context.Context) error {
+func (s *configMapStore) Save(ctx context.Context, dryRun bool) error {
 	opts := metav1.ApplyOptions{
 		Force:        true,
 		FieldManager: s.fieldManager,
+	}
+
+	if dryRun {
+		opts.DryRun = []string{metav1.DryRunAll}
 	}
 
 	cm := clientv1.ConfigMap(s.name, s.namespace).WithData(dataForStore(s))
