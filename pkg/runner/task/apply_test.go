@@ -195,11 +195,12 @@ func TestApplyTask(t *testing.T) {
 					require.Equal(t, "All", r.URL.Query().Get("dryRun"))
 				}
 				switch path, method := r.URL.Path, r.Method; {
-				case path == "PATCH" && r.URL.Query().Get("dryRun") == "All":
+				case method == http.MethodPatch && path == deployPath && r.URL.Query().Get("dryRun") == "All":
+					applied++
 					data, err := io.ReadAll(r.Body)
 					require.NoError(t, err)
 					return &http.Response{StatusCode: http.StatusOK, Header: pkgtesting.DefaultHeaders(), Body: io.NopCloser(bytes.NewReader(data))}, nil
-				case method == http.MethodPatch && path == deployPath:
+				case method == http.MethodPatch && path == deployPath && r.URL.Query().Get("dryRun") != "All":
 					applied++
 					response := pkgtesting.UnstructuredFromFile(t, deploymentAppliedFilename)
 					data, err := runtime.Encode(unstructured.NewJSONFallbackEncoder(codec), response)

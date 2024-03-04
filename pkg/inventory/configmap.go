@@ -70,8 +70,11 @@ func (s *ConfigMapStore) Save(ctx context.Context, fieldManager string) error {
 	}
 
 	cm := clientv1.ConfigMap(s.name, s.namespace).WithData(dataForStore(s))
-	_, err := s.clientset.CoreV1().ConfigMaps(s.namespace).Apply(ctx, cm, opts)
-	return err
+	if _, err := s.clientset.CoreV1().ConfigMaps(s.namespace).Apply(ctx, cm, opts); err != nil {
+		return fmt.Errorf("failed to save inventory: %w", err)
+	}
+
+	return nil
 }
 
 func (s *ConfigMapStore) Load(ctx context.Context) ([]ResourceMetadata, error) {

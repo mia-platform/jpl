@@ -29,6 +29,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest/fake"
 )
 
@@ -47,6 +48,8 @@ func TestNewConfigMapStore(t *testing.T) {
 }
 
 func TestKeyFromObjectMetadata(t *testing.T) {
+	t.Parallel()
+
 	testCases := map[string]struct {
 		resourceMetadata ResourceMetadata
 		expectedKey      string
@@ -98,6 +101,8 @@ func TestKeyFromObjectMetadata(t *testing.T) {
 }
 
 func TestParseObjectMetadataFromKey(t *testing.T) {
+	t.Parallel()
+
 	testCases := map[string]struct {
 		key                      string
 		expectedFound            bool
@@ -195,15 +200,13 @@ func TestLoad(t *testing.T) {
 
 	testCases := map[string]struct {
 		name             string
-		namespace        string
 		body             *corev1.ConfigMap
 		expectedMetadata []ResourceMetadata
 		expectErr        bool
 		errMessage       string
 	}{
 		"parsing data inside config map": {
-			name:      name,
-			namespace: namespace,
+			name: name,
 			body: &corev1.ConfigMap{Data: map[string]string{
 				"namespace_pod__Pod":               "",
 				"namespace_deploy_apps_Deployment": "",
@@ -224,24 +227,20 @@ func TestLoad(t *testing.T) {
 		},
 		"empty data in config map": {
 			name:             name,
-			namespace:        namespace,
 			body:             &corev1.ConfigMap{Data: map[string]string{}},
 			expectedMetadata: []ResourceMetadata{},
 		},
 		"config map without data field": {
 			name:             name,
-			namespace:        namespace,
 			body:             &corev1.ConfigMap{},
 			expectedMetadata: []ResourceMetadata{},
 		},
 		"missing config map": {
 			name:             notFound,
-			namespace:        namespace,
 			expectedMetadata: []ResourceMetadata{},
 		},
 		"error during GET": {
 			name:       forbidden,
-			namespace:  namespace,
 			expectErr:  true,
 			errMessage: "failed to find inventory",
 		},
@@ -267,7 +266,7 @@ func TestLoad(t *testing.T) {
 				}),
 			}
 
-			store, err := NewConfigMapStore(factory, testCase.name, testCase.namespace)
+			store, err := NewConfigMapStore(factory, testCase.name, namespace)
 			require.NoError(t, err)
 
 			ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
@@ -282,6 +281,114 @@ func TestLoad(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.ElementsMatch(t, testCase.expectedMetadata, metadata)
+		})
+	}
+}
+
+func TestSave(t *testing.T) {
+	t.Parallel()
+
+	name := "test-name"
+	namespace := "test-namespace"
+	forbidden := "forbidden"
+
+	testCases := map[string]struct {
+		name         string
+		data         []ResourceMetadata
+		expectedData map[string]string
+		expectedErr  bool
+		errMessage   string
+	}{
+		"save empty confimap": {
+			name:         name,
+			data:         []ResourceMetadata{},
+			expectedData: nil,
+		},
+		"save single element confimap": {
+			name: name,
+			data: []ResourceMetadata{
+				{
+					Kind:      "Pod",
+					Name:      name,
+					Namespace: namespace,
+				},
+			},
+			expectedData: map[string]string{
+				namespace + "_" + name + "__Pod": "",
+			},
+		},
+		"save multiple element confimap": {
+			name: name,
+			data: []ResourceMetadata{
+				{
+					Kind:      "Pod",
+					Name:      name,
+					Namespace: namespace,
+				},
+				{
+					Kind:      "Deployment",
+					Name:      name,
+					Namespace: namespace,
+				},
+			},
+			expectedData: map[string]string{
+				namespace + "_" + name + "__Deployment": "",
+				namespace + "_" + name + "__Pod":        "",
+			},
+		},
+		"save end in error": {
+			name:        forbidden,
+			data:        []ResourceMetadata{},
+			expectedErr: true,
+			errMessage:  "failed to save inventory",
+		},
+	}
+
+	for testName, testCase := range testCases {
+		t.Run(testName, func(t *testing.T) {
+			factory := pkgtesting.NewTestClientFactory()
+			var configMap corev1.ConfigMap
+
+			factory.Client = &fake.RESTClient{
+				Client: fake.CreateHTTPClient(func(r *http.Request) (*http.Response, error) {
+					assert.Equal(t, string(types.ApplyPatchType), r.Header.Get("Content-Type"))
+					switch path, method := r.URL.Path, r.Method; {
+					case method == http.MethodPatch && path == fmt.Sprintf("/api/v1/namespaces/%s/configmaps/%s", namespace, name):
+						data, err := io.ReadAll(r.Body)
+						require.NoError(t, err)
+						decoder := pkgtesting.Codecs.UniversalDecoder()
+						err = runtime.DecodeInto(decoder, data, &configMap)
+						require.NoError(t, err)
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Header:     pkgtesting.DefaultHeaders(),
+							Body:       io.NopCloser(bytes.NewBuffer(data)),
+						}, nil
+					case method == http.MethodPatch && path == fmt.Sprintf("/api/v1/namespaces/%s/configmaps/%s", namespace, forbidden):
+						return &http.Response{StatusCode: http.StatusForbidden, Header: pkgtesting.DefaultHeaders()}, nil
+					default:
+						t.Logf("unexpected request: %#v\n%#v", r.URL, r)
+						return nil, fmt.Errorf("unexpected request")
+					}
+				}),
+			}
+
+			store, err := NewConfigMapStore(factory, testCase.name, namespace)
+			require.NoError(t, err)
+
+			ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+			defer cancel()
+
+			store.savedObjects = testCase.data
+			err = store.Save(ctx, "jpl-inventory-test")
+			if testCase.expectedErr {
+				require.Error(t, err)
+				assert.ErrorContains(t, err, testCase.errMessage)
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, testCase.expectedData, configMap.Data)
 		})
 	}
 }
