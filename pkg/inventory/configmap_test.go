@@ -207,7 +207,7 @@ func TestLoad(t *testing.T) {
 	testCases := map[string]struct {
 		name             string
 		body             *corev1.ConfigMap
-		expectedMetadata []ResourceMetadata
+		expectedMetadata map[ResourceMetadata]struct{}
 		expectErr        bool
 		errMessage       string
 	}{
@@ -217,33 +217,33 @@ func TestLoad(t *testing.T) {
 				"namespace_pod__Pod":               "",
 				"namespace_deploy_apps_Deployment": "",
 			}},
-			expectedMetadata: []ResourceMetadata{
+			expectedMetadata: map[ResourceMetadata]struct{}{
 				{
 					Name:      "pod",
 					Namespace: "namespace",
 					Kind:      "Pod",
-				},
+				}: {},
 				{
 					Name:      "deploy",
 					Namespace: "namespace",
 					Group:     "apps",
 					Kind:      "Deployment",
-				},
+				}: {},
 			},
 		},
 		"empty data in config map": {
 			name:             name,
 			body:             &corev1.ConfigMap{Data: map[string]string{}},
-			expectedMetadata: []ResourceMetadata{},
+			expectedMetadata: map[ResourceMetadata]struct{}{},
 		},
 		"config map without data field": {
 			name:             name,
 			body:             &corev1.ConfigMap{},
-			expectedMetadata: []ResourceMetadata{},
+			expectedMetadata: map[ResourceMetadata]struct{}{},
 		},
 		"missing config map": {
 			name:             notFound,
-			expectedMetadata: []ResourceMetadata{},
+			expectedMetadata: map[ResourceMetadata]struct{}{},
 		},
 		"error during GET": {
 			name:       forbidden,
@@ -278,7 +278,7 @@ func TestLoad(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 			defer cancel()
 
-			metadata, err := store.Load(ctx)
+			metadata, err := store.(*configMapStore).load(ctx)
 			if testCase.expectErr {
 				require.Error(t, err)
 				assert.ErrorContains(t, err, testCase.errMessage)
@@ -286,7 +286,7 @@ func TestLoad(t *testing.T) {
 			}
 
 			assert.NoError(t, err)
-			assert.ElementsMatch(t, testCase.expectedMetadata, metadata)
+			assert.Equal(t, testCase.expectedMetadata, metadata)
 		})
 	}
 }
@@ -303,7 +303,7 @@ func TestSave(t *testing.T) {
 		data         []ResourceMetadata
 		dryRun       bool
 		expectedData map[string]string
-		expectedErr  bool
+		expectErr    bool
 		errMessage   string
 	}{
 		"save empty confimap": {
@@ -358,10 +358,10 @@ func TestSave(t *testing.T) {
 			},
 		},
 		"save end in error": {
-			name:        forbidden,
-			data:        []ResourceMetadata{},
-			expectedErr: true,
-			errMessage:  "failed to save inventory",
+			name:       forbidden,
+			data:       []ResourceMetadata{},
+			expectErr:  true,
+			errMessage: "failed to save inventory",
 		},
 	}
 
@@ -409,7 +409,7 @@ func TestSave(t *testing.T) {
 
 			cmStore.savedObjects = testCase.data
 			err = store.Save(ctx, testCase.dryRun)
-			if testCase.expectedErr {
+			if testCase.expectErr {
 				require.Error(t, err)
 				assert.ErrorContains(t, err, testCase.errMessage)
 				return
@@ -417,6 +417,88 @@ func TestSave(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, testCase.expectedData, configMap.Data)
+		})
+	}
+}
+
+func TestDiff(t *testing.T) {
+	t.Parallel()
+	codec := pkgtesting.Codecs.LegacyCodec(pkgtesting.Scheme.PrioritizedVersionsAllGroups()...)
+
+	testdata := "testdata"
+	inventory := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdata, "inventory.yaml"))
+	deployment := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdata, "deployment.yaml"))
+	service := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdata, "service.yaml"))
+
+	testCases := map[string]struct {
+		client       *http.Client
+		objects      []*unstructured.Unstructured
+		expectedDiff []ResourceMetadata
+		expectErr    bool
+	}{
+		"no diff found": {
+			client: fake.CreateHTTPClient(func(_ *http.Request) (*http.Response, error) {
+				body := io.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(codec, inventory))))
+				return &http.Response{StatusCode: http.StatusOK, Header: pkgtesting.DefaultHeaders(), Body: body}, nil
+			}),
+			objects: []*unstructured.Unstructured{
+				deployment,
+				service,
+			},
+			expectedDiff: []ResourceMetadata{},
+		},
+		"diff found": {
+			client: fake.CreateHTTPClient(func(_ *http.Request) (*http.Response, error) {
+				body := io.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(codec, inventory))))
+				return &http.Response{StatusCode: http.StatusOK, Header: pkgtesting.DefaultHeaders(), Body: body}, nil
+			}),
+			objects: []*unstructured.Unstructured{
+				service,
+			},
+			expectedDiff: []ResourceMetadata{
+				{
+					Name:      deployment.GetName(),
+					Namespace: deployment.GetNamespace(),
+					Kind:      deployment.GroupVersionKind().Kind,
+					Group:     deployment.GroupVersionKind().Group,
+				},
+			},
+		},
+		"no remote state found": {
+			client: fake.CreateHTTPClient(func(_ *http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusNotFound, Header: pkgtesting.DefaultHeaders()}, nil
+			}),
+			objects: []*unstructured.Unstructured{
+				deployment,
+			},
+			expectedDiff: []ResourceMetadata{},
+		},
+		"error in retrieving state": {
+			client: fake.CreateHTTPClient(func(_ *http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusForbidden, Header: pkgtesting.DefaultHeaders()}, nil
+			}),
+			expectErr: true,
+		},
+	}
+
+	for testName, testCase := range testCases {
+		t.Run(testName, func(t *testing.T) {
+			factory := pkgtesting.NewTestClientFactory()
+			factory.Client = &fake.RESTClient{
+				Client: testCase.client,
+			}
+			ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+			defer cancel()
+			store, err := NewConfigMapStore(factory, "name", "namespace", "field-manager")
+			require.NoError(t, err)
+
+			diff, err := store.Diff(ctx, testCase.objects)
+			if testCase.expectErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.ElementsMatch(t, testCase.expectedDiff, diff)
 		})
 	}
 }

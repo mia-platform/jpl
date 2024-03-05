@@ -35,9 +35,10 @@ type Store interface {
 	// Save will persist the underling in memory inventory data for access on subsequent interaction
 	Save(ctx context.Context, dryRun bool) error
 
-	// Load will retrieve the inventory data saved, if available, and return it in ResourceMetadata form
-	Load(ctx context.Context) ([]ResourceMetadata, error)
-
 	// SetObjects will replace the current in memory objects inventory data
-	SetObjects([]*unstructured.Unstructured)
+	SetObjects(objects []*unstructured.Unstructured)
+
+	// Diff return a list of ResourceMetadatas that are not contained in objects but are present in the inventory remote
+	// storage. Return an error if it wasn't possible to read the remote storage
+	Diff(ctx context.Context, objects []*unstructured.Unstructured) ([]ResourceMetadata, error)
 }

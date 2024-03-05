@@ -69,6 +69,7 @@ func NewConfigMapStore(factory util.ClientFactory, name, namespace, fieldManager
 	}, err
 }
 
+// Save implement Store interface
 func (s *configMapStore) Save(ctx context.Context, dryRun bool) error {
 	opts := metav1.ApplyOptions{
 		Force:        true,
@@ -87,41 +88,55 @@ func (s *configMapStore) Save(ctx context.Context, dryRun bool) error {
 	return nil
 }
 
-func (s *configMapStore) Load(ctx context.Context) ([]ResourceMetadata, error) {
+// Save implement Store interface
+func (s *configMapStore) SetObjects(objects []*unstructured.Unstructured) {
+	savedObjects := make([]ResourceMetadata, 0, len(objects))
+	for _, resource := range objects {
+		savedObjects = append(savedObjects, resourceMetadataFromUnstructured(resource))
+	}
+
+	s.savedObjects = savedObjects
+}
+
+// Diff implement Store interface
+func (s *configMapStore) Diff(ctx context.Context, objects []*unstructured.Unstructured) ([]ResourceMetadata, error) {
+	remoteObjects, err := s.load(ctx)
+	if err != nil {
+		return []ResourceMetadata{}, err
+	}
+
+	// remove all objects that we can find inside the returned remote objects
+	for _, obj := range objects {
+		delete(remoteObjects, resourceMetadataFromUnstructured(obj))
+	}
+
+	// construct a slice from the map that is mimiking a set
+	diffMetadata := make([]ResourceMetadata, 0, len(remoteObjects))
+	for metadata := range remoteObjects {
+		diffMetadata = append(diffMetadata, metadata)
+	}
+
+	return diffMetadata, nil
+}
+
+// load will read the remote storage to retrieve the saved metadata
+func (s *configMapStore) load(ctx context.Context) (map[ResourceMetadata]struct{}, error) {
+	metadataSet := make(map[ResourceMetadata]struct{}, 0)
 	cm, err := s.clientset.CoreV1().ConfigMaps(s.namespace).Get(ctx, s.name, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return []ResourceMetadata{}, nil
+			return metadataSet, nil
 		}
 		return nil, fmt.Errorf("failed to find inventory: %w", err)
 	}
 
-	metadata := make([]ResourceMetadata, 0)
 	for dataKey := range cm.Data {
 		if ok, objMeta := parseObjectMetadataFromKey(dataKey); ok {
-			metadata = append(metadata, objMeta)
+			metadataSet[objMeta] = struct{}{}
 		}
 	}
 
-	return metadata, nil
-}
-
-func (s *configMapStore) SetObjects(objects []*unstructured.Unstructured) {
-	savedObjects := make([]ResourceMetadata, 0, len(objects))
-	for _, resource := range objects {
-		gvk := resource.GroupVersionKind()
-		name := resource.GetName()
-		namespace := resource.GetNamespace()
-
-		savedObjects = append(savedObjects, ResourceMetadata{
-			Name:      name,
-			Namespace: namespace,
-			Kind:      gvk.Kind,
-			Group:     gvk.Group,
-		})
-	}
-
-	s.savedObjects = savedObjects
+	return metadataSet, nil
 }
 
 // dataForStore create a ConfigMap data map based on the savedObjects inside store.
@@ -169,4 +184,16 @@ func parseObjectMetadataFromKey(key string) (bool, ResourceMetadata) {
 	}
 
 	return false, ResourceMetadata{}
+}
+
+func resourceMetadataFromUnstructured(obj *unstructured.Unstructured) ResourceMetadata {
+	gvk := obj.GroupVersionKind()
+	name := obj.GetName()
+	namespace := obj.GetNamespace()
+	return ResourceMetadata{
+		Name:      name,
+		Namespace: namespace,
+		Kind:      gvk.Kind,
+		Group:     gvk.Group,
+	}
 }
