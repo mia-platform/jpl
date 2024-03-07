@@ -21,6 +21,7 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -29,6 +30,9 @@ import (
 // ClientFactory provides abstractions that allow to change the certain functions in certain cases, like testing
 type ClientFactory interface {
 	genericclioptions.RESTClientGetter
+
+	// DynamicClient returns a dynamic client ready for use
+	DynamicClient() (dynamic.Interface, error)
 
 	// UnstructuredClientForMapping return a RESTClient that can be used for the Unstructured object described by mapping
 	UnstructuredClientForMapping(mapping *meta.RESTMapping) (resource.RESTClient, error)
@@ -66,6 +70,16 @@ func (f *factoryImplementation) ToRESTMapper() (meta.RESTMapper, error) {
 // ToRawKubeConfigLoader implement genericclioptions.RESTClientGetter
 func (f *factoryImplementation) ToRawKubeConfigLoader() clientcmd.ClientConfig {
 	return f.delegate.ToRawKubeConfigLoader()
+}
+
+// DynamicClient returns a dynamic client ready for use
+func (f *factoryImplementation) DynamicClient() (dynamic.Interface, error) {
+	clientConfig, err := f.ToRESTConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	return dynamic.NewForConfig(clientConfig)
 }
 
 // UnstructuredClientForMapping return a RESTClient that can be used for the Unstructured object described by mapping

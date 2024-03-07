@@ -47,8 +47,9 @@ var (
 	namespaceAppliedFilename  = filepath.Join(testdataFolder, "namespace-applied.yaml")
 )
 
-func TestCancelTask(t *testing.T) {
+func TestCancelApplyTask(t *testing.T) {
 	t.Parallel()
+
 	tf := pkgtesting.NewTestClientFactory().WithNamespace("applytest")
 	tf.Client = &fake.RESTClient{
 		NegotiatedSerializer: resource.UnstructuredPlusDefaultContentConfig().NegotiatedSerializer,
