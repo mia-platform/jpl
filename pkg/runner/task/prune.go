@@ -18,7 +18,7 @@ package task
 import (
 	"context"
 
-	"github.com/mia-platform/jpl/pkg/inventory"
+	"github.com/mia-platform/jpl/pkg/resource"
 	"github.com/mia-platform/jpl/pkg/runner"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -37,7 +37,7 @@ type PruneTask struct {
 	Client       dynamic.Interface
 	Mapper       meta.RESTMapper
 
-	ObjectMetadata []inventory.ResourceMetadata
+	ObjectMetadata []resource.ObjectMetadata
 
 	cancel context.CancelFunc
 }
@@ -68,7 +68,7 @@ func (t *PruneTask) Cancel() {
 }
 
 // pruneObject will delete the passed objMeta object in the remote cluster
-func pruneObject(ctx context.Context, mapper meta.RESTMapper, client dynamic.Interface, objMeta inventory.ResourceMetadata, dryRun bool) error {
+func pruneObject(ctx context.Context, mapper meta.RESTMapper, client dynamic.Interface, objMeta resource.ObjectMetadata, dryRun bool) error {
 	mapping, err := mapper.RESTMapping(schema.GroupKind{Group: objMeta.Group, Kind: objMeta.Kind})
 	if err != nil {
 		return err

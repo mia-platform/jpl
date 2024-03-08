@@ -18,16 +18,9 @@ package inventory
 import (
 	"context"
 
+	"github.com/mia-platform/jpl/pkg/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
-
-// ResourceMetadata reppresent the minimum subset of data to uniquily identify a resource deployed on a remote cluster
-type ResourceMetadata struct {
-	Name      string
-	Namespace string
-	Group     string
-	Kind      string
-}
 
 // Store define an interface for working with an inventory of deployed resources, without knowning the underling
 // technology that is used for persisting the data
@@ -38,7 +31,7 @@ type Store interface {
 	// SetObjects will replace the current in memory objects inventory data
 	SetObjects(objects []*unstructured.Unstructured)
 
-	// Diff return a list of ResourceMetadatas that are not contained in objects but are present in the inventory remote
+	// Diff return a list of ObjectMetadatas that are not contained in objects but are present in the inventory remote
 	// storage. Return an error if it wasn't possible to read the remote storage
-	Diff(ctx context.Context, objects []*unstructured.Unstructured) ([]ResourceMetadata, error)
+	Diff(ctx context.Context, objects []*unstructured.Unstructured) ([]resource.ObjectMetadata, error)
 }

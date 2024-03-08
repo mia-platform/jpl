@@ -18,9 +18,8 @@ package inventory
 import (
 	"context"
 	"fmt"
-	"regexp"
-	"strings"
 
+	"github.com/mia-platform/jpl/pkg/resource"
 	"github.com/mia-platform/jpl/pkg/util"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,16 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	clientv1 "k8s.io/client-go/applyconfigurations/core/v1"
 	"k8s.io/client-go/kubernetes"
-)
-
-const (
-	separator           = "_"
-	colonReplacement    = "__"
-	regexTemplate       = "^(%s)%s(%s)%s(%s)%s(%s)$"
-	regexNamespaceChars = "[[:alnum:]-.]*[[:alnum:]]?"
-	regexNameChars      = "[[:alnum:]][[:alnum:]-._]*[[:alnum:]]?"
-	regexGroupChars     = "[[:alnum:]-.]*[[:alnum:]]?"
-	regexKindChars      = "[[:alnum:]]*"
 )
 
 // keep it to always check if configMapStore implement correctly the Store interface
@@ -50,7 +39,7 @@ type configMapStore struct {
 	namespace    string
 	fieldManager string
 	clientset    *kubernetes.Clientset
-	savedObjects []ResourceMetadata
+	savedObjects []resource.ObjectMetadata
 }
 
 // NewConfigMapStore return a new Store instance configured with the provided factory that will persist
@@ -91,32 +80,32 @@ func (s *configMapStore) Save(ctx context.Context, dryRun bool) error {
 
 // Save implement Store interface
 func (s *configMapStore) SetObjects(objects []*unstructured.Unstructured) {
-	savedObjects := make([]ResourceMetadata, 0, len(objects))
-	for _, resource := range objects {
-		savedObjects = append(savedObjects, resourceMetadataFromUnstructured(resource))
+	savedObjects := make([]resource.ObjectMetadata, 0, len(objects))
+	for _, obj := range objects {
+		savedObjects = append(savedObjects, resource.ObjectMetadataFromUnstructured(obj))
 	}
 
 	s.savedObjects = savedObjects
 }
 
 // Diff implement Store interface
-func (s *configMapStore) Diff(ctx context.Context, objects []*unstructured.Unstructured) ([]ResourceMetadata, error) {
+func (s *configMapStore) Diff(ctx context.Context, objects []*unstructured.Unstructured) ([]resource.ObjectMetadata, error) {
 	remoteObjects, err := s.load(ctx)
 	if err != nil {
-		return []ResourceMetadata{}, err
+		return []resource.ObjectMetadata{}, err
 	}
 
 	// remove all objects that we can find inside the returned remote objects
 	for _, obj := range objects {
-		remoteObjects.Delete(resourceMetadataFromUnstructured(obj))
+		remoteObjects.Delete(resource.ObjectMetadataFromUnstructured(obj))
 	}
 
 	return remoteObjects.UnsortedList(), nil
 }
 
 // load will read the remote storage to retrieve the saved metadata
-func (s *configMapStore) load(ctx context.Context) (sets.Set[ResourceMetadata], error) {
-	metadataSet := make(sets.Set[ResourceMetadata], 0)
+func (s *configMapStore) load(ctx context.Context) (sets.Set[resource.ObjectMetadata], error) {
+	metadataSet := make(sets.Set[resource.ObjectMetadata], 0)
 	cm, err := s.clientset.CoreV1().ConfigMaps(s.namespace).Get(ctx, s.name, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -126,7 +115,7 @@ func (s *configMapStore) load(ctx context.Context) (sets.Set[ResourceMetadata], 
 	}
 
 	for dataKey := range cm.Data {
-		if ok, objMeta := parseObjectMetadataFromKey(dataKey); ok {
+		if ok, objMeta := resource.ObjectMetadataFromString(dataKey); ok {
 			metadataSet.Insert(objMeta)
 		}
 	}
@@ -140,55 +129,8 @@ func dataForStore(store *configMapStore) map[string]string {
 	data := make(map[string]string)
 
 	for _, objMeta := range store.savedObjects {
-		data[keyFromObjectMetadata(objMeta)] = ""
+		data[objMeta.ToString()] = ""
 	}
 
 	return data
-}
-
-// keyFromObjectMetadata will return a valid and unique ConfigMap key string based on a kubernetes metadata
-func keyFromObjectMetadata(obj ResourceMetadata) string {
-	// objects in Kubernetes must follow some rules that you can read at the following url
-	// https://kubernetes.io/docs/concepts/overview/working-with-objects/names/
-	// here an excerpt:
-	// Names must be unique across all API versions of the same resource. API resources are distinguished by their
-	// API group, resource type, namespace (for namespaced resources), and name.
-	return obj.Namespace + separator +
-		strings.ReplaceAll(obj.Name, ":", colonReplacement) + separator +
-		obj.Group + separator +
-		obj.Kind
-}
-
-// parseObjectMetadataFromKey will parse the given key for retrieving a ResourceMetadata, return false if the
-// parsed string doesn't match an encoded ResourceMetadata
-func parseObjectMetadataFromKey(key string) (bool, ResourceMetadata) {
-	re := regexp.MustCompile(fmt.Sprintf(regexTemplate,
-		regexNamespaceChars, separator,
-		regexNameChars, separator,
-		regexGroupChars, separator,
-		regexKindChars,
-	))
-
-	if submatches := re.FindStringSubmatch(key); len(submatches) > 0 {
-		return true, ResourceMetadata{
-			Namespace: submatches[1],
-			Name:      strings.ReplaceAll(submatches[2], colonReplacement, ":"),
-			Group:     submatches[3],
-			Kind:      submatches[4],
-		}
-	}
-
-	return false, ResourceMetadata{}
-}
-
-func resourceMetadataFromUnstructured(obj *unstructured.Unstructured) ResourceMetadata {
-	gvk := obj.GroupVersionKind()
-	name := obj.GetName()
-	namespace := obj.GetNamespace()
-	return ResourceMetadata{
-		Name:      name,
-		Namespace: namespace,
-		Kind:      gvk.Kind,
-		Group:     gvk.Group,
-	}
 }

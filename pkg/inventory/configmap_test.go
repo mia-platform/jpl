@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mia-platform/jpl/pkg/resource"
 	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -54,148 +55,6 @@ func TestNewConfigMapStore(t *testing.T) {
 	assert.Equal(t, fieldManager, cmStore.fieldManager)
 }
 
-func TestKeyFromObjectMetadata(t *testing.T) {
-	t.Parallel()
-
-	testCases := map[string]struct {
-		resourceMetadata ResourceMetadata
-		expectedKey      string
-	}{
-		"complete metadata": {
-			resourceMetadata: ResourceMetadata{
-				Name:      "test-name",
-				Namespace: "test-namespace",
-				Group:     "example.com",
-				Kind:      "Example",
-			},
-			expectedKey: "test-namespace_test-name_example.com_Example",
-		},
-		"core group": {
-			resourceMetadata: ResourceMetadata{
-				Name:      "test-name",
-				Namespace: "default",
-				Group:     "",
-				Kind:      "ConfigMap",
-			},
-			expectedKey: "default_test-name__ConfigMap",
-		},
-		"cluster resource": {
-			resourceMetadata: ResourceMetadata{
-				Name:      "test-name",
-				Namespace: "",
-				Group:     "apiextensions.k8s.io",
-				Kind:      "CustomResourceDefinition",
-			},
-			expectedKey: "_test-name_apiextensions.k8s.io_CustomResourceDefinition",
-		},
-		"RBAC resource": {
-			resourceMetadata: ResourceMetadata{
-				Name:      "system:controller:namespace-controller",
-				Namespace: "",
-				Kind:      "ClusterRole",
-				Group:     "rbac.authorization.k8s.io",
-			},
-			expectedKey: "_system__controller__namespace-controller_rbac.authorization.k8s.io_ClusterRole",
-		},
-	}
-
-	for testName, testCase := range testCases {
-		t.Run(testName, func(t *testing.T) {
-			key := keyFromObjectMetadata(testCase.resourceMetadata)
-			assert.Equal(t, testCase.expectedKey, key)
-		})
-	}
-}
-
-func TestParseObjectMetadataFromKey(t *testing.T) {
-	t.Parallel()
-
-	testCases := map[string]struct {
-		key                      string
-		expectedFound            bool
-		expectedResourceMetadata ResourceMetadata
-	}{
-		"correct string": {
-			key:           "test-namespace_test-name_example.com_Example",
-			expectedFound: true,
-			expectedResourceMetadata: ResourceMetadata{
-				Name:      "test-name",
-				Namespace: "test-namespace",
-				Kind:      "Example",
-				Group:     "example.com",
-			},
-		},
-		"colon in name and dashes in group": {
-			key:           "test-namespace_test__name_dash-example.com_Example",
-			expectedFound: true,
-			expectedResourceMetadata: ResourceMetadata{
-				Name:      "test:name",
-				Namespace: "test-namespace",
-				Kind:      "Example",
-				Group:     "dash-example.com",
-			},
-		},
-		"dashes in namespace": {
-			key:           "test__namespace_test-name_example.com_Example",
-			expectedFound: false,
-			expectedResourceMetadata: ResourceMetadata{
-				Name:      "",
-				Namespace: "",
-				Kind:      "",
-				Group:     "",
-			},
-		},
-		"random string": {
-			key:           "wrong key",
-			expectedFound: false,
-			expectedResourceMetadata: ResourceMetadata{
-				Name:      "",
-				Namespace: "",
-				Kind:      "",
-				Group:     "",
-			},
-		},
-		"cluster resource namespace": {
-			key:           "_system__controller__namespace-controller_rbac.authorization.k8s.io_ClusterRole",
-			expectedFound: true,
-			expectedResourceMetadata: ResourceMetadata{
-				Name:      "system:controller:namespace-controller",
-				Namespace: "",
-				Kind:      "ClusterRole",
-				Group:     "rbac.authorization.k8s.io",
-			},
-		},
-		"number in kind": {
-			key:           "test-namespace_test-name_cilium.io_CiliumL2AnnouncementPolicy",
-			expectedFound: true,
-			expectedResourceMetadata: ResourceMetadata{
-				Name:      "test-name",
-				Namespace: "test-namespace",
-				Kind:      "CiliumL2AnnouncementPolicy",
-				Group:     "cilium.io",
-			},
-		},
-		"core group": {
-			key:           "test-namespace_test-name__ConfigMap",
-			expectedFound: true,
-			expectedResourceMetadata: ResourceMetadata{
-				Name:      "test-name",
-				Namespace: "test-namespace",
-				Kind:      "ConfigMap",
-				Group:     "",
-			},
-		},
-	}
-
-	for testName, testCase := range testCases {
-		t.Run(testName, func(t *testing.T) {
-			ok, resMeta := parseObjectMetadataFromKey(testCase.key)
-			assert.Equal(t, testCase.expectedFound, ok)
-			assert.Equal(t, testCase.expectedResourceMetadata, resMeta)
-		})
-	}
-}
-
 func TestLoad(t *testing.T) {
 	t.Parallel()
 
@@ -208,7 +67,7 @@ func TestLoad(t *testing.T) {
 	testCases := map[string]struct {
 		name             string
 		body             *corev1.ConfigMap
-		expectedMetadata sets.Set[ResourceMetadata]
+		expectedMetadata sets.Set[resource.ObjectMetadata]
 		expectErr        bool
 		errMessage       string
 	}{
@@ -218,12 +77,12 @@ func TestLoad(t *testing.T) {
 				"namespace_pod__Pod":               "",
 				"namespace_deploy_apps_Deployment": "",
 			}},
-			expectedMetadata: sets.New(ResourceMetadata{
+			expectedMetadata: sets.New(resource.ObjectMetadata{
 				Name:      "pod",
 				Namespace: "namespace",
 				Kind:      "Pod",
 			},
-				ResourceMetadata{
+				resource.ObjectMetadata{
 					Name:      "deploy",
 					Namespace: "namespace",
 					Group:     "apps",
@@ -234,16 +93,16 @@ func TestLoad(t *testing.T) {
 		"empty data in config map": {
 			name:             name,
 			body:             &corev1.ConfigMap{Data: map[string]string{}},
-			expectedMetadata: sets.Set[ResourceMetadata]{},
+			expectedMetadata: sets.Set[resource.ObjectMetadata]{},
 		},
 		"config map without data field": {
 			name:             name,
 			body:             &corev1.ConfigMap{},
-			expectedMetadata: sets.Set[ResourceMetadata]{},
+			expectedMetadata: sets.Set[resource.ObjectMetadata]{},
 		},
 		"missing config map": {
 			name:             notFound,
-			expectedMetadata: sets.Set[ResourceMetadata]{},
+			expectedMetadata: sets.Set[resource.ObjectMetadata]{},
 		},
 		"error during GET": {
 			name:       forbidden,
@@ -300,7 +159,7 @@ func TestSave(t *testing.T) {
 
 	testCases := map[string]struct {
 		name         string
-		data         []ResourceMetadata
+		data         []resource.ObjectMetadata
 		dryRun       bool
 		expectedData map[string]string
 		expectErr    bool
@@ -308,12 +167,12 @@ func TestSave(t *testing.T) {
 	}{
 		"save empty confimap": {
 			name:         name,
-			data:         []ResourceMetadata{},
+			data:         []resource.ObjectMetadata{},
 			expectedData: nil,
 		},
 		"save single element confimap": {
 			name: name,
-			data: []ResourceMetadata{
+			data: []resource.ObjectMetadata{
 				{
 					Kind:      "Pod",
 					Name:      name,
@@ -326,7 +185,7 @@ func TestSave(t *testing.T) {
 		},
 		"save multiple element confimap": {
 			name: name,
-			data: []ResourceMetadata{
+			data: []resource.ObjectMetadata{
 				{
 					Kind:      "Pod",
 					Name:      name,
@@ -345,7 +204,7 @@ func TestSave(t *testing.T) {
 		},
 		"save with dryRun": {
 			name: name,
-			data: []ResourceMetadata{
+			data: []resource.ObjectMetadata{
 				{
 					Kind:      "Pod",
 					Name:      name,
@@ -359,7 +218,7 @@ func TestSave(t *testing.T) {
 		},
 		"save end in error": {
 			name:       forbidden,
-			data:       []ResourceMetadata{},
+			data:       []resource.ObjectMetadata{},
 			expectErr:  true,
 			errMessage: "failed to save inventory",
 		},
@@ -433,7 +292,7 @@ func TestDiff(t *testing.T) {
 	testCases := map[string]struct {
 		client       *http.Client
 		objects      []*unstructured.Unstructured
-		expectedDiff []ResourceMetadata
+		expectedDiff []resource.ObjectMetadata
 		expectErr    bool
 	}{
 		"no diff found": {
@@ -445,7 +304,7 @@ func TestDiff(t *testing.T) {
 				deployment,
 				service,
 			},
-			expectedDiff: []ResourceMetadata{},
+			expectedDiff: []resource.ObjectMetadata{},
 		},
 		"diff found": {
 			client: fake.CreateHTTPClient(func(_ *http.Request) (*http.Response, error) {
@@ -455,7 +314,7 @@ func TestDiff(t *testing.T) {
 			objects: []*unstructured.Unstructured{
 				service,
 			},
-			expectedDiff: []ResourceMetadata{
+			expectedDiff: []resource.ObjectMetadata{
 				{
 					Name:      deployment.GetName(),
 					Namespace: deployment.GetNamespace(),
@@ -471,7 +330,7 @@ func TestDiff(t *testing.T) {
 			objects: []*unstructured.Unstructured{
 				deployment,
 			},
-			expectedDiff: []ResourceMetadata{},
+			expectedDiff: []resource.ObjectMetadata{},
 		},
 		"error in retrieving state": {
 			client: fake.CreateHTTPClient(func(_ *http.Request) (*http.Response, error) {
@@ -508,12 +367,12 @@ func TestSetObjects(t *testing.T) {
 
 	testdataFolder := filepath.Join("..", "..", "testdata", "commons")
 	deploymentFilename := filepath.Join(testdataFolder, "deployment.yaml")
-	startingMetadata := ResourceMetadata{
+	startingMetadata := resource.ObjectMetadata{
 		Name:      "pod",
 		Namespace: "",
 		Kind:      "Pod",
 	}
-	deploymentMetadata := ResourceMetadata{
+	deploymentMetadata := resource.ObjectMetadata{
 		Name:      "nginx",
 		Namespace: "",
 		Kind:      "Deployment",
@@ -521,23 +380,23 @@ func TestSetObjects(t *testing.T) {
 	}
 
 	testCases := map[string]struct {
-		resource                 *unstructured.Unstructured
-		startingMetadata         []ResourceMetadata
-		expectedResourceMetadata []ResourceMetadata
+		resource            *unstructured.Unstructured
+		startingMetadata    []resource.ObjectMetadata
+		expectedObjMetadata []resource.ObjectMetadata
 	}{
 		"nil starting metatada": {
-			resource:                 pkgtesting.UnstructuredFromFile(t, deploymentFilename),
-			expectedResourceMetadata: []ResourceMetadata{deploymentMetadata},
+			resource:            pkgtesting.UnstructuredFromFile(t, deploymentFilename),
+			expectedObjMetadata: []resource.ObjectMetadata{deploymentMetadata},
 		},
 		"empty starting metadata": {
-			resource:                 pkgtesting.UnstructuredFromFile(t, deploymentFilename),
-			startingMetadata:         []ResourceMetadata{},
-			expectedResourceMetadata: []ResourceMetadata{deploymentMetadata},
+			resource:            pkgtesting.UnstructuredFromFile(t, deploymentFilename),
+			startingMetadata:    []resource.ObjectMetadata{},
+			expectedObjMetadata: []resource.ObjectMetadata{deploymentMetadata},
 		},
 		"elements already in metadata": {
-			resource:                 pkgtesting.UnstructuredFromFile(t, deploymentFilename),
-			startingMetadata:         []ResourceMetadata{startingMetadata},
-			expectedResourceMetadata: []ResourceMetadata{deploymentMetadata},
+			resource:            pkgtesting.UnstructuredFromFile(t, deploymentFilename),
+			startingMetadata:    []resource.ObjectMetadata{startingMetadata},
+			expectedObjMetadata: []resource.ObjectMetadata{deploymentMetadata},
 		},
 	}
 
@@ -547,7 +406,7 @@ func TestSetObjects(t *testing.T) {
 				savedObjects: testCase.startingMetadata,
 			}
 			s.SetObjects([]*unstructured.Unstructured{testCase.resource})
-			assert.Equal(t, testCase.expectedResourceMetadata, s.savedObjects)
+			assert.Equal(t, testCase.expectedObjMetadata, s.savedObjects)
 		})
 	}
 }

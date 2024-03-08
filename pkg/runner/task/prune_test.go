@@ -19,7 +19,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/mia-platform/jpl/pkg/inventory"
+	"github.com/mia-platform/jpl/pkg/resource"
 	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,7 +38,7 @@ func TestCancelPruneTask(t *testing.T) {
 	client, err := tf.DynamicClient()
 	require.NoError(t, err)
 	task := &PruneTask{
-		ObjectMetadata: []inventory.ResourceMetadata{
+		ObjectMetadata: []resource.ObjectMetadata{
 			{
 				Name:      "cancel-test",
 				Namespace: "cancel-test",
@@ -68,7 +68,7 @@ func TestPruneAction(t *testing.T) {
 	require.NoError(t, err)
 
 	task := &PruneTask{
-		ObjectMetadata: []inventory.ResourceMetadata{
+		ObjectMetadata: []resource.ObjectMetadata{
 			{
 				Kind:      "Pod",
 				Name:      "test",
