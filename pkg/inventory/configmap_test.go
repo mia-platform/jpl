@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/rest/fake"
 )
 
@@ -207,7 +208,7 @@ func TestLoad(t *testing.T) {
 	testCases := map[string]struct {
 		name             string
 		body             *corev1.ConfigMap
-		expectedMetadata map[ResourceMetadata]struct{}
+		expectedMetadata sets.Set[ResourceMetadata]
 		expectErr        bool
 		errMessage       string
 	}{
@@ -217,33 +218,32 @@ func TestLoad(t *testing.T) {
 				"namespace_pod__Pod":               "",
 				"namespace_deploy_apps_Deployment": "",
 			}},
-			expectedMetadata: map[ResourceMetadata]struct{}{
-				{
-					Name:      "pod",
-					Namespace: "namespace",
-					Kind:      "Pod",
-				}: {},
-				{
+			expectedMetadata: sets.New(ResourceMetadata{
+				Name:      "pod",
+				Namespace: "namespace",
+				Kind:      "Pod",
+			},
+				ResourceMetadata{
 					Name:      "deploy",
 					Namespace: "namespace",
 					Group:     "apps",
 					Kind:      "Deployment",
-				}: {},
-			},
+				},
+			),
 		},
 		"empty data in config map": {
 			name:             name,
 			body:             &corev1.ConfigMap{Data: map[string]string{}},
-			expectedMetadata: map[ResourceMetadata]struct{}{},
+			expectedMetadata: sets.Set[ResourceMetadata]{},
 		},
 		"config map without data field": {
 			name:             name,
 			body:             &corev1.ConfigMap{},
-			expectedMetadata: map[ResourceMetadata]struct{}{},
+			expectedMetadata: sets.Set[ResourceMetadata]{},
 		},
 		"missing config map": {
 			name:             notFound,
-			expectedMetadata: map[ResourceMetadata]struct{}{},
+			expectedMetadata: sets.Set[ResourceMetadata]{},
 		},
 		"error during GET": {
 			name:       forbidden,

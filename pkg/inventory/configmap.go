@@ -25,6 +25,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/sets"
 	clientv1 "k8s.io/client-go/applyconfigurations/core/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -107,21 +108,15 @@ func (s *configMapStore) Diff(ctx context.Context, objects []*unstructured.Unstr
 
 	// remove all objects that we can find inside the returned remote objects
 	for _, obj := range objects {
-		delete(remoteObjects, resourceMetadataFromUnstructured(obj))
+		remoteObjects.Delete(resourceMetadataFromUnstructured(obj))
 	}
 
-	// construct a slice from the map that is mimiking a set
-	diffMetadata := make([]ResourceMetadata, 0, len(remoteObjects))
-	for metadata := range remoteObjects {
-		diffMetadata = append(diffMetadata, metadata)
-	}
-
-	return diffMetadata, nil
+	return remoteObjects.UnsortedList(), nil
 }
 
 // load will read the remote storage to retrieve the saved metadata
-func (s *configMapStore) load(ctx context.Context) (map[ResourceMetadata]struct{}, error) {
-	metadataSet := make(map[ResourceMetadata]struct{}, 0)
+func (s *configMapStore) load(ctx context.Context) (sets.Set[ResourceMetadata], error) {
+	metadataSet := make(sets.Set[ResourceMetadata], 0)
 	cm, err := s.clientset.CoreV1().ConfigMaps(s.namespace).Get(ctx, s.name, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -132,7 +127,7 @@ func (s *configMapStore) load(ctx context.Context) (map[ResourceMetadata]struct{
 
 	for dataKey := range cm.Data {
 		if ok, objMeta := parseObjectMetadataFromKey(dataKey); ok {
-			metadataSet[objMeta] = struct{}{}
+			metadataSet.Insert(objMeta)
 		}
 	}
 
