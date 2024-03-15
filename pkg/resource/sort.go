@@ -22,45 +22,55 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// SortedObjects return a new array with the resources sorted using the Unstructured metadata and GVK
-func SortedObjects(objects []*unstructured.Unstructured) []*unstructured.Unstructured {
-	objectsCopy := make([]*unstructured.Unstructured, len(objects))
-	copy(objectsCopy, objects)
-
-	sort.Sort(sortableObjects(objectsCopy))
-	return objectsCopy
-}
-
-// sortableObjects internal type for applying the sort interface to an array of Unstructured
-type sortableObjects []*unstructured.Unstructured
+// SortableObjects internal type for applying the sort interface to an array of Unstructured
+type SortableObjects []*unstructured.Unstructured
 
 // keep it to always check if sortableObjects implement correctly the sort interface
-var _ sort.Interface = sortableObjects{}
+var _ sort.Interface = SortableObjects{}
+
+type SortableMetadatas []ObjectMetadata
 
 // Len implement sort.Interface
-func (objs sortableObjects) Len() int { return len(objs) }
+func (objs SortableObjects) Len() int { return len(objs) }
 
 // Swap implement sort.Interface
-func (objs sortableObjects) Swap(i, j int) { objs[i], objs[j] = objs[j], objs[i] }
+func (objs SortableObjects) Swap(i, j int) { objs[i], objs[j] = objs[j], objs[i] }
 
 // Less implement sort.Interface
-func (objs sortableObjects) Less(i, j int) bool {
-	firstUnstructured := objs[i]
-	secondUnstructured := objs[j]
-	firstGK := firstUnstructured.GroupVersionKind().GroupKind()
-	secondGK := secondUnstructured.GroupVersionKind().GroupKind()
+func (objs SortableObjects) Less(i, j int) bool {
+	firstMetadata := ObjectMetadataFromUnstructured(objs[i])
+	secondMetadata := ObjectMetadataFromUnstructured(objs[j])
+	return less(firstMetadata, secondMetadata)
+}
+
+var _ sort.Interface = SortableMetadatas{}
+
+// Len implement sort.Interface
+func (objs SortableMetadatas) Len() int { return len(objs) }
+
+// Swap implement sort.Interface
+func (objs SortableMetadatas) Swap(i, j int) { objs[i], objs[j] = objs[j], objs[i] }
+
+// Less implement sort.Interface
+func (objs SortableMetadatas) Less(i, j int) bool {
+	return less(objs[i], objs[j])
+}
+
+func less(i, j ObjectMetadata) bool {
+	firstGK := schema.GroupKind{Kind: i.Kind, Group: i.Group}
+	secondGK := schema.GroupKind{Kind: j.Kind, Group: j.Group}
 	if firstGK != secondGK {
 		return lessGK(firstGK, secondGK)
 	}
 
 	// if objects has same GroupKind order by namespace and name
-	firstNamespace := firstUnstructured.GetNamespace()
-	secondNamespace := secondUnstructured.GetNamespace()
+	firstNamespace := i.Namespace
+	secondNamespace := j.Namespace
 	if firstNamespace != secondNamespace {
 		return firstNamespace < secondNamespace
 	}
 
-	return firstUnstructured.GetName() < secondUnstructured.GetName()
+	return i.Name < j.Name
 }
 
 // lessGK implement the sorting between two GroupKinds it will use a fixed order for well known basic types of

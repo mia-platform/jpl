@@ -97,15 +97,16 @@ func applyResources(t *testing.T, factory util.ClientFactory, reader io.Reader, 
 	require.NoError(t, err)
 	require.Equal(t, expectedCount, len(resources), "unexpected count of reasources read from path or buffer")
 
-	applier, err := jplclient.NewApplier(factory)
+	applier, err := jplclient.NewBuilder().
+		WithGenerators(generator.NewJobGenerator("jpl.mia-platform.eu/create", "true")).
+		WithFactory(factory).
+		Build()
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	err = applier.
-		WithGenerators(generator.NewJobGenerator("jpl.mia-platform.eu/create", "true")).
-		Run(ctx, resources, jplclient.ApplierOptions{FieldManager: "jpl-test"})
+	err = applier.Run(ctx, resources, jplclient.ApplierOptions{FieldManager: "jpl-test"})
 	require.NoError(t, err)
 }
 

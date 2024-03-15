@@ -19,13 +19,13 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/mia-platform/jpl/pkg/generator"
 	"github.com/mia-platform/jpl/pkg/resource"
 	"github.com/mia-platform/jpl/pkg/runner"
 	"github.com/mia-platform/jpl/pkg/runner/task"
-	"github.com/mia-platform/jpl/pkg/util"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -37,30 +37,6 @@ type Applier struct {
 	mapper      meta.RESTMapper
 	runner      runner.TaskRunner
 	generators  []generator.Interface
-}
-
-// NewApplier return a new Applier object configured using the provided factory
-func NewApplier(factory util.ClientFactory) (*Applier, error) {
-	mapper, err := factory.ToRESTMapper()
-	if err != nil {
-		return nil, err
-	}
-
-	fetcher, err := task.DefaultInfoFetcherBuilder(factory)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Applier{
-		mapper:      mapper,
-		infoFetcher: fetcher,
-		runner:      runner.NewTaskRunner(),
-	}, nil
-}
-
-func (a *Applier) WithGenerators(generators ...generator.Interface) *Applier {
-	a.generators = generators
-	return a
 }
 
 // ApplierOptions options for the apply step
@@ -101,9 +77,10 @@ func (a *Applier) Run(ctx context.Context, objects []*unstructured.Unstructured,
 		}
 	}
 
-	sortedObject := resource.SortedObjects(append(objects, generatedObject...))
+	objects = append(objects, generatedObject...)
+	sort.Sort(resource.SortableObjects(objects))
 
-	tasksQueue := taskQueue(sortedObject, a.infoFetcher, options)
+	tasksQueue := taskQueue(objects, a.infoFetcher, options)
 	return a.runner.RunWithQueue(applierCtx, tasksQueue)
 }
 

@@ -32,9 +32,19 @@ import (
 
 func TestNewApplier(t *testing.T) {
 	t.Parallel()
-	applier, err := NewApplier(pkgtesting.NewTestClientFactory())
+	applier, err := NewBuilder().
+		WithFactory(pkgtesting.NewTestClientFactory()).
+		Build()
+
 	assert.NotNil(t, applier)
+	assert.NotNil(t, applier.runner)
+	assert.NotNil(t, applier.mapper)
+	assert.NotNil(t, applier.infoFetcher)
 	assert.NoError(t, err)
+
+	applier, err = NewBuilder().Build()
+	assert.Nil(t, applier)
+	assert.Error(t, err)
 }
 
 func TestApplierRun(t *testing.T) {
@@ -84,12 +94,13 @@ func TestApplierRun(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
-			applier, err := NewApplier(pkgtesting.NewTestClientFactory())
+			applier, err := NewBuilder().
+				WithFactory(pkgtesting.NewTestClientFactory()).
+				WithRunner(testCase.runner).
+				Build()
 			require.NoError(t, err)
-			applier.runner = testCase.runner
 
 			err = applier.Run(context.TODO(), testCase.objects, testCase.options)
-
 			switch testCase.expectError {
 			case true:
 				assert.Error(t, err)
@@ -106,30 +117,30 @@ func TestGenerators(t *testing.T) {
 	deploymentFilename := filepath.Join(testdataPath, "deployment.yaml")
 	cronjobFilename := filepath.Join(testdataPath, "cronjob.yaml")
 
-	applier, err := NewApplier(pkgtesting.NewTestClientFactory())
+	applier, err := NewBuilder().
+		WithFactory(pkgtesting.NewTestClientFactory()).
+		WithRunner(&fakeRunner{
+			runHandler: func(_ context.Context, queue chan runner.Task) error {
+				assert.Equal(t, 3, len(queue))
+				for currentTask := range queue {
+					applyTask, ok := currentTask.(*task.ApplyTask)
+					require.True(t, ok)
+					assert.False(t, applyTask.DryRun)
+					assert.Equal(t, 1, len(applyTask.Objects))
+				}
+				return nil
+			},
+		}).
+		WithGenerators(generator.NewJobGenerator("jpl.mia-platform.eu/create", "true")).
+		Build()
 	require.NoError(t, err)
-	applier.runner = &fakeRunner{
-		runHandler: func(_ context.Context, queue chan runner.Task) error {
-			assert.Equal(t, 3, len(queue))
-			for currentTask := range queue {
-				applyTask, ok := currentTask.(*task.ApplyTask)
-				require.True(t, ok)
-				assert.False(t, applyTask.DryRun)
-				assert.Equal(t, 1, len(applyTask.Objects))
-			}
-			return nil
-		},
-	}
 
 	objects := []*unstructured.Unstructured{
 		pkgtesting.UnstructuredFromFile(t, deploymentFilename),
 		pkgtesting.UnstructuredFromFile(t, cronjobFilename),
 	}
 
-	err = applier.
-		WithGenerators(generator.NewJobGenerator("jpl.mia-platform.eu/create", "true")).
-		Run(context.TODO(), objects, ApplierOptions{})
-
+	err = applier.Run(context.TODO(), objects, ApplierOptions{})
 	require.NoError(t, err)
 }
 
