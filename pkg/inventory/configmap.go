@@ -38,14 +38,14 @@ type configMapStore struct {
 	name         string
 	namespace    string
 	fieldManager string
+
 	clientset    *kubernetes.Clientset
-	savedObjects []resource.ObjectMetadata
+	savedObjects sets.Set[*unstructured.Unstructured]
 }
 
 // NewConfigMapStore return a new Store instance configured with the provided factory that will persist
 // data via a ConfigMap resource. The namespace is where the backing ConfigMap will be read and saved.
 func NewConfigMapStore(factory util.ClientFactory, name, namespace, fieldManager string) (Store, error) {
-	var err error
 	clientset, err := factory.KubernetesClientSet()
 	if err != nil {
 		return nil, err
@@ -56,7 +56,7 @@ func NewConfigMapStore(factory util.ClientFactory, name, namespace, fieldManager
 		namespace:    namespace,
 		fieldManager: fieldManager,
 		clientset:    clientset,
-	}, err
+	}, nil
 }
 
 // Save implement Store interface
@@ -78,21 +78,34 @@ func (s *configMapStore) Save(ctx context.Context, dryRun bool) error {
 	return nil
 }
 
-// Save implement Store interface
-func (s *configMapStore) SetObjects(objects []*unstructured.Unstructured) {
-	savedObjects := make([]resource.ObjectMetadata, 0, len(objects))
-	for _, obj := range objects {
-		savedObjects = append(savedObjects, resource.ObjectMetadataFromUnstructured(obj))
+// Delete implement Store interface
+func (s *configMapStore) Delete(ctx context.Context, dryRun bool) error {
+	propagation := metav1.DeletePropagationBackground
+	opts := metav1.DeleteOptions{
+		PropagationPolicy: &propagation,
 	}
 
-	s.savedObjects = savedObjects
+	if dryRun {
+		opts.DryRun = []string{metav1.DryRunAll}
+	}
+
+	if err := s.clientset.CoreV1().ConfigMaps(s.namespace).Delete(ctx, s.name, opts); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete inventory: %w", err)
+	}
+
+	return nil
+}
+
+// Save implement Store interface
+func (s *configMapStore) SetObjects(objs sets.Set[*unstructured.Unstructured]) {
+	s.savedObjects = objs.Clone()
 }
 
 // Diff implement Store interface
-func (s *configMapStore) Diff(ctx context.Context, objects []*unstructured.Unstructured) ([]resource.ObjectMetadata, error) {
-	remoteObjects, err := s.load(ctx)
+func (s *configMapStore) Diff(ctx context.Context, objects []*unstructured.Unstructured) (sets.Set[resource.ObjectMetadata], error) {
+	remoteObjects, err := s.Load(ctx)
 	if err != nil {
-		return []resource.ObjectMetadata{}, err
+		return sets.New[resource.ObjectMetadata](), err
 	}
 
 	// remove all objects that we can find inside the returned remote objects
@@ -100,11 +113,11 @@ func (s *configMapStore) Diff(ctx context.Context, objects []*unstructured.Unstr
 		remoteObjects.Delete(resource.ObjectMetadataFromUnstructured(obj))
 	}
 
-	return remoteObjects.UnsortedList(), nil
+	return remoteObjects, nil
 }
 
-// load will read the remote storage to retrieve the saved metadata
-func (s *configMapStore) load(ctx context.Context) (sets.Set[resource.ObjectMetadata], error) {
+// Load will read the remote storage to retrieve the saved metadata
+func (s *configMapStore) Load(ctx context.Context) (sets.Set[resource.ObjectMetadata], error) {
 	metadataSet := make(sets.Set[resource.ObjectMetadata], 0)
 	cm, err := s.clientset.CoreV1().ConfigMaps(s.namespace).Get(ctx, s.name, metav1.GetOptions{})
 	if err != nil {
@@ -128,8 +141,8 @@ func (s *configMapStore) load(ctx context.Context) (sets.Set[resource.ObjectMeta
 func dataForStore(store *configMapStore) map[string]string {
 	data := make(map[string]string)
 
-	for _, objMeta := range store.savedObjects {
-		data[objMeta.ToString()] = ""
+	for obj := range store.savedObjects {
+		data[resource.ObjectMetadataFromUnstructured(obj).ToString()] = ""
 	}
 
 	return data

@@ -20,18 +20,25 @@ import (
 
 	"github.com/mia-platform/jpl/pkg/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 // Store define an interface for working with an inventory of deployed resources, without knowning the underling
 // technology that is used for persisting the data
 type Store interface {
+	// Load will read the inventory data from the remote storage of the inventory
+	Load(ctx context.Context) (sets.Set[resource.ObjectMetadata], error)
+
 	// Save will persist the underling in memory inventory data for access on subsequent interaction
 	Save(ctx context.Context, dryRun bool) error
 
+	// Delete will remove remote storage of the inventory
+	Delete(ctx context.Context, dryRun bool) error
+
 	// SetObjects will replace the current in memory objects inventory data
-	SetObjects(objects []*unstructured.Unstructured)
+	SetObjects(objects sets.Set[*unstructured.Unstructured])
 
 	// Diff return a list of ObjectMetadatas that are not contained in objects but are present in the inventory remote
 	// storage. Return an error if it wasn't possible to read the remote storage
-	Diff(ctx context.Context, objects []*unstructured.Unstructured) ([]resource.ObjectMetadata, error)
+	Diff(ctx context.Context, objects []*unstructured.Unstructured) (sets.Set[resource.ObjectMetadata], error)
 }

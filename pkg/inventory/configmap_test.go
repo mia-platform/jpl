@@ -30,6 +30,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -137,7 +138,7 @@ func TestLoad(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 			defer cancel()
 
-			metadata, err := store.(*configMapStore).load(ctx)
+			metadata, err := store.(*configMapStore).Load(ctx)
 			if testCase.expectErr {
 				require.Error(t, err)
 				assert.ErrorContains(t, err, testCase.errMessage)
@@ -157,9 +158,13 @@ func TestSave(t *testing.T) {
 	namespace := "test-namespace"
 	forbidden := "forbidden"
 
+	testdata := "testdata"
+	deployment := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdata, "deployment.yaml"))
+	service := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdata, "service.yaml"))
+
 	testCases := map[string]struct {
 		name         string
-		data         []resource.ObjectMetadata
+		data         sets.Set[*unstructured.Unstructured]
 		dryRun       bool
 		expectedData map[string]string
 		expectErr    bool
@@ -167,58 +172,35 @@ func TestSave(t *testing.T) {
 	}{
 		"save empty confimap": {
 			name:         name,
-			data:         []resource.ObjectMetadata{},
+			data:         sets.New[*unstructured.Unstructured](),
 			expectedData: nil,
 		},
 		"save single element confimap": {
 			name: name,
-			data: []resource.ObjectMetadata{
-				{
-					Kind:      "Pod",
-					Name:      name,
-					Namespace: namespace,
-				},
-			},
+			data: sets.New(deployment),
 			expectedData: map[string]string{
-				namespace + "_" + name + "__Pod": "",
+				"_" + "nginx" + "_apps_Deployment": "",
 			},
 		},
 		"save multiple element confimap": {
 			name: name,
-			data: []resource.ObjectMetadata{
-				{
-					Kind:      "Pod",
-					Name:      name,
-					Namespace: namespace,
-				},
-				{
-					Kind:      "Deployment",
-					Name:      name,
-					Namespace: namespace,
-				},
-			},
+			data: sets.New(deployment, service),
 			expectedData: map[string]string{
-				namespace + "_" + name + "__Deployment": "",
-				namespace + "_" + name + "__Pod":        "",
+				"_" + "nginx" + "_apps_Deployment": "",
+				"_" + "service-name" + "__Service": "",
 			},
 		},
 		"save with dryRun": {
-			name: name,
-			data: []resource.ObjectMetadata{
-				{
-					Kind:      "Pod",
-					Name:      name,
-					Namespace: namespace,
-				},
-			},
+			name:   name,
+			data:   sets.New(deployment),
 			dryRun: true,
 			expectedData: map[string]string{
-				namespace + "_" + name + "__Pod": "",
+				"_" + "nginx" + "_apps_Deployment": "",
 			},
 		},
 		"save end in error": {
 			name:       forbidden,
-			data:       []resource.ObjectMetadata{},
+			data:       sets.New[*unstructured.Unstructured](),
 			expectErr:  true,
 			errMessage: "failed to save inventory",
 		},
@@ -280,6 +262,93 @@ func TestSave(t *testing.T) {
 	}
 }
 
+func TestDelete(t *testing.T) {
+	t.Parallel()
+
+	name := "test-name"
+	namespace := "test-namespace"
+	notFound := "not-found"
+	forbidden := "forbidden"
+
+	testCases := map[string]struct {
+		name       string
+		dryRun     bool
+		expectErr  bool
+		errMessage string
+	}{
+		"delete inventory": {
+			name: name,
+		},
+		"delete with dryRun": {
+			name:   name,
+			dryRun: true,
+		},
+		"delete missing inventory": {
+			name: notFound,
+		},
+		"delete end in error": {
+			name:       forbidden,
+			expectErr:  true,
+			errMessage: "failed to delete inventory",
+		},
+	}
+
+	for testName, testCase := range testCases {
+		t.Run(testName, func(t *testing.T) {
+			factory := pkgtesting.NewTestClientFactory()
+
+			factory.Client = &fake.RESTClient{
+				Client: fake.CreateHTTPClient(func(r *http.Request) (*http.Response, error) {
+					assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+					data, err := io.ReadAll(r.Body)
+					require.NoError(t, err)
+					decoder := pkgtesting.Codecs.UniversalDecoder()
+					deleteOptions := metav1.DeleteOptions{}
+					err = runtime.DecodeInto(decoder, data, &deleteOptions)
+					require.NoError(t, err)
+					assert.NotNil(t, deleteOptions.PropagationPolicy)
+
+					switch testCase.dryRun {
+					case true:
+						assert.Equal(t, []string{"All"}, deleteOptions.DryRun)
+					default:
+						assert.Nil(t, deleteOptions.DryRun)
+					}
+					switch path, method := r.URL.Path, r.Method; {
+					case method == http.MethodDelete && path == fmt.Sprintf("/api/v1/namespaces/%s/configmaps/%s", namespace, name):
+						return &http.Response{
+							StatusCode: http.StatusNoContent,
+							Header:     pkgtesting.DefaultHeaders(),
+						}, nil
+					case method == http.MethodDelete && path == fmt.Sprintf("/api/v1/namespaces/%s/configmaps/%s", namespace, forbidden):
+						return &http.Response{StatusCode: http.StatusForbidden, Header: pkgtesting.DefaultHeaders()}, nil
+					case method == http.MethodDelete && path == fmt.Sprintf("/api/v1/namespaces/%s/configmaps/%s", namespace, notFound):
+						return &http.Response{StatusCode: http.StatusNotFound, Header: pkgtesting.DefaultHeaders()}, nil
+					default:
+						t.Logf("unexpected request: %#v\n%#v", r.URL, r)
+						return nil, fmt.Errorf("unexpected request")
+					}
+				}),
+			}
+
+			store, err := NewConfigMapStore(factory, testCase.name, namespace, "jpl-inventory-test")
+			require.NoError(t, err)
+
+			ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+			defer cancel()
+
+			err = store.Delete(ctx, testCase.dryRun)
+			if testCase.expectErr {
+				require.Error(t, err)
+				assert.ErrorContains(t, err, testCase.errMessage)
+				return
+			}
+
+			assert.NoError(t, err)
+		})
+	}
+}
+
 func TestDiff(t *testing.T) {
 	t.Parallel()
 	codec := pkgtesting.Codecs.LegacyCodec(pkgtesting.Scheme.PrioritizedVersionsAllGroups()...)
@@ -292,7 +361,7 @@ func TestDiff(t *testing.T) {
 	testCases := map[string]struct {
 		client       *http.Client
 		objects      []*unstructured.Unstructured
-		expectedDiff []resource.ObjectMetadata
+		expectedDiff sets.Set[resource.ObjectMetadata]
 		expectErr    bool
 	}{
 		"no diff found": {
@@ -304,7 +373,7 @@ func TestDiff(t *testing.T) {
 				deployment,
 				service,
 			},
-			expectedDiff: []resource.ObjectMetadata{},
+			expectedDiff: sets.New[resource.ObjectMetadata](),
 		},
 		"diff found": {
 			client: fake.CreateHTTPClient(func(_ *http.Request) (*http.Response, error) {
@@ -314,14 +383,12 @@ func TestDiff(t *testing.T) {
 			objects: []*unstructured.Unstructured{
 				service,
 			},
-			expectedDiff: []resource.ObjectMetadata{
-				{
-					Name:      deployment.GetName(),
-					Namespace: deployment.GetNamespace(),
-					Kind:      deployment.GroupVersionKind().Kind,
-					Group:     deployment.GroupVersionKind().Group,
-				},
-			},
+			expectedDiff: sets.New(resource.ObjectMetadata{
+				Name:      deployment.GetName(),
+				Namespace: deployment.GetNamespace(),
+				Kind:      deployment.GroupVersionKind().Kind,
+				Group:     deployment.GroupVersionKind().Group,
+			}),
 		},
 		"no remote state found": {
 			client: fake.CreateHTTPClient(func(_ *http.Request) (*http.Response, error) {
@@ -330,7 +397,7 @@ func TestDiff(t *testing.T) {
 			objects: []*unstructured.Unstructured{
 				deployment,
 			},
-			expectedDiff: []resource.ObjectMetadata{},
+			expectedDiff: sets.New[resource.ObjectMetadata](),
 		},
 		"error in retrieving state": {
 			client: fake.CreateHTTPClient(func(_ *http.Request) (*http.Response, error) {
@@ -357,7 +424,7 @@ func TestDiff(t *testing.T) {
 				return
 			}
 			assert.NoError(t, err)
-			assert.ElementsMatch(t, testCase.expectedDiff, diff)
+			assert.Equal(t, testCase.expectedDiff, diff)
 		})
 	}
 }
@@ -366,37 +433,27 @@ func TestSetObjects(t *testing.T) {
 	t.Parallel()
 
 	testdataFolder := filepath.Join("..", "..", "testdata", "commons")
-	deploymentFilename := filepath.Join(testdataFolder, "deployment.yaml")
-	startingMetadata := resource.ObjectMetadata{
-		Name:      "pod",
-		Namespace: "",
-		Kind:      "Pod",
-	}
-	deploymentMetadata := resource.ObjectMetadata{
-		Name:      "nginx",
-		Namespace: "",
-		Kind:      "Deployment",
-		Group:     "apps",
-	}
+	deployment := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdataFolder, "deployment.yaml"))
+	namespace := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdataFolder, "namespace.yaml"))
 
 	testCases := map[string]struct {
 		resource            *unstructured.Unstructured
-		startingMetadata    []resource.ObjectMetadata
-		expectedObjMetadata []resource.ObjectMetadata
+		startingMetadata    sets.Set[*unstructured.Unstructured]
+		expectedObjMetadata sets.Set[*unstructured.Unstructured]
 	}{
 		"nil starting metatada": {
-			resource:            pkgtesting.UnstructuredFromFile(t, deploymentFilename),
-			expectedObjMetadata: []resource.ObjectMetadata{deploymentMetadata},
+			resource:            deployment,
+			expectedObjMetadata: sets.New(deployment),
 		},
 		"empty starting metadata": {
-			resource:            pkgtesting.UnstructuredFromFile(t, deploymentFilename),
-			startingMetadata:    []resource.ObjectMetadata{},
-			expectedObjMetadata: []resource.ObjectMetadata{deploymentMetadata},
+			resource:            deployment,
+			startingMetadata:    sets.New[*unstructured.Unstructured](),
+			expectedObjMetadata: sets.New(deployment),
 		},
 		"elements already in metadata": {
-			resource:            pkgtesting.UnstructuredFromFile(t, deploymentFilename),
-			startingMetadata:    []resource.ObjectMetadata{startingMetadata},
-			expectedObjMetadata: []resource.ObjectMetadata{deploymentMetadata},
+			resource:            deployment,
+			startingMetadata:    sets.New(namespace),
+			expectedObjMetadata: sets.New(deployment),
 		},
 	}
 
@@ -405,7 +462,7 @@ func TestSetObjects(t *testing.T) {
 			s := &configMapStore{
 				savedObjects: testCase.startingMetadata,
 			}
-			s.SetObjects([]*unstructured.Unstructured{testCase.resource})
+			s.SetObjects(sets.New(testCase.resource))
 			assert.Equal(t, testCase.expectedObjMetadata, s.savedObjects)
 		})
 	}
