@@ -39,6 +39,8 @@ import (
 )
 
 func TestNewConfigMapStore(t *testing.T) {
+	t.Parallel()
+
 	name := "test-name"
 	namespace := "test-namespace"
 	fieldManager := "jpl-inventory-test"
