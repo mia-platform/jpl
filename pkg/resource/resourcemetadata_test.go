@@ -166,6 +166,8 @@ func TestToString(t *testing.T) {
 }
 
 func TestMetadataFromUnstructured(t *testing.T) {
+	t.Parallel()
+
 	deploymentPath := filepath.Join("..", "..", "testdata", "commons", "deployment.yaml")
 	metadata := ObjectMetadataFromUnstructured(pkgtesting.UnstructuredFromFile(t, deploymentPath))
 

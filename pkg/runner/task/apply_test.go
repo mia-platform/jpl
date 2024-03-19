@@ -116,6 +116,7 @@ func TestInfoFetcherBuilderError(t *testing.T) {
 
 func TestUnsupportedMediaTypeError(t *testing.T) {
 	t.Parallel()
+
 	deployPath := "/namespaces/applytest/deployments/nginx"
 	tf := pkgtesting.NewTestClientFactory().WithNamespace("applytest")
 	applied := 0
@@ -153,6 +154,7 @@ func TestUnsupportedMediaTypeError(t *testing.T) {
 
 func TestApplyTask(t *testing.T) {
 	t.Parallel()
+
 	deployPath := "/namespaces/applytest/deployments/nginx"
 	namespacePath := "/namespaces/applytest"
 
@@ -243,6 +245,8 @@ func TestApplyTask(t *testing.T) {
 }
 
 func TestSimpleApplyTask(t *testing.T) {
+	t.Parallel()
+
 	deployPath := "/namespaces/applytest/deployments/nginx"
 	response := pkgtesting.UnstructuredFromFile(t, deploymentAppliedFilename)
 	data, err := runtime.Encode(unstructured.NewJSONFallbackEncoder(codec), response)

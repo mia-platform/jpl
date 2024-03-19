@@ -24,6 +24,8 @@ import (
 )
 
 func TestSortedObjects(t *testing.T) {
+	t.Parallel()
+
 	testCases := map[string]struct {
 		objects []*unstructured.Unstructured
 		want    []*unstructured.Unstructured

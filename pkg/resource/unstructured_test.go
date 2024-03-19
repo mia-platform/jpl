@@ -26,6 +26,7 @@ import (
 
 func TestFindCRDs(t *testing.T) {
 	t.Parallel()
+
 	testdataFolder := filepath.Join("..", "..", "testdata", "commons")
 	deploymentFilename := filepath.Join(testdataFolder, "deployment.yaml")
 	namespacedCRDFilename := filepath.Join(testdataFolder, "namespaced-crd.yaml")
@@ -108,6 +109,8 @@ func TestIsCRD(t *testing.T) {
 }
 
 func TestInfo(t *testing.T) {
+	t.Parallel()
+
 	testdataFolder := filepath.Join("..", "..", "testdata", "commons")
 	deploymentFilename := filepath.Join(testdataFolder, "deployment.yaml")
 

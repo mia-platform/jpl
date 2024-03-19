@@ -86,7 +86,7 @@ func (b *Builder) Build() (*Applier, error) {
 
 	fetcher, err := task.DefaultInfoFetcherBuilder(b.factory)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retriev a valid Info Fetcher: %w", err)
+		return nil, fmt.Errorf("failed to retrieve a valid Info Fetcher: %w", err)
 	}
 
 	return &Applier{
