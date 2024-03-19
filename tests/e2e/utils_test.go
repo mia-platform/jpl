@@ -30,6 +30,7 @@ import (
 
 	jplclient "github.com/mia-platform/jpl/pkg/client"
 	"github.com/mia-platform/jpl/pkg/generator"
+	"github.com/mia-platform/jpl/pkg/inventory"
 	"github.com/mia-platform/jpl/pkg/resourcereader"
 	"github.com/mia-platform/jpl/pkg/util"
 	"github.com/stretchr/testify/require"
@@ -87,7 +88,7 @@ func createNamespaceForTesting(t *testing.T) string {
 
 // applyResources will read resources from reader or path, check that the expectedCount of resource is found
 // and than apply them to the remote server
-func applyResources(t *testing.T, factory util.ClientFactory, reader io.Reader, path string, expectedCount int) {
+func applyResources(t *testing.T, factory util.ClientFactory, store inventory.Store, reader io.Reader, path string, expectedCount int) {
 	t.Helper()
 	readerBuilder := resourcereader.NewResourceReaderBuilder(factory)
 	resourceReader, err := readerBuilder.ResourceReader(reader, path)
@@ -100,6 +101,7 @@ func applyResources(t *testing.T, factory util.ClientFactory, reader io.Reader, 
 	applier, err := jplclient.NewBuilder().
 		WithGenerators(generator.NewJobGenerator("jpl.mia-platform.eu/create", "true")).
 		WithFactory(factory).
+		WithInventory(store).
 		Build()
 	require.NoError(t, err)
 

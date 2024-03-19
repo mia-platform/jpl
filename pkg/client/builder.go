@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/mia-platform/jpl/pkg/generator"
+	"github.com/mia-platform/jpl/pkg/inventory"
 	"github.com/mia-platform/jpl/pkg/runner"
 	"github.com/mia-platform/jpl/pkg/runner/task"
 	"github.com/mia-platform/jpl/pkg/util"
@@ -28,6 +29,7 @@ import (
 type Builder struct {
 	factory    util.ClientFactory
 	runner     runner.TaskRunner
+	inventory  inventory.Store
 	generators []generator.Interface
 }
 
@@ -51,6 +53,12 @@ func (b *Builder) WithRunner(runner runner.TaskRunner) *Builder {
 	return b
 }
 
+// WithInventory assing an inventory.Store to the Builder
+func (b *Builder) WithInventory(inventory inventory.Store) *Builder {
+	b.inventory = inventory
+	return b
+}
+
 // WithFactory assing one or more generators to the Builder
 func (b *Builder) WithGenerators(generators ...generator.Interface) *Builder {
 	b.generators = generators
@@ -64,7 +72,11 @@ func (b *Builder) Build() (*Applier, error) {
 	}
 
 	if b.runner == nil {
-		return nil, fmt.Errorf("cannot build and Applier client without a valid runner")
+		return nil, fmt.Errorf("cannot build an Applier client without a valid runner")
+	}
+
+	if b.inventory == nil {
+		return nil, fmt.Errorf("cannot build an Applier client without a valid inventory")
 	}
 
 	mapper, err := b.factory.ToRESTMapper()
@@ -80,6 +92,7 @@ func (b *Builder) Build() (*Applier, error) {
 	return &Applier{
 		mapper:      mapper,
 		runner:      b.runner,
+		manager:     inventory.NewManager(b.inventory),
 		infoFetcher: fetcher,
 		generators:  b.generators,
 	}, nil

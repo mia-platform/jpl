@@ -20,7 +20,9 @@ package e2e
 import (
 	"testing"
 
+	"github.com/mia-platform/jpl/pkg/inventory"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	batchv1 "k8s.io/api/batch/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -34,9 +36,11 @@ func TestApplyCronJobsWithGenerator(t *testing.T) {
 	namespace := createNamespaceForTesting(t)
 	factory := factoryForTesting(t, &namespace)
 	envtestListOptions := &client.ListOptions{Namespace: namespace}
+	store, err := inventory.NewConfigMapStore(factory, "inventory", namespace, "jpl-e2e-test")
+	require.NoError(t, err)
 
 	// apply resources
-	applyResources(t, factory, nil, resourcePath, expectedResourcesCount)
+	applyResources(t, factory, store, nil, resourcePath, expectedResourcesCount)
 
 	// control that all CronJobs are present
 	appliedCronJobs := &batchv1.CronJobList{}

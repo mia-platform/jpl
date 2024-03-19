@@ -23,6 +23,7 @@ import (
 	"testing"
 	"text/template"
 
+	"github.com/mia-platform/jpl/pkg/inventory"
 	"github.com/mia-platform/jpl/pkg/resourcereader"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -40,16 +41,18 @@ func TestApplyToEmptyNamespace(t *testing.T) {
 	expectedResourcesCount := 2
 	namespace := createNamespaceForTesting(t)
 	factory := factoryForTesting(t, &namespace)
+	store, err := inventory.NewConfigMapStore(factory, "inventory", namespace, "jpl-e2e-test")
+	require.NoError(t, err)
 	envtestListOptions := &client.ListOptions{Namespace: namespace}
 
 	// apply on empty namespace
-	applyResources(t, factory, nil, resourcePath, expectedResourcesCount)
+	applyResources(t, factory, store, nil, resourcePath, expectedResourcesCount)
 	appliedDeployments := &appsv1.DeploymentList{}
 	getResourcesFromEnv(t, appliedDeployments, envtestListOptions)
 	assert.Equal(t, expectedResourcesCount, len(appliedDeployments.Items))
 
 	// apply updates to namespace
-	applyResources(t, factory, nil, updatePath, expectedResourcesCount)
+	applyResources(t, factory, store, nil, updatePath, expectedResourcesCount)
 	updatedDeployments := &appsv1.DeploymentList{}
 	getResourcesFromEnv(t, updatedDeployments, envtestListOptions)
 	assert.Equal(t, expectedResourcesCount, len(updatedDeployments.Items))
@@ -77,15 +80,17 @@ func TestApplyWithNamespace(t *testing.T) {
 	factory := factoryForTesting(t, nil)
 	fileData := new(bytes.Buffer)
 	envtestListOptions := &client.ListOptions{Namespace: namespace}
+	store, err := inventory.NewConfigMapStore(factory, namespace, "kube-system", "jpl-e2e-test")
+	require.NoError(t, err)
 
 	// apply resources from buffer create via templating to inject random namespace name
 	type templateData struct {
 		Namespace string
 	}
 	tmpl := template.Must(template.ParseFiles(resourcePath))
-	err := tmpl.Execute(fileData, templateData{Namespace: namespace})
+	err = tmpl.Execute(fileData, templateData{Namespace: namespace})
 	require.NoError(t, err)
-	applyResources(t, factory, fileData, resourcereader.StdinPath, 3)
+	applyResources(t, factory, store, fileData, resourcereader.StdinPath, 3)
 
 	// check that the deployment is in the correct namespace
 	appliedDeployments := &appsv1.DeploymentList{}

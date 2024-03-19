@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/mia-platform/jpl/pkg/generator"
+	inventoryfake "github.com/mia-platform/jpl/pkg/inventory/fake"
 	"github.com/mia-platform/jpl/pkg/runner"
 	"github.com/mia-platform/jpl/pkg/runner/task"
 	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
@@ -34,6 +35,7 @@ func TestNewApplier(t *testing.T) {
 	t.Parallel()
 	applier, err := NewBuilder().
 		WithFactory(pkgtesting.NewTestClientFactory()).
+		WithInventory(&inventoryfake.Inventory{}).
 		Build()
 
 	assert.NotNil(t, applier)
@@ -96,6 +98,7 @@ func TestApplierRun(t *testing.T) {
 		t.Run(testName, func(t *testing.T) {
 			applier, err := NewBuilder().
 				WithFactory(pkgtesting.NewTestClientFactory()).
+				WithInventory(&inventoryfake.Inventory{}).
 				WithRunner(testCase.runner).
 				Build()
 			require.NoError(t, err)
@@ -119,6 +122,7 @@ func TestGenerators(t *testing.T) {
 
 	applier, err := NewBuilder().
 		WithFactory(pkgtesting.NewTestClientFactory()).
+		WithInventory(&inventoryfake.Inventory{}).
 		WithRunner(&fakeRunner{
 			runHandler: func(_ context.Context, queue chan runner.Task) error {
 				assert.Equal(t, 3, len(queue))

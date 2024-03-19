@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/mia-platform/jpl/pkg/generator"
+	"github.com/mia-platform/jpl/pkg/inventory"
 	"github.com/mia-platform/jpl/pkg/resource"
 	"github.com/mia-platform/jpl/pkg/runner"
 	"github.com/mia-platform/jpl/pkg/runner/task"
@@ -36,6 +37,7 @@ type Applier struct {
 	infoFetcher task.InfoFetcher
 	mapper      meta.RESTMapper
 	runner      runner.TaskRunner
+	manager     *inventory.Manager
 	generators  []generator.Interface
 }
 
