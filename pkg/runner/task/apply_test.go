@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"testing"
+	"time"
 
 	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 	"github.com/stretchr/testify/assert"
@@ -109,7 +110,10 @@ func TestInfoFetcherBuilderError(t *testing.T) {
 		},
 	}
 
-	err = task.Run(context.TODO())
+	withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+	defer cancel()
+
+	err = task.Run(withTimeout)
 	require.Error(t, err)
 	assert.ErrorContains(t, err, errorMessage)
 }
@@ -146,7 +150,10 @@ func TestUnsupportedMediaTypeError(t *testing.T) {
 		},
 	}
 
-	err = task.Run(context.TODO())
+	withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+	defer cancel()
+
+	err = task.Run(withTimeout)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "server-side apply not available on the server")
 	assert.Equal(t, 1, applied, "when error is unsupported media, don't make any request after the first")
@@ -232,7 +239,10 @@ func TestApplyTask(t *testing.T) {
 			DryRun:      testCase.dryRun,
 		}
 
-		err = task.Run(context.TODO())
+		withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+		defer cancel()
+
+		err = task.Run(withTimeout)
 		t.Run(testName, func(t *testing.T) {
 			assert.Equal(t, testCase.resourceApplied, applied)
 			if len(testCase.expectedErr) > 0 {
@@ -281,6 +291,9 @@ func TestSimpleApplyTask(t *testing.T) {
 		},
 	}
 
-	assert.NoError(t, task.Run(context.TODO()))
+	withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+	defer cancel()
+
+	assert.NoError(t, task.Run(withTimeout))
 	assert.Equal(t, 1, applied, "only one PATCH call is made")
 }

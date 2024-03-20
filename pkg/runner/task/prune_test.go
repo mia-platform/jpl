@@ -18,6 +18,7 @@ package task
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/mia-platform/jpl/pkg/resource"
 	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
@@ -38,7 +39,7 @@ func TestCancelPruneTask(t *testing.T) {
 	client, err := tf.DynamicClient()
 	require.NoError(t, err)
 	task := &PruneTask{
-		ObjectMetadata: []resource.ObjectMetadata{
+		Objects: []resource.ObjectMetadata{
 			{
 				Name:      "cancel-test",
 				Namespace: "cancel-test",
@@ -68,7 +69,7 @@ func TestPruneAction(t *testing.T) {
 	require.NoError(t, err)
 
 	task := &PruneTask{
-		ObjectMetadata: []resource.ObjectMetadata{
+		Objects: []resource.ObjectMetadata{
 			{
 				Kind:      "Pod",
 				Name:      "test",
@@ -79,7 +80,10 @@ func TestPruneAction(t *testing.T) {
 		Mapper: mapper,
 	}
 
-	err = task.Run(context.TODO())
+	withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+	defer cancel()
+
+	err = task.Run(withTimeout)
 	assert.NoError(t, err)
 
 	require.Equal(t, 1, len(tf.FakeDynamicClient.Actions()))

@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -84,8 +85,11 @@ func TestRunWithQueue(t *testing.T) {
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
 			count := 0
+			withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+			defer cancel()
+
 			r := &taskRunner{}
-			err := r.RunWithQueue(context.TODO(), testCase.taskQueue(&count))
+			err := r.RunWithQueue(withTimeout, testCase.taskQueue(&count))
 			switch testCase.wantErr {
 			case true:
 				assert.Error(t, err)

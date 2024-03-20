@@ -31,13 +31,14 @@ import (
 // keep it to always check if PruneTask implement correctly the Task interface
 var _ runner.Task = &PruneTask{}
 
+// PruneTask is the task used for removing Objects from the remote server
 type PruneTask struct {
 	DryRun       bool
 	FieldManager string
 	Client       dynamic.Interface
 	Mapper       meta.RESTMapper
 
-	ObjectMetadata []resource.ObjectMetadata
+	Objects []resource.ObjectMetadata
 
 	cancel context.CancelFunc
 }
@@ -46,9 +47,10 @@ type PruneTask struct {
 func (t *PruneTask) Run(ctx context.Context) error {
 	withCancel, cancel := context.WithCancel(ctx)
 	t.cancel = cancel
+	defer t.Cancel()
 
 	var errList []error
-	for _, objMeta := range t.ObjectMetadata {
+	for _, objMeta := range t.Objects {
 		if err := pruneObject(withCancel, t.Mapper, t.Client, objMeta, t.DryRun); err != nil {
 			// if the object is already missing don't return an error
 			if !apierrors.IsNotFound(err) {

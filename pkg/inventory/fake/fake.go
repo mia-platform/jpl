@@ -30,6 +30,9 @@ var _ inventory.Store = &Inventory{}
 
 type Inventory struct {
 	inventoryObjects []*unstructured.Unstructured
+
+	SaveFunc func(context.Context, bool) error
+
 	// LoadErr will be returned when a load request is supposed to be made
 	LoadErr error
 	// SaveErr will be returned when a save request is supposed to be made
@@ -53,9 +56,13 @@ func (i *Inventory) Load(_ context.Context) (sets.Set[resource.ObjectMetadata], 
 }
 
 // Save implement Store interface
-func (i *Inventory) Save(_ context.Context, _ bool) error {
+func (i *Inventory) Save(ctx context.Context, dryRun bool) error {
 	if i.SaveErr != nil {
 		return i.SaveErr
+	}
+
+	if i.SaveFunc != nil {
+		return i.SaveFunc(ctx, dryRun)
 	}
 
 	return nil

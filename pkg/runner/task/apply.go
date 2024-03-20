@@ -58,6 +58,7 @@ type ApplyTask struct {
 func (t *ApplyTask) Run(ctx context.Context) error {
 	withCancel, cancel := context.WithCancel(ctx)
 	t.cancel = cancel
+	defer t.Cancel()
 
 	var errList []error
 	for _, obj := range t.Objects {

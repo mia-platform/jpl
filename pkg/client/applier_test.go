@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/mia-platform/jpl/pkg/generator"
-	inventoryfake "github.com/mia-platform/jpl/pkg/inventory/fake"
+	fakeinventory "github.com/mia-platform/jpl/pkg/inventory/fake"
 	"github.com/mia-platform/jpl/pkg/runner"
 	"github.com/mia-platform/jpl/pkg/runner/task"
 	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
@@ -35,7 +35,7 @@ func TestNewApplier(t *testing.T) {
 	t.Parallel()
 	applier, err := NewBuilder().
 		WithFactory(pkgtesting.NewTestClientFactory()).
-		WithInventory(&inventoryfake.Inventory{}).
+		WithInventory(&fakeinventory.Inventory{}).
 		Build()
 
 	assert.NotNil(t, applier)
@@ -98,12 +98,15 @@ func TestApplierRun(t *testing.T) {
 		t.Run(testName, func(t *testing.T) {
 			applier, err := NewBuilder().
 				WithFactory(pkgtesting.NewTestClientFactory()).
-				WithInventory(&inventoryfake.Inventory{}).
+				WithInventory(&fakeinventory.Inventory{}).
 				WithRunner(testCase.runner).
 				Build()
 			require.NoError(t, err)
 
-			err = applier.Run(context.TODO(), testCase.objects, testCase.options)
+			withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+			defer cancel()
+
+			err = applier.Run(withTimeout, testCase.objects, testCase.options)
 			switch testCase.expectError {
 			case true:
 				assert.Error(t, err)
@@ -122,7 +125,7 @@ func TestGenerators(t *testing.T) {
 
 	applier, err := NewBuilder().
 		WithFactory(pkgtesting.NewTestClientFactory()).
-		WithInventory(&inventoryfake.Inventory{}).
+		WithInventory(&fakeinventory.Inventory{}).
 		WithRunner(&fakeRunner{
 			runHandler: func(_ context.Context, queue chan runner.Task) error {
 				assert.Equal(t, 3, len(queue))
@@ -144,7 +147,10 @@ func TestGenerators(t *testing.T) {
 		pkgtesting.UnstructuredFromFile(t, cronjobFilename),
 	}
 
-	err = applier.Run(context.TODO(), objects, ApplierOptions{})
+	withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+	defer cancel()
+
+	err = applier.Run(withTimeout, objects, ApplierOptions{})
 	require.NoError(t, err)
 }
 

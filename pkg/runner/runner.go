@@ -37,6 +37,7 @@ type taskRunner struct {
 func (r *taskRunner) RunWithQueue(ctx context.Context, taskQueue chan Task) error {
 	withCancel, cancel := context.WithCancel(ctx)
 	r.cancel = cancel
+	defer r.Cancel()
 
 	for {
 		select {
