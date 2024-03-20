@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- overhauled the library
+
+### Added
+
+- inventory package to keep track of what resources are deployed in the cluster
+- flowcontrol package for quering remote api-server on the activation state of the flowcontrol feature
+- resourcereader package for reading kubernetes manifests from path or buffer
+- runner package for handling a queue of tasks to execute in order
+- client package contains a brand new Applier client for apply local manifests against a remote api-server
+
 ## [v0.1.2] - 2022-10-28
 
 ### Fixed
