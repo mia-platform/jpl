@@ -29,7 +29,7 @@ type fakeTask struct {
 	err      error
 }
 
-func (t *fakeTask) Run(_ context.Context) error {
+func (t *fakeTask) Run(_ CurrentState) error {
 	*t.increase++
 	return t.err
 }

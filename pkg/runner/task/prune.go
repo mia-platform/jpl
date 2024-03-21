@@ -44,8 +44,8 @@ type PruneTask struct {
 }
 
 // Run implement the runner.Task interface
-func (t *PruneTask) Run(ctx context.Context) error {
-	withCancel, cancel := context.WithCancel(ctx)
+func (t *PruneTask) Run(state runner.CurrentState) error {
+	withCancel, cancel := context.WithCancel(state.GetContext())
 	t.cancel = cancel
 	defer t.Cancel()
 

@@ -39,6 +39,10 @@ func (r *taskRunner) RunWithQueue(ctx context.Context, taskQueue chan Task) erro
 	r.cancel = cancel
 	defer r.Cancel()
 
+	runnerState := &runnerState{
+		context: withCancel,
+	}
+
 	for {
 		select {
 		// cycle on task in the queue until they are there
@@ -47,7 +51,7 @@ func (r *taskRunner) RunWithQueue(ctx context.Context, taskQueue chan Task) erro
 				return nil
 			}
 
-			if err := currentTask.Run(withCancel); err != nil {
+			if err := currentTask.Run(runnerState); err != nil {
 				return err
 			}
 			// if the context is ended or cancelled return the error if present (always nil if done with success)

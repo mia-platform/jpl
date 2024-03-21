@@ -15,20 +15,14 @@
 
 package runner
 
-import (
-	"context"
-)
+import "context"
 
-// Task provides abstractions that a Task must implement to be able to be used by a Runner
-type Task interface {
-	// Run is used to execute the action implemented by the Task, it expect an error as return if something goes wrong
-	Run(CurrentState) error
-	// Cancel is used to interrupt the task if possible
-	Cancel()
+var _ CurrentState = &runnerState{}
+
+type runnerState struct {
+	context context.Context
 }
 
-// CurrentState encapsulate the state of the run for sharing data between different tasks execution
-type CurrentState interface {
-	// GetContext return the Context where to execute task
-	GetContext() context.Context
+func (s *runnerState) GetContext() context.Context {
+	return s.context
 }

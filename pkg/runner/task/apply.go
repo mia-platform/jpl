@@ -55,8 +55,8 @@ type ApplyTask struct {
 }
 
 // Run implement the runner.Task interface
-func (t *ApplyTask) Run(ctx context.Context) error {
-	withCancel, cancel := context.WithCancel(ctx)
+func (t *ApplyTask) Run(state runner.CurrentState) error {
+	withCancel, cancel := context.WithCancel(state.GetContext())
 	t.cancel = cancel
 	defer t.Cancel()
 

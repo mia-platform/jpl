@@ -35,6 +35,7 @@ func TestCancelPruneTask(t *testing.T) {
 	mapper, err := tf.ToRESTMapper()
 	require.NoError(t, err)
 	ctx, cancel := context.WithCancel(context.TODO())
+	state := &fakeState{context: ctx}
 
 	client, err := tf.DynamicClient()
 	require.NoError(t, err)
@@ -55,7 +56,7 @@ func TestCancelPruneTask(t *testing.T) {
 
 	task.Cancel()
 
-	err = task.Run(ctx)
+	err = task.Run(state)
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "context canceled")
 }
@@ -82,8 +83,9 @@ func TestPruneAction(t *testing.T) {
 
 	withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 	defer cancel()
+	state := &fakeState{context: withTimeout}
 
-	err = task.Run(withTimeout)
+	err = task.Run(state)
 	assert.NoError(t, err)
 
 	require.Equal(t, 1, len(tf.FakeDynamicClient.Actions()))

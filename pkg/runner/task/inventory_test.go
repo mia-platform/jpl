@@ -37,6 +37,7 @@ func TestCancelInventoryTask(t *testing.T) {
 	configmap, err := inventory.NewConfigMapStore(tf, "test", "test", "jpl")
 	require.NoError(t, err)
 	ctx, cancel := context.WithCancel(context.TODO())
+	state := &fakeState{context: ctx}
 
 	task := &InventoryTask{
 		Manager: inventory.NewManager(configmap),
@@ -45,7 +46,7 @@ func TestCancelInventoryTask(t *testing.T) {
 
 	task.Cancel()
 
-	err = task.Run(ctx)
+	err = task.Run(state)
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "context canceled")
 }
@@ -89,8 +90,9 @@ func TestInventoryTaskRun(t *testing.T) {
 
 			withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 			defer cancel()
+			state := &fakeState{context: withTimeout}
 
-			err := task.Run(withTimeout)
+			err := task.Run(state)
 			switch testCase.expectErr {
 			case true:
 				assert.Error(t, err)
