@@ -19,26 +19,27 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"sort"
 	"time"
 
 	"github.com/mia-platform/jpl/pkg/generator"
 	"github.com/mia-platform/jpl/pkg/inventory"
-	"github.com/mia-platform/jpl/pkg/resource"
 	"github.com/mia-platform/jpl/pkg/runner"
 	"github.com/mia-platform/jpl/pkg/runner/task"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/dynamic"
 )
 
 // Applier can be used for appling a list of resources to a remote api-server
 type Applier struct {
-	infoFetcher task.InfoFetcher
 	mapper      meta.RESTMapper
-	runner      runner.TaskRunner
-	manager     *inventory.Manager
-	generators  []generator.Interface
+	client      dynamic.Interface
+	infoFetcher task.InfoFetcher
+
+	runner     runner.TaskRunner
+	manager    *inventory.Manager
+	generators []generator.Interface
 }
 
 // ApplierOptions options for the apply step
@@ -80,26 +81,20 @@ func (a *Applier) Run(ctx context.Context, objects []*unstructured.Unstructured,
 	}
 
 	objects = append(objects, generatedObject...)
-	sort.Sort(resource.SortableObjects(objects))
-
-	tasksQueue := taskQueue(objects, a.infoFetcher, options)
-	return a.runner.RunWithQueue(applierCtx, tasksQueue)
-}
-
-// taskQueue transform an array of object in a channel of tasks for using it with a runner
-func taskQueue(objects []*unstructured.Unstructured, infoFetcher task.InfoFetcher, options ApplierOptions) chan runner.Task {
-	queue := make(chan runner.Task, len(objects))
-
-	for _, obj := range objects {
-		queue <- &task.ApplyTask{
-			DryRun:       options.DryRun,
-			FieldManager: options.FieldManager,
-
-			Objects:     []*unstructured.Unstructured{obj},
-			InfoFetcher: infoFetcher,
-		}
+	queueBuilder := QueueBuilder{
+		Client:      a.client,
+		Mapper:      a.mapper,
+		Manager:     a.manager,
+		InfoFetcher: a.infoFetcher,
+	}
+	queueOptions := QueueOptions{
+		DryRun:       options.DryRun,
+		Prune:        true,
+		FieldManager: options.FieldManager,
 	}
 
-	defer close(queue)
-	return queue
+	tasksQueue := queueBuilder.
+		WithObjects(objects).
+		Build(queueOptions)
+	return a.runner.RunWithQueue(applierCtx, tasksQueue)
 }

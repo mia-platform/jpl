@@ -29,6 +29,7 @@ import (
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -40,8 +41,9 @@ func TestApplyToEmptyNamespace(t *testing.T) {
 	updatePath := testdataPathForPath(t, filepath.Join("simple-apply", "second"))
 	expectedResourcesCount := 2
 	namespace := createNamespaceForTesting(t)
+	inventoryName := "inventory"
 	factory := factoryForTesting(t, &namespace)
-	store, err := inventory.NewConfigMapStore(factory, "inventory", namespace, "jpl-e2e-test")
+	store, err := inventory.NewConfigMapStore(factory, inventoryName, namespace, "jpl-e2e-test")
 	require.NoError(t, err)
 	envtestListOptions := &client.ListOptions{Namespace: namespace}
 
@@ -69,6 +71,15 @@ func TestApplyToEmptyNamespace(t *testing.T) {
 		assert.EqualValues(t, *deployment.Spec.Replicas, 2)        // correct filed value
 		assert.EqualValues(t, deployment.ObjectMeta.Generation, 2) // updated generation
 	}
+
+	// check inventory object
+	configMap := &corev1.ConfigMap{}
+	getResourceFromEnv(t, client.ObjectKey{Namespace: namespace, Name: inventoryName}, configMap, &client.GetOptions{})
+	assert.Equal(t, inventoryName, configMap.Name)
+	assert.Equal(t, namespace, configMap.Namespace)
+	assert.Equal(t, map[string]string(nil), configMap.GetAnnotations())
+	assert.Equal(t, map[string]string(nil), configMap.GetLabels())
+	assert.Equal(t, map[string]string(nil), configMap.Data)
 }
 
 func TestApplyWithNamespace(t *testing.T) {
@@ -77,10 +88,11 @@ func TestApplyWithNamespace(t *testing.T) {
 	// prepare test constants
 	resourcePath := testdataPathForPath(t, filepath.Join("simple-apply", "namespace", "allresources.yaml"))
 	namespace := namespaceForTesting(t)
+	inventoryName := namespace
 	factory := factoryForTesting(t, nil)
 	fileData := new(bytes.Buffer)
 	envtestListOptions := &client.ListOptions{Namespace: namespace}
-	store, err := inventory.NewConfigMapStore(factory, namespace, "kube-system", "jpl-e2e-test")
+	store, err := inventory.NewConfigMapStore(factory, namespace, metav1.NamespaceSystem, "jpl-e2e-test")
 	require.NoError(t, err)
 
 	// apply resources from buffer create via templating to inject random namespace name
@@ -101,4 +113,13 @@ func TestApplyWithNamespace(t *testing.T) {
 	appliedServices := &corev1.ServiceList{}
 	getResourcesFromEnv(t, appliedServices, envtestListOptions)
 	assert.Equal(t, 1, len(appliedServices.Items))
+
+	// check inventory object
+	configMap := &corev1.ConfigMap{}
+	getResourceFromEnv(t, client.ObjectKey{Namespace: metav1.NamespaceSystem, Name: inventoryName}, configMap, &client.GetOptions{})
+	assert.Equal(t, inventoryName, configMap.Name)
+	assert.Equal(t, metav1.NamespaceSystem, configMap.Namespace)
+	assert.Equal(t, map[string]string(nil), configMap.GetAnnotations())
+	assert.Equal(t, map[string]string(nil), configMap.GetLabels())
+	assert.Equal(t, map[string]string(nil), configMap.Data)
 }

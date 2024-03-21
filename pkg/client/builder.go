@@ -79,9 +79,14 @@ func (b *Builder) Build() (*Applier, error) {
 		return nil, fmt.Errorf("cannot build an Applier client without a valid inventory")
 	}
 
+	client, err := b.factory.DynamicClient()
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve a valid kubernetes client: %w", err)
+	}
+
 	mapper, err := b.factory.ToRESTMapper()
 	if err != nil {
-		return nil, fmt.Errorf("failed to retriev a valid RESTMapper: %w", err)
+		return nil, fmt.Errorf("failed to retrieve a valid RESTMapper: %w", err)
 	}
 
 	fetcher, err := task.DefaultInfoFetcherBuilder(b.factory)
@@ -90,6 +95,7 @@ func (b *Builder) Build() (*Applier, error) {
 	}
 
 	return &Applier{
+		client:      client,
 		mapper:      mapper,
 		runner:      b.runner,
 		manager:     inventory.NewManager(b.inventory),

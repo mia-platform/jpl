@@ -69,10 +69,15 @@ func TestApplierRun(t *testing.T) {
 				runHandler: func(_ context.Context, queue chan runner.Task) error {
 					assert.Equal(t, 2, len(queue))
 					for currentTask := range queue {
-						applyTask, ok := currentTask.(*task.ApplyTask)
-						require.True(t, ok)
-						assert.False(t, applyTask.DryRun)
-						assert.Equal(t, 1, len(applyTask.Objects))
+						switch typedTask := currentTask.(type) {
+						case *task.ApplyTask:
+							assert.False(t, typedTask.DryRun)
+							assert.Equal(t, 2, len(typedTask.Objects))
+						case *task.InventoryTask:
+							assert.False(t, typedTask.DryRun)
+						default:
+							assert.FailNow(t, "unknown type for task: %v", typedTask)
+						}
 					}
 					return nil
 				},
@@ -128,12 +133,17 @@ func TestGenerators(t *testing.T) {
 		WithInventory(&fakeinventory.Inventory{}).
 		WithRunner(&fakeRunner{
 			runHandler: func(_ context.Context, queue chan runner.Task) error {
-				assert.Equal(t, 3, len(queue))
+				assert.Equal(t, 2, len(queue))
 				for currentTask := range queue {
-					applyTask, ok := currentTask.(*task.ApplyTask)
-					require.True(t, ok)
-					assert.False(t, applyTask.DryRun)
-					assert.Equal(t, 1, len(applyTask.Objects))
+					switch typedTask := currentTask.(type) {
+					case *task.ApplyTask:
+						assert.True(t, typedTask.DryRun)
+						assert.Equal(t, 3, len(typedTask.Objects))
+					case *task.InventoryTask:
+						assert.True(t, typedTask.DryRun)
+					default:
+						assert.FailNow(t, "unknown type for task: %v", typedTask)
+					}
 				}
 				return nil
 			},
@@ -150,7 +160,7 @@ func TestGenerators(t *testing.T) {
 	withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 	defer cancel()
 
-	err = applier.Run(withTimeout, objects, ApplierOptions{})
+	err = applier.Run(withTimeout, objects, ApplierOptions{DryRun: true})
 	require.NoError(t, err)
 }
 

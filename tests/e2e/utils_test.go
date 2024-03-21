@@ -120,3 +120,12 @@ func getResourcesFromEnv(t *testing.T, list client.ObjectList, options client.Li
 	err = envtestClient.List(context.Background(), list, options)
 	require.NoError(t, err)
 }
+
+func getResourceFromEnv(t *testing.T, name client.ObjectKey, obj client.Object, options client.GetOption) {
+	t.Helper()
+	envtestClient, err := client.New(testClusterConfig, client.Options{})
+	require.NoError(t, err)
+
+	err = envtestClient.Get(context.Background(), name, obj, options)
+	require.NoError(t, err)
+}
