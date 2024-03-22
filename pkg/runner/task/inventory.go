@@ -34,7 +34,7 @@ type InventoryTask struct {
 }
 
 // Run implement the runner.Task interface
-func (t *InventoryTask) Run(state runner.CurrentState) error {
+func (t *InventoryTask) Run(state runner.State) error {
 	withCancel, cancel := context.WithCancel(state.GetContext())
 	t.cancel = cancel
 	defer t.Cancel()

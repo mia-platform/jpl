@@ -29,7 +29,7 @@ type fakeTask struct {
 	err      error
 }
 
-func (t *fakeTask) Run(_ CurrentState) error {
+func (t *fakeTask) Run(_ State) error {
 	*t.increase++
 	return t.err
 }
@@ -87,9 +87,10 @@ func TestRunWithQueue(t *testing.T) {
 			count := 0
 			withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 			defer cancel()
+			state := &FakeState{Context: withTimeout}
 
 			r := &taskRunner{}
-			err := r.RunWithQueue(withTimeout, testCase.taskQueue(&count))
+			err := r.RunWithQueue(state, testCase.taskQueue(&count))
 			switch testCase.wantErr {
 			case true:
 				assert.Error(t, err)
@@ -106,6 +107,7 @@ func TestCancelQueue(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := context.WithCancel(context.TODO())
+	state := &FakeState{Context: ctx}
 	r := &taskRunner{cancel: cancel}
 	taskQueue := func(count *int) chan Task {
 		queue := make(chan Task, 3)
@@ -115,9 +117,9 @@ func TestCancelQueue(t *testing.T) {
 		return queue
 	}
 
-	r.Cancel()
+	cancel()
 
 	count := 0
-	err := r.RunWithQueue(ctx, taskQueue(&count))
+	err := r.RunWithQueue(state, taskQueue(&count))
 	assert.ErrorContains(t, err, "context canceled")
 }

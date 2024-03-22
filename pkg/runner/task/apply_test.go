@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mia-platform/jpl/pkg/runner"
 	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -63,7 +64,7 @@ func TestCancelApplyTask(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.TODO())
-	state := &fakeState{context: ctx}
+	state := &runner.FakeState{Context: ctx}
 
 	task := &ApplyTask{
 		FieldManager: "test",
@@ -113,7 +114,7 @@ func TestInfoFetcherBuilderError(t *testing.T) {
 
 	withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 	defer cancel()
-	state := &fakeState{context: withTimeout}
+	state := &runner.FakeState{Context: withTimeout}
 
 	err = task.Run(state)
 	require.Error(t, err)
@@ -154,7 +155,7 @@ func TestUnsupportedMediaTypeError(t *testing.T) {
 
 	withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 	defer cancel()
-	state := &fakeState{context: withTimeout}
+	state := &runner.FakeState{Context: withTimeout}
 
 	err = task.Run(state)
 	assert.Error(t, err)
@@ -244,7 +245,7 @@ func TestApplyTask(t *testing.T) {
 
 		withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 		defer cancel()
-		state := &fakeState{context: withTimeout}
+		state := &runner.FakeState{Context: withTimeout}
 
 		err = task.Run(state)
 		t.Run(testName, func(t *testing.T) {
@@ -297,7 +298,7 @@ func TestSimpleApplyTask(t *testing.T) {
 
 	withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 	defer cancel()
-	state := &fakeState{context: withTimeout}
+	state := &runner.FakeState{Context: withTimeout}
 
 	assert.NoError(t, task.Run(state))
 	assert.Equal(t, 1, applied, "only one PATCH call is made")

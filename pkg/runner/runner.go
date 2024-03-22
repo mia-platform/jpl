@@ -21,8 +21,8 @@ import (
 
 // TaskRunner provides abstraction for a TaskRunner implementation
 type TaskRunner interface {
-	RunWithQueue(context.Context, chan Task) error
-	Cancel()
+	// RunWithQueue will start to execute all the tasks that will be found in the channel
+	RunWithQueue(State, chan Task) error
 }
 
 // NewTaskRunner return an implementation of TaskRunner
@@ -34,14 +34,8 @@ type taskRunner struct {
 	cancel context.CancelFunc
 }
 
-func (r *taskRunner) RunWithQueue(ctx context.Context, taskQueue chan Task) error {
-	withCancel, cancel := context.WithCancel(ctx)
-	r.cancel = cancel
-	defer r.Cancel()
-
-	runnerState := &runnerState{
-		context: withCancel,
-	}
+func (r *taskRunner) RunWithQueue(state State, taskQueue chan Task) error {
+	ctx := state.GetContext()
 
 	for {
 		select {
@@ -51,21 +45,15 @@ func (r *taskRunner) RunWithQueue(ctx context.Context, taskQueue chan Task) erro
 				return nil
 			}
 
-			if err := currentTask.Run(runnerState); err != nil {
+			if err := currentTask.Run(state); err != nil {
 				return err
 			}
 			// if the context is ended or cancelled return the error if present (always nil if done with success)
-		case <-withCancel.Done():
-			return withCancel.Err()
+		case <-ctx.Done():
+			return ctx.Err()
 		// default will be called when no task are available or the context is not cancelled or anything
 		default:
 			return nil
 		}
-	}
-}
-
-func (r *taskRunner) Cancel() {
-	if r.cancel != nil {
-		r.cancel()
 	}
 }

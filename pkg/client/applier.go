@@ -93,8 +93,14 @@ func (a *Applier) Run(ctx context.Context, objects []*unstructured.Unstructured,
 		FieldManager: options.FieldManager,
 	}
 
+	contextState := &RunnerState{
+		eventChannel: make(chan runner.Event),
+		manager:      a.manager,
+		context:      applierCtx,
+	}
+
 	tasksQueue := queueBuilder.
 		WithObjects(objects).
 		Build(queueOptions)
-	return a.runner.RunWithQueue(applierCtx, tasksQueue)
+	return a.runner.RunWithQueue(contextState, tasksQueue)
 }

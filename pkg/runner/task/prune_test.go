@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/mia-platform/jpl/pkg/resource"
+	"github.com/mia-platform/jpl/pkg/runner"
 	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,7 +36,7 @@ func TestCancelPruneTask(t *testing.T) {
 	mapper, err := tf.ToRESTMapper()
 	require.NoError(t, err)
 	ctx, cancel := context.WithCancel(context.TODO())
-	state := &fakeState{context: ctx}
+	state := &runner.FakeState{Context: ctx}
 
 	client, err := tf.DynamicClient()
 	require.NoError(t, err)
@@ -83,7 +84,7 @@ func TestPruneAction(t *testing.T) {
 
 	withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 	defer cancel()
-	state := &fakeState{context: withTimeout}
+	state := &runner.FakeState{Context: withTimeout}
 
 	err = task.Run(state)
 	assert.NoError(t, err)

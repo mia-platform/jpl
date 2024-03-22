@@ -15,14 +15,30 @@
 
 package runner
 
-import "context"
+import (
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+)
 
-var _ CurrentState = &runnerState{}
+type EventType int
 
-type runnerState struct {
-	context context.Context
-}
+const (
+	EventTypeStart EventType = iota
+	EventTypeApply
+	EventTypePrune
+)
 
-func (s *runnerState) GetContext() context.Context {
-	return s.context
+type EventStatus int
+
+const (
+	EventStatusPending EventStatus = iota
+	EventStatusSuccess
+	EventStatusFailure
+)
+
+type Event struct {
+	Type   EventType
+	Status EventStatus
+
+	Object *unstructured.Unstructured
+	Error  error
 }

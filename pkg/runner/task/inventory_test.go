@@ -23,6 +23,7 @@ import (
 
 	"github.com/mia-platform/jpl/pkg/inventory"
 	fakeinventory "github.com/mia-platform/jpl/pkg/inventory/fake"
+	"github.com/mia-platform/jpl/pkg/runner"
 	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -37,7 +38,7 @@ func TestCancelInventoryTask(t *testing.T) {
 	configmap, err := inventory.NewConfigMapStore(tf, "test", "test", "jpl")
 	require.NoError(t, err)
 	ctx, cancel := context.WithCancel(context.TODO())
-	state := &fakeState{context: ctx}
+	state := &runner.FakeState{Context: ctx}
 
 	task := &InventoryTask{
 		Manager: inventory.NewManager(configmap),
@@ -90,7 +91,7 @@ func TestInventoryTaskRun(t *testing.T) {
 
 			withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 			defer cancel()
-			state := &fakeState{context: withTimeout}
+			state := &runner.FakeState{Context: withTimeout}
 
 			err := task.Run(state)
 			switch testCase.expectErr {

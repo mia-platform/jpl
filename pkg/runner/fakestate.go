@@ -13,20 +13,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package task
+package runner
 
 import (
 	"context"
-
-	"github.com/mia-platform/jpl/pkg/runner"
 )
 
-var _ runner.CurrentState = &fakeState{}
+var _ State = &FakeState{}
 
-type fakeState struct {
-	context context.Context
+type FakeState struct {
+	Context context.Context
 }
 
-func (s *fakeState) GetContext() context.Context {
-	return s.context
+func (s *FakeState) GetContext() context.Context {
+	return s.Context
 }
+
+func (s *FakeState) SendEvent(_ Event) {}

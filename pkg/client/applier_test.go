@@ -66,7 +66,7 @@ func TestApplierRun(t *testing.T) {
 				pkgtesting.UnstructuredFromFile(t, clusterCr),
 			},
 			runner: &fakeRunner{
-				runHandler: func(_ context.Context, queue chan runner.Task) error {
+				runHandler: func(_ runner.State, queue chan runner.Task) error {
 					assert.Equal(t, 2, len(queue))
 					for currentTask := range queue {
 						switch typedTask := currentTask.(type) {
@@ -89,9 +89,9 @@ func TestApplierRun(t *testing.T) {
 				pkgtesting.UnstructuredFromFile(t, clusterCr),
 			},
 			runner: &fakeRunner{
-				runHandler: func(ctx context.Context, _ chan runner.Task) error {
-					<-ctx.Done()
-					return ctx.Err()
+				runHandler: func(state runner.State, _ chan runner.Task) error {
+					<-state.GetContext().Done()
+					return state.GetContext().Err()
 				},
 			},
 			options:     ApplierOptions{Timeout: 1 * time.Millisecond},
@@ -132,7 +132,7 @@ func TestGenerators(t *testing.T) {
 		WithFactory(pkgtesting.NewTestClientFactory()).
 		WithInventory(&fakeinventory.Inventory{}).
 		WithRunner(&fakeRunner{
-			runHandler: func(_ context.Context, queue chan runner.Task) error {
+			runHandler: func(_ runner.State, queue chan runner.Task) error {
 				assert.Equal(t, 2, len(queue))
 				for currentTask := range queue {
 					switch typedTask := currentTask.(type) {
@@ -169,13 +169,13 @@ var _ runner.TaskRunner = &fakeRunner{}
 
 // fakeRunner used to abstract away the runner implementation during unit tests
 type fakeRunner struct {
-	runHandler func(ctx context.Context, queue chan runner.Task) error
+	runHandler func(state runner.State, queue chan runner.Task) error
 }
 
 // Cancel implement the runner.TaskRunner interface
 func (r *fakeRunner) Cancel() {}
 
 // RunWithQueue implement the runner.TaskRunner interface
-func (r *fakeRunner) RunWithQueue(ctx context.Context, queue chan runner.Task) error {
-	return r.runHandler(ctx, queue)
+func (r *fakeRunner) RunWithQueue(state runner.State, queue chan runner.Task) error {
+	return r.runHandler(state, queue)
 }
