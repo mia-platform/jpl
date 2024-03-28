@@ -46,6 +46,10 @@ func TestApplyToEmptyNamespace(t *testing.T) {
 	store, err := inventory.NewConfigMapStore(factory, inventoryName, namespace, "jpl-e2e-test")
 	require.NoError(t, err)
 	envtestListOptions := &client.ListOptions{Namespace: namespace}
+	expectedInventoryData := map[string]string{
+		namespace + "_busybox_apps_Deployment": "",
+		namespace + "_nginx_apps_Deployment":   "",
+	}
 
 	// apply on empty namespace
 	applyResources(t, factory, store, nil, resourcePath, expectedResourcesCount)
@@ -79,7 +83,7 @@ func TestApplyToEmptyNamespace(t *testing.T) {
 	assert.Equal(t, namespace, configMap.Namespace)
 	assert.Equal(t, map[string]string(nil), configMap.GetAnnotations())
 	assert.Equal(t, map[string]string(nil), configMap.GetLabels())
-	assert.Equal(t, map[string]string(nil), configMap.Data)
+	assert.Equal(t, expectedInventoryData, configMap.Data)
 }
 
 func TestApplyWithNamespace(t *testing.T) {
@@ -94,6 +98,12 @@ func TestApplyWithNamespace(t *testing.T) {
 	envtestListOptions := &client.ListOptions{Namespace: namespace}
 	store, err := inventory.NewConfigMapStore(factory, namespace, metav1.NamespaceSystem, "jpl-e2e-test")
 	require.NoError(t, err)
+
+	expectedInventoryData := map[string]string{
+		"_" + namespace + "__Namespace":      "",
+		namespace + "_nginx__Service":        "",
+		namespace + "_nginx_apps_Deployment": "",
+	}
 
 	// apply resources from buffer create via templating to inject random namespace name
 	type templateData struct {
@@ -121,5 +131,5 @@ func TestApplyWithNamespace(t *testing.T) {
 	assert.Equal(t, metav1.NamespaceSystem, configMap.Namespace)
 	assert.Equal(t, map[string]string(nil), configMap.GetAnnotations())
 	assert.Equal(t, map[string]string(nil), configMap.GetLabels())
-	assert.Equal(t, map[string]string(nil), configMap.Data)
+	assert.Equal(t, expectedInventoryData, configMap.Data)
 }
