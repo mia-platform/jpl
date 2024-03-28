@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"github.com/mia-platform/jpl/pkg/event"
 	pkgresource "github.com/mia-platform/jpl/pkg/resource"
 	"github.com/mia-platform/jpl/pkg/runner"
 	"github.com/mia-platform/jpl/pkg/util"
@@ -29,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/cli-runtime/pkg/resource"
 )
 
@@ -50,41 +50,43 @@ type ApplyTask struct {
 
 	Objects     []*unstructured.Unstructured
 	InfoFetcher InfoFetcher
-
-	cancel context.CancelFunc
 }
 
 // Run implement the runner.Task interface
-func (t *ApplyTask) Run(state runner.State) error {
-	withCancel, cancel := context.WithCancel(state.GetContext())
-	t.cancel = cancel
-	defer t.Cancel()
+func (t *ApplyTask) Run(state runner.State) {
+	ctx := state.GetContext()
 
-	var errList []error
 	for _, obj := range t.Objects {
+		state.SendEvent(applyEvent(event.StatusPending, obj, nil))
 		info, err := t.InfoFetcher(obj)
 		if err != nil {
-			errList = append(errList, err)
+			state.SendEvent(applyEvent(event.StatusFailed, obj, err))
 			continue
 		}
 
-		if err := applyObject(withCancel, info, t.DryRun, t.FieldManager); err != nil {
-			errList = append(errList, err)
+		if err := applyObject(ctx, info, t.DryRun, t.FieldManager); err != nil {
+			state.SendEvent(applyEvent(event.StatusFailed, obj, err))
 			// if the error returned is unsupported media, it means that api-server don't support server side apply
 			// and so every other requests will fail as well. Bail out
 			if apierrors.IsUnsupportedMediaType(err) {
 				break
 			}
+			continue
 		}
-	}
 
-	return utilerrors.NewAggregate(errList)
+		state.SendEvent(applyEvent(event.StatusSuccessful, obj, nil))
+	}
 }
 
-// Cancel implement the runner.Task interface
-func (t *ApplyTask) Cancel() {
-	if t.cancel != nil {
-		t.cancel()
+// applyEvent create an Event for an apply action with the passed object and status
+func applyEvent(status event.Status, obj *unstructured.Unstructured, err error) event.Event {
+	return event.Event{
+		Type: event.TypeApply,
+		ApplyInfo: event.ApplyInfo{
+			Status: status,
+			Object: obj,
+			Error:  err,
+		},
 	}
 }
 

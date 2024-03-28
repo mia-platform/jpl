@@ -2,9 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nginx
-  namespace: test
-  labels:
-    name: nginx
+  namespace: client-test-namespace
 spec:
   selector:
     matchLabels:

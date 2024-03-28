@@ -18,9 +18,9 @@ package client
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
+	"github.com/mia-platform/jpl/pkg/event"
 	"github.com/mia-platform/jpl/pkg/generator"
 	"github.com/mia-platform/jpl/pkg/inventory"
 	"github.com/mia-platform/jpl/pkg/runner"
@@ -50,57 +50,78 @@ type ApplierOptions struct {
 }
 
 // Run will apply the passed objects to a remote api-server
-func (a *Applier) Run(ctx context.Context, objects []*unstructured.Unstructured, options ApplierOptions) error {
-	applierCtx := ctx
-	if options.Timeout > 0 {
-		var cancel context.CancelFunc
-		applierCtx, cancel = context.WithTimeout(ctx, options.Timeout)
-		defer cancel()
-	}
+func (a *Applier) Run(ctx context.Context, objects []*unstructured.Unstructured, options ApplierOptions) <-chan event.Event {
+	eventChannel := make(chan event.Event)
 
-	var generatedObject []*unstructured.Unstructured
-	for _, rg := range a.generators {
-		for _, obj := range objects {
-			objMetadata := meta.AsPartialObjectMetadata(obj)
-			objMetadata.TypeMeta = metav1.TypeMeta{
-				Kind:       obj.GetKind(),
-				APIVersion: obj.GetAPIVersion(),
-			}
+	go func() {
+		defer close(eventChannel)
 
-			if !rg.CanHandleResource(objMetadata) {
-				continue
-			}
-
-			generated, err := rg.Generate(obj)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "generate resource failed: %q", err)
-				continue
-			}
-			generatedObject = append(generatedObject, generated...)
+		applierCtx := ctx
+		if options.Timeout > 0 {
+			var cancel context.CancelFunc
+			applierCtx, cancel = context.WithTimeout(ctx, options.Timeout)
+			defer cancel()
 		}
-	}
 
-	objects = append(objects, generatedObject...)
-	queueBuilder := QueueBuilder{
-		Client:      a.client,
-		Mapper:      a.mapper,
-		Manager:     a.manager,
-		InfoFetcher: a.infoFetcher,
-	}
-	queueOptions := QueueOptions{
-		DryRun:       options.DryRun,
-		Prune:        true,
-		FieldManager: options.FieldManager,
-	}
+		var generatedObject []*unstructured.Unstructured
+		for _, rg := range a.generators {
+			for _, obj := range objects {
+				objMetadata := meta.AsPartialObjectMetadata(obj)
+				objMetadata.TypeMeta = metav1.TypeMeta{
+					Kind:       obj.GetKind(),
+					APIVersion: obj.GetAPIVersion(),
+				}
 
-	contextState := &RunnerState{
-		eventChannel: make(chan runner.Event),
-		manager:      a.manager,
-		context:      applierCtx,
-	}
+				if !rg.CanHandleResource(objMetadata) {
+					continue
+				}
 
-	tasksQueue := queueBuilder.
-		WithObjects(objects).
-		Build(queueOptions)
-	return a.runner.RunWithQueue(contextState, tasksQueue)
+				generated, err := rg.Generate(obj)
+				if err != nil {
+					eventChannel <- event.Event{
+						Type: event.TypeError,
+						ErrorInfo: event.ErrorInfo{
+							Error: fmt.Errorf("generate resource failed: %w", err),
+						},
+					}
+					continue
+				}
+				generatedObject = append(generatedObject, generated...)
+			}
+		}
+
+		objects = append(objects, generatedObject...)
+		queueBuilder := QueueBuilder{
+			Client:      a.client,
+			Mapper:      a.mapper,
+			Manager:     a.manager,
+			InfoFetcher: a.infoFetcher,
+		}
+		queueOptions := QueueOptions{
+			DryRun:       options.DryRun,
+			Prune:        true,
+			FieldManager: options.FieldManager,
+		}
+
+		contextState := &RunnerState{
+			eventChannel: eventChannel,
+			manager:      a.manager,
+			context:      applierCtx,
+		}
+
+		tasksQueue := queueBuilder.
+			WithObjects(objects).
+			Build(queueOptions)
+
+		if err := a.runner.RunWithQueue(contextState, tasksQueue); err != nil {
+			eventChannel <- event.Event{
+				Type: event.TypeError,
+				ErrorInfo: event.ErrorInfo{
+					Error: err,
+				},
+			}
+		}
+	}()
+
+	return eventChannel
 }

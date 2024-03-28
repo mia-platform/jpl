@@ -108,8 +108,7 @@ func applyResources(t *testing.T, factory util.ClientFactory, store inventory.St
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	err = applier.Run(ctx, resources, jplclient.ApplierOptions{FieldManager: "jpl-test"})
-	require.NoError(t, err)
+	applier.Run(ctx, resources, jplclient.ApplierOptions{FieldManager: "jpl-test"})
 }
 
 func getResourcesFromEnv(t *testing.T, list client.ObjectList, options client.ListOption) {

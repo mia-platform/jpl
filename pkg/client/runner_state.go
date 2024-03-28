@@ -18,14 +18,16 @@ package client
 import (
 	"context"
 
+	"github.com/mia-platform/jpl/pkg/event"
 	"github.com/mia-platform/jpl/pkg/inventory"
 	"github.com/mia-platform/jpl/pkg/runner"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 var _ runner.State = &RunnerState{}
 
 type RunnerState struct {
-	eventChannel chan runner.Event
+	eventChannel chan event.Event
 	manager      *inventory.Manager
 	context      context.Context
 }
@@ -34,16 +36,25 @@ func (s *RunnerState) GetContext() context.Context {
 	return s.context
 }
 
-func (s *RunnerState) SendEvent(event runner.Event) {
-	switch eventType, eventStatus := event.Type, event.Status; {
-	case eventType == runner.EventTypeApply && eventStatus == runner.EventStatusSuccess:
-		s.manager.SetSuccessfullApply(event.Object)
-	case eventType == runner.EventTypeApply && eventStatus == runner.EventStatusFailure:
-		s.manager.SetFailedApply(event.Object)
-	case eventType == runner.EventTypePrune && eventStatus == runner.EventStatusSuccess:
-		s.manager.SetSuccessfullDelete(event.Object)
-	case eventType == runner.EventTypePrune && eventStatus == runner.EventStatusFailure:
-		s.manager.SetFailedDelete(event.Object)
+func (s *RunnerState) SendEvent(e event.Event) {
+	switch e.Type {
+	case event.TypeApply:
+		s.registerEventInManager(e.Type, e.ApplyInfo.Status, e.ApplyInfo.Object)
+	case event.TypePrune:
+		s.registerEventInManager(e.Type, e.PruneInfo.Status, e.PruneInfo.Object)
 	}
-	s.eventChannel <- event
+	s.eventChannel <- e
+}
+
+func (s *RunnerState) registerEventInManager(eventType event.Type, status event.Status, obj *unstructured.Unstructured) {
+	switch {
+	case eventType == event.TypeApply && status == event.StatusSuccessful:
+		s.manager.SetSuccessfullApply(obj)
+	case eventType == event.TypeApply && status == event.StatusFailed:
+		s.manager.SetFailedApply(obj)
+	case eventType == event.TypePrune && status == event.StatusSuccessful:
+		s.manager.SetSuccessfullDelete(obj)
+	case eventType == event.TypePrune && status == event.StatusFailed:
+		s.manager.SetFailedDelete(obj)
+	}
 }

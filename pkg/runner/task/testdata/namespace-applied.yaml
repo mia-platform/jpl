@@ -3,8 +3,8 @@ kind: Namespace
 metadata:
   creationTimestamp: "2020-01-01T00:00:00Z"
   labels:
-    kubernetes.io/metadata.name: applytest
-  name: applytest
+    kubernetes.io/metadata.name: test
+  name: test
   resourceVersion: "1"
   uid: 00000000-0000-0000-0000-000000000000
 spec:

@@ -13,32 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package runner
-
-import (
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-)
-
-type EventType int
-
-const (
-	EventTypeStart EventType = iota
-	EventTypeApply
-	EventTypePrune
-)
-
-type EventStatus int
-
-const (
-	EventStatusPending EventStatus = iota
-	EventStatusSuccess
-	EventStatusFailure
-)
-
-type Event struct {
-	Type   EventType
-	Status EventStatus
-
-	Object *unstructured.Unstructured
-	Error  error
-}
+// event package contains the event structure to encapsulate what is happening during the client apply process.
+// the events can be used to log the status directly to the user or cancelling the excution if some error is found.
+package event

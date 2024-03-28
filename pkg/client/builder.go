@@ -47,12 +47,6 @@ func (b *Builder) WithFactory(factory util.ClientFactory) *Builder {
 	return b
 }
 
-// WithFactory assing a TaskRunner to the Builder
-func (b *Builder) WithRunner(runner runner.TaskRunner) *Builder {
-	b.runner = runner
-	return b
-}
-
 // WithInventory assing an inventory.Store to the Builder
 func (b *Builder) WithInventory(inventory inventory.Store) *Builder {
 	b.inventory = inventory

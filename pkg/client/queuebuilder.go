@@ -35,7 +35,7 @@ type QueueOptions struct {
 
 type QueueBuilder struct {
 	objects      []*unstructured.Unstructured
-	pruneObjects []resource.ObjectMetadata
+	pruneObjects []*unstructured.Unstructured
 
 	Manager     *inventory.Manager
 	Client      dynamic.Interface
@@ -48,7 +48,7 @@ func (b *QueueBuilder) WithObjects(objs []*unstructured.Unstructured) *QueueBuil
 	return b
 }
 
-func (b *QueueBuilder) WithPruneObjects(objs []resource.ObjectMetadata) *QueueBuilder {
+func (b *QueueBuilder) WithPruneObjects(objs []*unstructured.Unstructured) *QueueBuilder {
 	b.pruneObjects = objs
 	return b
 }
@@ -79,7 +79,7 @@ func (b *QueueBuilder) Build(options QueueOptions) chan runner.Task {
 	}
 
 	if pruneObjects {
-		sort.Sort(sort.Reverse(resource.SortableMetadatas(b.pruneObjects)))
+		sort.Sort(sort.Reverse(resource.SortableObjects(b.pruneObjects)))
 		queue <- &task.PruneTask{
 			DryRun:       options.DryRun,
 			FieldManager: options.FieldManager,

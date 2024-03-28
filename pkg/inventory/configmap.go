@@ -39,7 +39,7 @@ type configMapStore struct {
 	namespace    string
 	fieldManager string
 
-	clientset    *kubernetes.Clientset
+	clientset    kubernetes.Interface
 	savedObjects sets.Set[*unstructured.Unstructured]
 }
 

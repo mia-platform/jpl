@@ -29,7 +29,7 @@ import (
 var _ inventory.Store = &Inventory{}
 
 type Inventory struct {
-	inventoryObjects []*unstructured.Unstructured
+	InventoryObjects []*unstructured.Unstructured
 
 	SaveFunc func(context.Context, bool) error
 
@@ -48,7 +48,7 @@ func (i *Inventory) Load(_ context.Context) (sets.Set[resource.ObjectMetadata], 
 	}
 
 	set := sets.New[resource.ObjectMetadata]()
-	for _, obj := range i.inventoryObjects {
+	for _, obj := range i.InventoryObjects {
 		set.Insert(resource.ObjectMetadataFromUnstructured(obj))
 	}
 

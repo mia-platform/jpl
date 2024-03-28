@@ -17,16 +17,21 @@ package runner
 
 import (
 	"context"
+
+	"github.com/mia-platform/jpl/pkg/event"
 )
 
 var _ State = &FakeState{}
 
 type FakeState struct {
-	Context context.Context
+	Context    context.Context
+	SentEvents []event.Event
 }
 
 func (s *FakeState) GetContext() context.Context {
 	return s.Context
 }
 
-func (s *FakeState) SendEvent(_ Event) {}
+func (s *FakeState) SendEvent(event event.Event) {
+	s.SentEvents = append(s.SentEvents, event)
+}

@@ -6,7 +6,7 @@ metadata:
   labels:
     name: nginx
   name: nginx
-  namespace: applytest
+  namespace: test
   resourceVersion: "1"
   uid: 00000000-0000-0000-0000-000000000000
 spec:

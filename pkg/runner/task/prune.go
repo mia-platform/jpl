@@ -18,13 +18,14 @@ package task
 import (
 	"context"
 
+	"github.com/mia-platform/jpl/pkg/event"
 	"github.com/mia-platform/jpl/pkg/resource"
 	"github.com/mia-platform/jpl/pkg/runner"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/dynamic"
 )
 
@@ -38,34 +39,35 @@ type PruneTask struct {
 	Client       dynamic.Interface
 	Mapper       meta.RESTMapper
 
-	Objects []resource.ObjectMetadata
-
-	cancel context.CancelFunc
+	Objects []*unstructured.Unstructured
 }
 
 // Run implement the runner.Task interface
-func (t *PruneTask) Run(state runner.State) error {
-	withCancel, cancel := context.WithCancel(state.GetContext())
-	t.cancel = cancel
-	defer t.Cancel()
-
-	var errList []error
-	for _, objMeta := range t.Objects {
-		if err := pruneObject(withCancel, t.Mapper, t.Client, objMeta, t.DryRun); err != nil {
+func (t *PruneTask) Run(state runner.State) {
+	ctx := state.GetContext()
+	for _, obj := range t.Objects {
+		state.SendEvent(pruneEvent(event.StatusPending, obj, nil))
+		if err := pruneObject(ctx, t.Mapper, t.Client, resource.ObjectMetadataFromUnstructured(obj), t.DryRun); err != nil {
 			// if the object is already missing don't return an error
 			if !apierrors.IsNotFound(err) {
-				errList = append(errList, err)
+				state.SendEvent(pruneEvent(event.StatusFailed, obj, err))
 			}
+			continue
 		}
-	}
 
-	return utilerrors.NewAggregate(errList)
+		state.SendEvent(pruneEvent(event.StatusSuccessful, obj, nil))
+	}
 }
 
-// Cancel implement the runner.Task interface
-func (t *PruneTask) Cancel() {
-	if t.cancel != nil {
-		t.cancel()
+// pruneEvent create an Event for a prune action with the passed object and status
+func pruneEvent(status event.Status, obj *unstructured.Unstructured, err error) event.Event {
+	return event.Event{
+		Type: event.TypePrune,
+		PruneInfo: event.PruneInfo{
+			Status: status,
+			Object: obj,
+			Error:  err,
+		},
 	}
 }
 

@@ -38,7 +38,7 @@ type ClientFactory interface {
 	UnstructuredClientForMapping(mapping *meta.RESTMapping) (resource.RESTClient, error)
 
 	// KubernetesClientSet gives you back an external clientset
-	KubernetesClientSet() (*kubernetes.Clientset, error)
+	KubernetesClientSet() (kubernetes.Interface, error)
 }
 
 // NewFactory return a CleintFactory implementation
@@ -103,7 +103,7 @@ func (f *factoryImplementation) UnstructuredClientForMapping(mapping *meta.RESTM
 }
 
 // KubernetesClientSet gives you back an external clientset
-func (f *factoryImplementation) KubernetesClientSet() (*kubernetes.Clientset, error) {
+func (f *factoryImplementation) KubernetesClientSet() (kubernetes.Interface, error) {
 	clientConfig, err := f.ToRESTConfig()
 	if err != nil {
 		return nil, err

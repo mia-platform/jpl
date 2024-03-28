@@ -16,8 +16,7 @@
 package task
 
 import (
-	"context"
-
+	"github.com/mia-platform/jpl/pkg/event"
 	"github.com/mia-platform/jpl/pkg/inventory"
 	"github.com/mia-platform/jpl/pkg/runner"
 )
@@ -29,22 +28,33 @@ var _ runner.Task = &InventoryTask{}
 type InventoryTask struct {
 	Manager *inventory.Manager
 	DryRun  bool
-
-	cancel context.CancelFunc
 }
 
 // Run implement the runner.Task interface
-func (t *InventoryTask) Run(state runner.State) error {
-	withCancel, cancel := context.WithCancel(state.GetContext())
-	t.cancel = cancel
-	defer t.Cancel()
+func (t *InventoryTask) Run(state runner.State) {
+	ctx := state.GetContext()
+	state.SendEvent(event.Event{
+		Type: event.TypeInventory,
+		InventoryInfo: event.InventoryInfo{
+			Status: event.StatusPending,
+		},
+	})
 
-	return t.Manager.SaveCurrentInventoryState(withCancel, t.DryRun)
-}
-
-// Cancel implement the runner.Task interface
-func (t *InventoryTask) Cancel() {
-	if t.cancel != nil {
-		t.cancel()
+	if err := t.Manager.SaveCurrentInventoryState(ctx, t.DryRun); err != nil {
+		state.SendEvent(event.Event{
+			Type: event.TypeInventory,
+			InventoryInfo: event.InventoryInfo{
+				Status: event.StatusFailed,
+				Error:  err,
+			},
+		})
+		return
 	}
+
+	state.SendEvent(event.Event{
+		Type: event.TypeInventory,
+		InventoryInfo: event.InventoryInfo{
+			Status: event.StatusSuccessful,
+		},
+	})
 }

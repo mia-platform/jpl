@@ -38,7 +38,8 @@ import (
 type TestClientFactory struct {
 	util.ClientFactory
 
-	ClientConfig *rest.Config
+	// ClientConfig contains a fake restConfig
+	clientConfig *rest.Config
 
 	// Client custom RESTClient implementation to return in UnstructuredClientForMapping and used in KubernetesClientSet
 	Client resource.RESTClient
@@ -69,7 +70,7 @@ func NewTestClientFactory() *TestClientFactory {
 
 	return &TestClientFactory{
 		ClientFactory:     util.NewFactory(configFlags),
-		ClientConfig:      restConfig,
+		clientConfig:      restConfig,
 		FakeDynamicClient: fakedynamic.NewSimpleDynamicClient(Scheme),
 		testConfigFlags:   configFlags,
 	}
@@ -81,9 +82,9 @@ func (f *TestClientFactory) WithNamespace(ns string) *TestClientFactory {
 	return f
 }
 
-// ToRESTConfig reimplement the method for returning a fake clientConfgi
+// ToRESTConfig reimplement the method for returning a fake clientConfig
 func (f *TestClientFactory) ToRESTConfig() (*rest.Config, error) {
-	return f.ClientConfig, nil
+	return f.clientConfig, nil
 }
 
 // DynamicClient reimplement the method for returning a simple fake Dynamic client or a custom one if available
@@ -96,9 +97,9 @@ func (f *TestClientFactory) DynamicClient() (dynamic.Interface, error) {
 }
 
 // KubernetesClientSet reimplement the method for returning only selected kubernetes clients with fake client
-func (f *TestClientFactory) KubernetesClientSet() (*kubernetes.Clientset, error) {
+func (f *TestClientFactory) KubernetesClientSet() (kubernetes.Interface, error) {
 	fakeClient := f.Client.(*fakerest.RESTClient)
-	clientset := kubernetes.NewForConfigOrDie(f.ClientConfig)
+	clientset := kubernetes.NewForConfigOrDie(f.clientConfig)
 
 	clientset.CoreV1().RESTClient().(*rest.RESTClient).Client = fakeClient.Client
 

@@ -111,3 +111,7 @@ ci: test-coverage
 ### Put your custom import, define or goals under here ###
 
 test/conformance/setup: $(TOOLS_BIN)/setup-envtest envtest/assets
+
+generate-deps: $(TOOLS_BIN)/stringer
+$(TOOLS_BIN)/stringer:
+	GOBIN=$(TOOLS_BIN) go install golang.org/x/tools/cmd/stringer@v0.19.0

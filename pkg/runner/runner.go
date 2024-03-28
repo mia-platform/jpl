@@ -15,10 +15,6 @@
 
 package runner
 
-import (
-	"context"
-)
-
 // TaskRunner provides abstraction for a TaskRunner implementation
 type TaskRunner interface {
 	// RunWithQueue will start to execute all the tasks that will be found in the channel
@@ -30,30 +26,25 @@ func NewTaskRunner() TaskRunner {
 	return &taskRunner{}
 }
 
-type taskRunner struct {
-	cancel context.CancelFunc
-}
+type taskRunner struct{}
 
 func (r *taskRunner) RunWithQueue(state State, taskQueue chan Task) error {
 	ctx := state.GetContext()
+	done := ctx.Done()
 
 	for {
 		select {
+		// if the context is ended or cancelled return the error if present (always nil if done with success)
+		case <-done:
+			return ctx.Err()
+
 		// cycle on task in the queue until they are there
-		case currentTask, ok := <-taskQueue:
-			if !ok {
+		case currentTask, open := <-taskQueue:
+			if !open {
 				return nil
 			}
 
-			if err := currentTask.Run(state); err != nil {
-				return err
-			}
-			// if the context is ended or cancelled return the error if present (always nil if done with success)
-		case <-ctx.Done():
-			return ctx.Err()
-		// default will be called when no task are available or the context is not cancelled or anything
-		default:
-			return nil
+			currentTask.Run(state)
 		}
 	}
 }

@@ -17,14 +17,13 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/mia-platform/jpl/pkg/generator"
+	"github.com/mia-platform/jpl/pkg/event"
 	fakeinventory "github.com/mia-platform/jpl/pkg/inventory/fake"
-	"github.com/mia-platform/jpl/pkg/runner"
-	"github.com/mia-platform/jpl/pkg/runner/task"
 	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,7 +33,7 @@ import (
 func TestNewApplier(t *testing.T) {
 	t.Parallel()
 	applier, err := NewBuilder().
-		WithFactory(pkgtesting.NewTestClientFactory()).
+		WithFactory(factoryForTesting(t, nil)).
 		WithInventory(&fakeinventory.Inventory{}).
 		Build()
 
@@ -51,72 +50,109 @@ func TestNewApplier(t *testing.T) {
 
 func TestApplierRun(t *testing.T) {
 	t.Parallel()
-	testdataPath := filepath.Join("..", "..", "testdata", "commons")
-	deploymentFilename := filepath.Join(testdataPath, "deployment.yaml")
-	clusterCr := filepath.Join(testdataPath, "cluster-cr.yaml")
+	testdataPath := "testdata"
+
+	deployment := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdataPath, "deployment.yaml"))
+	namespace := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdataPath, "namespace.yaml"))
+
 	testCases := map[string]struct {
-		runner      runner.TaskRunner
-		objects     []*unstructured.Unstructured
-		options     ApplierOptions
-		expectError bool
+		objects        []*unstructured.Unstructured
+		options        ApplierOptions
+		expectedEvents []event.Event
 	}{
 		"Apply objects with success": {
 			objects: []*unstructured.Unstructured{
-				pkgtesting.UnstructuredFromFile(t, deploymentFilename),
-				pkgtesting.UnstructuredFromFile(t, clusterCr),
+				deployment,
+				namespace,
 			},
-			runner: &fakeRunner{
-				runHandler: func(_ runner.State, queue chan runner.Task) error {
-					assert.Equal(t, 2, len(queue))
-					for currentTask := range queue {
-						switch typedTask := currentTask.(type) {
-						case *task.ApplyTask:
-							assert.False(t, typedTask.DryRun)
-							assert.Equal(t, 2, len(typedTask.Objects))
-						case *task.InventoryTask:
-							assert.False(t, typedTask.DryRun)
-						default:
-							assert.FailNow(t, "unknown type for task: %v", typedTask)
-						}
-					}
-					return nil
+			expectedEvents: []event.Event{
+				{
+					Type: event.TypeApply,
+					ApplyInfo: event.ApplyInfo{
+						Object: namespace,
+						Status: event.StatusPending,
+					},
+				},
+				{
+					Type: event.TypeApply,
+					ApplyInfo: event.ApplyInfo{
+						Object: namespace,
+						Status: event.StatusSuccessful,
+					},
+				},
+				{
+					Type: event.TypeApply,
+					ApplyInfo: event.ApplyInfo{
+						Object: deployment,
+						Status: event.StatusPending,
+					},
+				},
+				{
+					Type: event.TypeApply,
+					ApplyInfo: event.ApplyInfo{
+						Object: deployment,
+						Status: event.StatusSuccessful,
+					},
+				},
+				{
+					Type: event.TypeInventory,
+					InventoryInfo: event.InventoryInfo{
+						Status: event.StatusPending,
+					},
+				},
+				{
+					Type: event.TypeInventory,
+					InventoryInfo: event.InventoryInfo{
+						Status: event.StatusSuccessful,
+					},
 				},
 			},
 		},
 		"Context timeout": {
 			objects: []*unstructured.Unstructured{
-				pkgtesting.UnstructuredFromFile(t, deploymentFilename),
-				pkgtesting.UnstructuredFromFile(t, clusterCr),
+				deployment,
+				namespace,
 			},
-			runner: &fakeRunner{
-				runHandler: func(state runner.State, _ chan runner.Task) error {
-					<-state.GetContext().Done()
-					return state.GetContext().Err()
+			options: ApplierOptions{Timeout: 1 * time.Nanosecond},
+			expectedEvents: []event.Event{
+				{
+					Type: event.TypeError,
+					ErrorInfo: event.ErrorInfo{
+						Error: fmt.Errorf("context deadline exceeded"),
+					},
 				},
 			},
-			options:     ApplierOptions{Timeout: 1 * time.Millisecond},
-			expectError: true,
 		},
 	}
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
-			applier, err := NewBuilder().
-				WithFactory(pkgtesting.NewTestClientFactory()).
-				WithInventory(&fakeinventory.Inventory{}).
-				WithRunner(testCase.runner).
-				Build()
-			require.NoError(t, err)
-
+			applier := newTestApplier(t, testCase.objects)
 			withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 			defer cancel()
 
-			err = applier.Run(withTimeout, testCase.objects, testCase.options)
-			switch testCase.expectError {
-			case true:
-				assert.Error(t, err)
-			case false:
-				assert.NoError(t, err)
+			eventCh := applier.Run(context.TODO(), testCase.objects, testCase.options)
+			var events []event.Event
+
+		loop:
+			for {
+				select {
+				case <-withTimeout.Done():
+					assert.Fail(t, "context endend in timeout, something is pending")
+					break loop
+
+				case e, open := <-eventCh:
+					if !open {
+						break loop
+					}
+
+					events = append(events, e)
+				}
+			}
+
+			require.Equal(t, len(testCase.expectedEvents), len(events), "actual events found: %v", events)
+			for idx, expectedEvent := range testCase.expectedEvents {
+				assert.Equal(t, expectedEvent.String(), events[idx].String())
 			}
 		})
 	}
@@ -124,58 +160,98 @@ func TestApplierRun(t *testing.T) {
 
 func TestGenerators(t *testing.T) {
 	t.Parallel()
-	testdataPath := filepath.Join("..", "..", "testdata", "commons")
-	deploymentFilename := filepath.Join(testdataPath, "deployment.yaml")
-	cronjobFilename := filepath.Join(testdataPath, "cronjob.yaml")
-
-	applier, err := NewBuilder().
-		WithFactory(pkgtesting.NewTestClientFactory()).
-		WithInventory(&fakeinventory.Inventory{}).
-		WithRunner(&fakeRunner{
-			runHandler: func(_ runner.State, queue chan runner.Task) error {
-				assert.Equal(t, 2, len(queue))
-				for currentTask := range queue {
-					switch typedTask := currentTask.(type) {
-					case *task.ApplyTask:
-						assert.True(t, typedTask.DryRun)
-						assert.Equal(t, 3, len(typedTask.Objects))
-					case *task.InventoryTask:
-						assert.True(t, typedTask.DryRun)
-					default:
-						assert.FailNow(t, "unknown type for task: %v", typedTask)
-					}
-				}
-				return nil
-			},
-		}).
-		WithGenerators(generator.NewJobGenerator("jpl.mia-platform.eu/create", "true")).
-		Build()
-	require.NoError(t, err)
+	testdataPath := "testdata"
+	deployment := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdataPath, "deployment.yaml"))
+	cronjonb := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdataPath, "cronjob.yaml"))
+	job := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdataPath, "job.yaml"))
 
 	objects := []*unstructured.Unstructured{
-		pkgtesting.UnstructuredFromFile(t, deploymentFilename),
-		pkgtesting.UnstructuredFromFile(t, cronjobFilename),
+		deployment,
+		cronjonb,
+	}
+
+	expectedEvents := []event.Event{
+		{
+			Type: event.TypeApply,
+			ApplyInfo: event.ApplyInfo{
+				Object: deployment,
+				Status: event.StatusPending,
+			},
+		},
+		{
+			Type: event.TypeApply,
+			ApplyInfo: event.ApplyInfo{
+				Object: deployment,
+				Status: event.StatusSuccessful,
+			},
+		},
+		{
+			Type: event.TypeApply,
+			ApplyInfo: event.ApplyInfo{
+				Object: cronjonb,
+				Status: event.StatusPending,
+			},
+		},
+		{
+			Type: event.TypeApply,
+			ApplyInfo: event.ApplyInfo{
+				Object: cronjonb,
+				Status: event.StatusSuccessful,
+			},
+		},
+		{
+			Type: event.TypeApply,
+			ApplyInfo: event.ApplyInfo{
+				Object: job,
+				Status: event.StatusPending,
+			},
+		},
+		{
+			Type: event.TypeApply,
+			ApplyInfo: event.ApplyInfo{
+				Object: job,
+				Status: event.StatusSuccessful,
+			},
+		},
+		{
+			Type: event.TypeInventory,
+			InventoryInfo: event.InventoryInfo{
+				Status: event.StatusPending,
+			},
+		},
+		{
+			Type: event.TypeInventory,
+			InventoryInfo: event.InventoryInfo{
+				Status: event.StatusSuccessful,
+			},
+		},
 	}
 
 	withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 	defer cancel()
 
-	err = applier.Run(withTimeout, objects, ApplierOptions{DryRun: true})
-	require.NoError(t, err)
-}
+	applier := newTestApplier(t, append(objects, job), &fakeGenerator{resource: job})
+	eventCh := applier.Run(withTimeout, objects, ApplierOptions{DryRun: true})
+	var events []event.Event
 
-// keep it to always check if fakeRunner implement correctly the TaskRunner interface
-var _ runner.TaskRunner = &fakeRunner{}
+loop:
+	for {
+		select {
+		case <-withTimeout.Done():
+			assert.Fail(t, "context endend in timeout, something is pending")
+			break loop
 
-// fakeRunner used to abstract away the runner implementation during unit tests
-type fakeRunner struct {
-	runHandler func(state runner.State, queue chan runner.Task) error
-}
+		case e, open := <-eventCh:
+			if !open {
+				break loop
+			}
 
-// Cancel implement the runner.TaskRunner interface
-func (r *fakeRunner) Cancel() {}
+			events = append(events, e)
+		}
+	}
 
-// RunWithQueue implement the runner.TaskRunner interface
-func (r *fakeRunner) RunWithQueue(state runner.State, queue chan runner.Task) error {
-	return r.runHandler(state, queue)
+	require.Equal(t, len(expectedEvents), len(events), "actual events found: %v", events)
+	for idx, expectedEvent := range expectedEvents {
+		assert.Equal(t, expectedEvent.String(), events[idx].String())
+	}
 }
