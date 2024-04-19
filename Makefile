@@ -49,8 +49,8 @@ endif
 
 # Set here the name of the package you want to build
 CMDNAME:= jpl
-BUILD_PATH:= $(PROJECT_DIR)/deploy
-CONFORMANCE_TEST_PATH:= $(PROJECT_DIR)/internal/e2e
+BUILD_PATH:= $(PROJECT_DIR)
+CONFORMANCE_TEST_PATH:= $(PROJECT_DIR)/tests/e2e
 IS_LIBRARY:= 1
 
 # enable modules
@@ -105,7 +105,13 @@ include tools/make/release.mk
 
 # Uncomment the correct test suite to run during CI
 .PHONY: ci
-# ci: test-coverage
-ci: test-integration-coverage
+ci: test-coverage
+# ci: test-integration-coverage
 
 ### Put your custom import, define or goals under here ###
+
+test/conformance/setup: $(TOOLS_BIN)/setup-envtest envtest/assets
+
+generate-deps: $(TOOLS_BIN)/stringer
+$(TOOLS_BIN)/stringer:
+	GOBIN=$(TOOLS_BIN) go install golang.org/x/tools/cmd/stringer@v0.19.0

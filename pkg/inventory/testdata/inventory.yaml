@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inventory
+data:
+  "_nginx_apps_Deployment": ""
+  "_service-name__Service": ""

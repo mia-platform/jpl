@@ -1,8 +1,8 @@
 dist: bin
 
 builds:
-- skip: true
-  main: "{{ .Env.BUILD_PATH }}"
+- main: "{{ .Env.BUILD_PATH }}"
+  skip: true
   binary: >-
     {{ .Os }}/
     {{- .Arch }}/

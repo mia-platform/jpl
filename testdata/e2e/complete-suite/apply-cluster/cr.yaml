@@ -1,0 +1,8 @@
+---
+apiVersion: example.com/v1
+kind: Replica
+metadata:
+  name: replica-test
+  namespace: "{{ .Namespace }}"
+spec:
+  replicas: 1
