@@ -17,11 +17,14 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"testing"
 
+	"github.com/mia-platform/jpl/internal/poller"
+	"github.com/mia-platform/jpl/pkg/event"
 	"github.com/mia-platform/jpl/pkg/generator"
 	fakeinventory "github.com/mia-platform/jpl/pkg/inventory/fake"
 	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
@@ -32,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/resource"
+	"k8s.io/client-go/dynamic"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/rest/fake"
 )
@@ -40,13 +44,14 @@ var (
 	codec = pkgtesting.Codecs.LegacyCodec(pkgtesting.Scheme.PrioritizedVersionsAllGroups()...)
 )
 
-func newTestApplier(t *testing.T, objects []*unstructured.Unstructured, inventoryObjects []*unstructured.Unstructured, generators ...generator.Interface) *Applier {
+func newTestApplier(t *testing.T, objects []*unstructured.Unstructured, inventoryObjects []*unstructured.Unstructured, statusEvents []event.Event, generators ...generator.Interface) *Applier {
 	t.Helper()
 
 	applier, err := NewBuilder().
 		WithFactory(factoryForTesting(t, objects, inventoryObjects)).
 		WithInventory(&fakeinventory.Inventory{InventoryObjects: inventoryObjects}).
 		WithGenerators(generators...).
+		WithStatusPollerBuilder(&fakePollerBuilder{events: statusEvents}).
 		Build()
 	require.NoError(t, err)
 
@@ -159,4 +164,31 @@ func (g *errorGenerator) CanHandleResource(_ *metav1.PartialObjectMetadata) bool
 
 func (g *errorGenerator) Generate(_ *unstructured.Unstructured) ([]*unstructured.Unstructured, error) {
 	return []*unstructured.Unstructured{}, g.err
+}
+
+var _ poller.Builder = &fakePollerBuilder{}
+var _ poller.StatusPoller = &fakePollerBuilder{}
+
+type fakePollerBuilder struct {
+	events []event.Event
+}
+
+func (b *fakePollerBuilder) NewPoller(dynamic.Interface, meta.RESTMapper) poller.StatusPoller {
+	return b
+}
+
+func (b *fakePollerBuilder) Start(ctx context.Context, _ []*unstructured.Unstructured) <-chan event.Event {
+	eventCh := make(chan event.Event)
+
+	go func() {
+		defer close(eventCh)
+
+		for _, event := range b.events {
+			eventCh <- event
+		}
+
+		<-ctx.Done()
+	}()
+
+	return eventCh
 }

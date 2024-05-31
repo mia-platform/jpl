@@ -1,0 +1,9 @@
+kind: CustomResource
+apiVersion: example.com/v1
+metadata:
+  name: custom-resource
+status:
+  conditions:
+  - status: "True"
+    type: Reconciling
+    message: custom message

@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - resourcereader package for reading kubernetes manifests from path or buffer
 - runner package for handling a queue of tasks to execute in order
 - client package contains a brand new Applier client for apply local manifests against a remote api-server
+- runner/poller package will poll the remote api-server for getting the status of a set of resources
 
 ## [v0.1.2] - 2022-10-28
 

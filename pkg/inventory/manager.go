@@ -96,8 +96,6 @@ func (m *Manager) SaveCurrentInventoryState(ctx context.Context, dryRun bool) er
 	// add all object that failed to be pruned for not leaving abandoned objects in the cluster
 	newInventory = newInventory.Union(m.objectsForStatus(objectStatusDeleteFailed))
 
-	// TODO: track the intersection of the oldInventory objects with the failed applies, and only save object that where
-	// previously tracked.
 	applyFailed := m.intersectedObjects(m.objectsForStatus(objectStatusApplyFailed), m.startingObjects)
 	newInventory = newInventory.Union(applyFailed)
 

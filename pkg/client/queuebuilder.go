@@ -18,6 +18,7 @@ package client
 import (
 	"sort"
 
+	"github.com/mia-platform/jpl/internal/poller"
 	"github.com/mia-platform/jpl/pkg/inventory"
 	"github.com/mia-platform/jpl/pkg/resource"
 	"github.com/mia-platform/jpl/pkg/runner"
@@ -37,10 +38,11 @@ type QueueBuilder struct {
 	objects      []*unstructured.Unstructured
 	pruneObjects []*unstructured.Unstructured
 
-	Manager     *inventory.Manager
-	Client      dynamic.Interface
-	Mapper      meta.RESTMapper
-	InfoFetcher task.InfoFetcher
+	Manager       *inventory.Manager
+	Client        dynamic.Interface
+	Mapper        meta.RESTMapper
+	InfoFetcher   task.InfoFetcher
+	PollerBuilder poller.Builder
 }
 
 func (b *QueueBuilder) WithObjects(objs []*unstructured.Unstructured) *QueueBuilder {
@@ -53,46 +55,49 @@ func (b *QueueBuilder) WithPruneObjects(objs []*unstructured.Unstructured) *Queu
 	return b
 }
 
-func (b *QueueBuilder) Build(options QueueOptions) chan runner.Task {
-	totalActionLenght := 1
-	pruneObjects := options.Prune && len(b.pruneObjects) > 0
-	applyObjects := len(b.objects) > 0
+func (b *QueueBuilder) Build(options QueueOptions) <-chan runner.Task {
+	tasks := make([]runner.Task, 0)
 
-	if applyObjects {
-		totalActionLenght++
-	}
+	if len(b.objects) > 0 {
+		graph := resource.NewDependencyGraph(b.objects)
 
-	if pruneObjects {
-		totalActionLenght++
-	}
-	queue := make(chan runner.Task, totalActionLenght)
+		for _, group := range graph.SortedResourceGroups() {
+			tasks = append(tasks, &task.ApplyTask{
+				DryRun:       options.DryRun,
+				FieldManager: options.FieldManager,
 
-	if applyObjects {
-		sort.Sort(resource.SortableObjects(b.objects))
-		queue <- &task.ApplyTask{
-			DryRun:       options.DryRun,
-			FieldManager: options.FieldManager,
-
-			Objects:     b.objects,
-			InfoFetcher: b.InfoFetcher,
+				Objects:     group,
+				InfoFetcher: b.InfoFetcher,
+			})
+			if !options.DryRun {
+				tasks = append(tasks, &task.WaitTask{
+					Objects: group,
+					Poller:  b.PollerBuilder.NewPoller(b.Client, b.Mapper),
+				})
+			}
 		}
 	}
 
-	if pruneObjects {
+	if options.Prune && len(b.pruneObjects) > 0 {
 		sort.Sort(sort.Reverse(resource.SortableObjects(b.pruneObjects)))
-		queue <- &task.PruneTask{
+		tasks = append(tasks, &task.PruneTask{
 			DryRun:       options.DryRun,
 			FieldManager: options.FieldManager,
 
 			Objects: b.pruneObjects,
 			Client:  b.Client,
 			Mapper:  b.Mapper,
-		}
+		})
 	}
 
-	queue <- &task.InventoryTask{
+	tasks = append(tasks, &task.InventoryTask{
 		Manager: b.Manager,
 		DryRun:  options.DryRun,
+	})
+
+	queue := make(chan runner.Task, len(tasks))
+	for _, task := range tasks {
+		queue <- task
 	}
 
 	defer close(queue)

@@ -18,6 +18,7 @@ package event
 import (
 	"fmt"
 
+	"github.com/mia-platform/jpl/pkg/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -32,6 +33,7 @@ const (
 	TypeApply
 	TypePrune
 	TypeInventory
+	TypeStatusUpdate
 )
 
 // Status determine the status of events that are available.
@@ -64,6 +66,9 @@ type Event struct {
 
 	// InventoryInfo contains info for a TypeInventory event
 	InventoryInfo InventoryInfo
+
+	// StatusUpdateInfo contains info for a TypeStatusUpdate event
+	StatusUpdateInfo StatusUpdateInfo
 }
 
 // IsErrorEvent can be used to check if the error contains some type of error
@@ -77,6 +82,8 @@ func (e Event) IsErrorEvent() bool {
 		return e.PruneInfo.Error != nil
 	case TypeInventory:
 		return e.InventoryInfo.Error != nil
+	case TypeStatusUpdate:
+		return e.StatusUpdateInfo.Status != StatusFailed
 	default:
 		return false
 	}
@@ -95,6 +102,8 @@ func (e Event) String() string {
 		return e.PruneInfo.String()
 	case TypeInventory:
 		return e.InventoryInfo.String()
+	case TypeStatusUpdate:
+		return e.StatusUpdateInfo.String()
 	default:
 		return "event type unknown"
 	}
@@ -182,4 +191,14 @@ func (i InventoryInfo) String() string {
 // identifierFromObject return a string to print that identify the obj
 func identifierFromObject(obj *unstructured.Unstructured) string {
 	return fmt.Sprintf("%s %s", obj.GroupVersionKind().GroupKind().String(), obj.GetName())
+}
+
+type StatusUpdateInfo struct {
+	Status         Status
+	Message        string
+	ObjectMetadata resource.ObjectMetadata
+}
+
+func (i StatusUpdateInfo) String() string {
+	return i.Message
 }

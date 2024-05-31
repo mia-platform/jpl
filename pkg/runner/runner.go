@@ -18,7 +18,7 @@ package runner
 // TaskRunner provides abstraction for a TaskRunner implementation
 type TaskRunner interface {
 	// RunWithQueue will start to execute all the tasks that will be found in the channel
-	RunWithQueue(State, chan Task) error
+	RunWithQueue(State, <-chan Task) error
 }
 
 // NewTaskRunner return an implementation of TaskRunner
@@ -28,7 +28,7 @@ func NewTaskRunner() TaskRunner {
 
 type taskRunner struct{}
 
-func (r *taskRunner) RunWithQueue(state State, taskQueue chan Task) error {
+func (r *taskRunner) RunWithQueue(state State, taskQueue <-chan Task) error {
 	ctx := state.GetContext()
 	done := ctx.Done()
 

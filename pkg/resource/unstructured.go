@@ -16,11 +16,16 @@
 package resource
 
 import (
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"reflect"
+
+	corev1 "k8s.io/api/core/v1"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/resource"
 )
+
+var crdGK = apiextv1.SchemeGroupVersion.WithKind(reflect.TypeOf(apiextv1.CustomResourceDefinition{}).Name()).GroupKind()
+var namespaceGK = corev1.SchemeGroupVersion.WithKind(reflect.TypeOf(corev1.Namespace{}).Name()).GroupKind()
 
 // FindCRDs return a new slice containing unstructured data for CRDs contained inside a Resource slice
 func FindCRDs(objs []*unstructured.Unstructured) []*unstructured.Unstructured {
@@ -40,7 +45,14 @@ func FindCRDs(objs []*unstructured.Unstructured) []*unstructured.Unstructured {
 // on GroupKind, it will not validate that the resource is actually a CRD or its version
 func IsCRD(obj *unstructured.Unstructured) bool {
 	resourceGK := obj.GroupVersionKind().GroupKind()
-	return resourceGK == schema.GroupKind{Group: apiextensionsv1.GroupName, Kind: "CustomResourceDefinition"}
+	return resourceGK == crdGK
+}
+
+// IsNamespace return true if the Unstructured contains a Namespace kubernetes resource, the check is done via equality
+// on GroupKind, it will not validate that the resource is actually a Namespace or its version
+func IsNamespace(obj *unstructured.Unstructured) bool {
+	resourceGK := obj.GroupVersionKind().GroupKind()
+	return resourceGK == namespaceGK
 }
 
 // Info return a kubernetes resource Info backed by a copy of the unstructured

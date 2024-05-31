@@ -1,0 +1,7 @@
+kind: CustomResource
+apiVersion: example.com/v1
+metadata:
+  name: custom-resource
+status:
+  conditions:
+    not: slice

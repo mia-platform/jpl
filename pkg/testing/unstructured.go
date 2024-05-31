@@ -22,6 +22,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	metav1beta1 "k8s.io/apimachinery/pkg/apis/meta/v1beta1"
@@ -47,6 +48,7 @@ func init() {
 	utilruntime.Must(metav1beta1.AddMetaToScheme(Scheme))
 	utilruntime.Must(metav1.AddMetaToScheme(Scheme))
 	utilruntime.Must(scheme.AddToScheme(Scheme))
+	utilruntime.Must(apiextv1.AddToScheme(Scheme))
 	utilruntime.Must(Scheme.SetVersionPriority(corev1.SchemeGroupVersion))
 }
 

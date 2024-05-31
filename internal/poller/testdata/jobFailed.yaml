@@ -1,0 +1,10 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: test
+status:
+  failed: 1
+  conditions:
+  - type: Failed
+    status: "True"
+    message: custom message

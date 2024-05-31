@@ -21,6 +21,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/mia-platform/jpl/internal/poller"
 	"github.com/mia-platform/jpl/pkg/event"
 	"github.com/mia-platform/jpl/pkg/generator"
 	"github.com/mia-platform/jpl/pkg/inventory"
@@ -42,9 +43,10 @@ type Applier struct {
 	client      dynamic.Interface
 	infoFetcher task.InfoFetcher
 
-	runner     runner.TaskRunner
-	inventory  inventory.Store
-	generators []generator.Interface
+	runner        runner.TaskRunner
+	inventory     inventory.Store
+	generators    []generator.Interface
+	pollerBuilder poller.Builder
 }
 
 // ApplierOptions options for the apply step
@@ -84,10 +86,11 @@ func (a *Applier) Run(ctx context.Context, objects []*unstructured.Unstructured,
 		manager := inventory.NewManager(a.inventory, remoteObjects)
 
 		queueBuilder := QueueBuilder{
-			Client:      a.client,
-			Mapper:      a.mapper,
-			Manager:     manager,
-			InfoFetcher: a.infoFetcher,
+			Client:        a.client,
+			Mapper:        a.mapper,
+			Manager:       manager,
+			InfoFetcher:   a.infoFetcher,
+			PollerBuilder: a.pollerBuilder,
 		}
 		queueOptions := QueueOptions{
 			DryRun:       options.DryRun,

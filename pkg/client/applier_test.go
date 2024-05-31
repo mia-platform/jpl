@@ -17,6 +17,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -25,6 +26,7 @@ import (
 	"github.com/mia-platform/jpl/pkg/event"
 	"github.com/mia-platform/jpl/pkg/generator"
 	fakeinventory "github.com/mia-platform/jpl/pkg/inventory/fake"
+	"github.com/mia-platform/jpl/pkg/resource"
 	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -42,6 +44,7 @@ func TestNewApplier(t *testing.T) {
 	assert.NotNil(t, applier.runner)
 	assert.NotNil(t, applier.mapper)
 	assert.NotNil(t, applier.infoFetcher)
+	assert.NotNil(t, applier.pollerBuilder)
 	assert.NoError(t, err)
 
 	applier, err = NewBuilder().Build()
@@ -61,6 +64,7 @@ func TestApplierRun(t *testing.T) {
 		inventoryObjects []*unstructured.Unstructured
 		options          ApplierOptions
 		expectedEvents   []event.Event
+		statusEvents     []event.Event
 	}{
 		"Apply objects with success without previous inventory": {
 			objects: []*unstructured.Unstructured{
@@ -97,6 +101,22 @@ func TestApplierRun(t *testing.T) {
 					},
 				},
 				{
+					Type: event.TypeStatusUpdate,
+					StatusUpdateInfo: event.StatusUpdateInfo{
+						Message:        "",
+						Status:         event.StatusSuccessful,
+						ObjectMetadata: resource.ObjectMetadataFromUnstructured(deployment),
+					},
+				},
+				{
+					Type: event.TypeStatusUpdate,
+					StatusUpdateInfo: event.StatusUpdateInfo{
+						Message:        "",
+						Status:         event.StatusSuccessful,
+						ObjectMetadata: resource.ObjectMetadataFromUnstructured(namespace),
+					},
+				},
+				{
 					Type: event.TypeInventory,
 					InventoryInfo: event.InventoryInfo{
 						Status: event.StatusPending,
@@ -106,6 +126,24 @@ func TestApplierRun(t *testing.T) {
 					Type: event.TypeInventory,
 					InventoryInfo: event.InventoryInfo{
 						Status: event.StatusSuccessful,
+					},
+				},
+			},
+			statusEvents: []event.Event{
+				{
+					Type: event.TypeStatusUpdate,
+					StatusUpdateInfo: event.StatusUpdateInfo{
+						Message:        "",
+						Status:         event.StatusSuccessful,
+						ObjectMetadata: resource.ObjectMetadataFromUnstructured(deployment),
+					},
+				},
+				{
+					Type: event.TypeStatusUpdate,
+					StatusUpdateInfo: event.StatusUpdateInfo{
+						Message:        "",
+						Status:         event.StatusSuccessful,
+						ObjectMetadata: resource.ObjectMetadataFromUnstructured(namespace),
 					},
 				},
 			},
@@ -217,7 +255,7 @@ func TestApplierRun(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
-			applier := newTestApplier(t, testCase.objects, testCase.inventoryObjects)
+			applier := newTestApplier(t, testCase.objects, testCase.inventoryObjects, testCase.statusEvents)
 			withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 			defer cancel()
 
@@ -228,8 +266,10 @@ func TestApplierRun(t *testing.T) {
 			for {
 				select {
 				case <-withTimeout.Done():
-					assert.Fail(t, "context endend in timeout, something is pending")
-					break loop
+					if errors.Is(withTimeout.Err(), context.DeadlineExceeded) {
+						assert.Fail(t, "context ended in timeout, something is pending")
+						break loop
+					}
 
 				case e, open := <-eventCh:
 					if !open {
@@ -352,7 +392,7 @@ func TestGenerators(t *testing.T) {
 		defer cancel()
 
 		t.Run(testName, func(t *testing.T) {
-			applier := newTestApplier(t, append(testCase.objects, job), nil, testCase.generator)
+			applier := newTestApplier(t, append(testCase.objects, job), nil, []event.Event{}, testCase.generator)
 			eventCh := applier.Run(withTimeout, testCase.objects, ApplierOptions{DryRun: true})
 			var events []event.Event
 		loop:

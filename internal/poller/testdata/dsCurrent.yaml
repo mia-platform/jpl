@@ -1,0 +1,12 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: test
+  generation: 1
+status:
+  desiredNumberScheduled: 4
+  currentNumberScheduled: 4
+  updatedNumberScheduled: 4
+  numberAvailable: 4
+  numberReady: 4
+  observedGeneration: 1

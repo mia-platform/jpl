@@ -1,0 +1,12 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  generation: 1
+  name: test
+spec:
+  replicas: 4
+status:
+  observedGeneration: 1
+  currentReplicas: 4
+  readyReplicas: 4
+  replicas: 4

@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: test
+spec:
+  completions: 4
+  parallelism: 2
+status:
+  startTime: "2000-01-01T00:00:00Z"
+  succeeded: 3
+  failed: 0
+  active: 2
+  conditions:
+  - type: Failed
+    status: "False"
+  - type: Complete
+    status: "False"
+  - type: Suspended
+    status: "False"

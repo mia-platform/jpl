@@ -18,6 +18,7 @@ package client
 import (
 	"fmt"
 
+	"github.com/mia-platform/jpl/internal/poller"
 	"github.com/mia-platform/jpl/pkg/generator"
 	"github.com/mia-platform/jpl/pkg/inventory"
 	"github.com/mia-platform/jpl/pkg/runner"
@@ -27,10 +28,11 @@ import (
 
 // Builder is used to correctly instantiate an Applier client with the correct properties
 type Builder struct {
-	factory    util.ClientFactory
-	runner     runner.TaskRunner
-	inventory  inventory.Store
-	generators []generator.Interface
+	factory       util.ClientFactory
+	runner        runner.TaskRunner
+	inventory     inventory.Store
+	generators    []generator.Interface
+	pollerBuilder poller.Builder
 }
 
 // NewBuilder return a new Builder instance with configured defaults
@@ -59,6 +61,11 @@ func (b *Builder) WithGenerators(generators ...generator.Interface) *Builder {
 	return b
 }
 
+func (b *Builder) WithStatusPollerBuilder(builder poller.Builder) *Builder {
+	b.pollerBuilder = builder
+	return b
+}
+
 // Build use default values and configured builder porperty for correctly setup an Applier
 func (b *Builder) Build() (*Applier, error) {
 	if b.factory == nil {
@@ -71,6 +78,11 @@ func (b *Builder) Build() (*Applier, error) {
 
 	if b.inventory == nil {
 		return nil, fmt.Errorf("cannot build an Applier client without a valid inventory")
+	}
+
+	pollerBuilder := b.pollerBuilder
+	if pollerBuilder == nil {
+		pollerBuilder = &poller.DefaultBuilder{}
 	}
 
 	client, err := b.factory.DynamicClient()
@@ -89,11 +101,12 @@ func (b *Builder) Build() (*Applier, error) {
 	}
 
 	return &Applier{
-		client:      client,
-		mapper:      mapper,
-		runner:      b.runner,
-		inventory:   b.inventory,
-		infoFetcher: fetcher,
-		generators:  b.generators,
+		client:        client,
+		mapper:        mapper,
+		runner:        b.runner,
+		inventory:     b.inventory,
+		infoFetcher:   fetcher,
+		generators:    b.generators,
+		pollerBuilder: pollerBuilder,
 	}, nil
 }

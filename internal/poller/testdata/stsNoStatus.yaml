@@ -1,0 +1,5 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  generation: 1
+  name: test

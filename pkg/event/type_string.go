@@ -13,11 +13,12 @@ func _() {
 	_ = x[TypeApply-2]
 	_ = x[TypePrune-3]
 	_ = x[TypeInventory-4]
+	_ = x[TypeStatusUpdate-5]
 }
 
-const _Type_name = "ErrorQueueApplyPruneInventory"
+const _Type_name = "ErrorQueueApplyPruneInventoryStatusUpdate"
 
-var _Type_index = [...]uint8{0, 5, 10, 15, 20, 29}
+var _Type_index = [...]uint8{0, 5, 10, 15, 20, 29, 41}
 
 func (i Type) String() string {
 	if i < 0 || i >= Type(len(_Type_index)-1) {
