@@ -49,10 +49,10 @@ func TestNewDependencyGraph(t *testing.T) {
 		objects        []*unstructured.Unstructured
 		expectedGroups [][]*unstructured.Unstructured
 	}{
-		"empty objects return empty groups": {
+		"empty objects": {
 			expectedGroups: make([][]*unstructured.Unstructured, 0),
 		},
-		"objects without crds or namesapaces return single ordered group": {
+		"objects without crds or namesapaces": {
 			objects: []*unstructured.Unstructured{
 				cronjob,
 				namespacedCR,
@@ -66,7 +66,7 @@ func TestNewDependencyGraph(t *testing.T) {
 				},
 			},
 		},
-		"objects with their namespace resource return two groups": {
+		"objects with their namespace resource": {
 			objects: []*unstructured.Unstructured{
 				cronjob,
 				namespacedCR,
@@ -84,7 +84,7 @@ func TestNewDependencyGraph(t *testing.T) {
 				},
 			},
 		},
-		"objects with crds inside return three groups": {
+		"objects with crds inside": {
 			objects: []*unstructured.Unstructured{
 				cronjob,
 				namespacedCR,
@@ -104,13 +104,11 @@ func TestNewDependencyGraph(t *testing.T) {
 					deployment,
 					cronjob,
 					clusterCR,
-				},
-				{
 					namespacedCR,
 				},
 			},
 		},
-		"only crd, cr and namespace return two groups": {
+		"only crd, cr and namespace": {
 			objects: []*unstructured.Unstructured{
 				namespacedCR,
 				namespacedCRD,

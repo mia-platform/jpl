@@ -16,6 +16,7 @@
 package resource
 
 import (
+	"maps"
 	"sort"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -44,33 +45,30 @@ func (g *DependencyGraph) addEdge(from, to *unstructured.Unstructured) {
 }
 
 func (g *DependencyGraph) SortedResourceGroups() [][]*unstructured.Unstructured {
-	edgesNumber := 0
+	edges := maps.Clone(g.edges)
+
 	groups := make([][]*unstructured.Unstructured, 0)
-	for {
-		leafEdges := make([]*unstructured.Unstructured, 0)
-		stop := true
-
-		for vertex, edges := range g.edges {
-			if len(edges) == edgesNumber {
-				leafEdges = append(leafEdges, vertex)
-			}
-
-			if len(edges) >= edgesNumber {
-				stop = false
+	for len(edges) > 0 {
+		group := make([]*unstructured.Unstructured, 0)
+		for vertex, vertexEdges := range edges {
+			if len(vertexEdges) == 0 {
+				group = append(group, vertex)
 			}
 		}
 
-		if stop {
-			break
+		if len(group) == 0 {
+			return groups
 		}
 
-		edgesNumber++
-		if len(leafEdges) == 0 {
-			continue
+		for _, resource := range group {
+			delete(edges, resource)
+			for vertex, vertexEdges := range edges {
+				edges[vertex] = vertexEdges.Delete(resource)
+			}
 		}
 
-		sort.Sort(SortableObjects(leafEdges))
-		groups = append(groups, leafEdges)
+		sort.Sort(SortableObjects(group))
+		groups = append(groups, group)
 	}
 
 	return groups
