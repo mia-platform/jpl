@@ -21,6 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/resource"
 )
 
@@ -45,6 +46,13 @@ func FindCRDs(objs []*unstructured.Unstructured) []*unstructured.Unstructured {
 // on GroupKind, it will not validate that the resource is actually a CRD or its version
 func IsCRD(obj *unstructured.Unstructured) bool {
 	resourceGK := obj.GroupVersionKind().GroupKind()
+	return resourceGK == crdGK
+}
+
+// MetadataIsCRD return true if the ObjectMetadata contains a CRD kubernetes resource, the check is done via equality
+// on GroupKind, it will not validate that the resource is actually a CRD or its version
+func MetadataIsCRD(obj ObjectMetadata) bool {
+	resourceGK := schema.GroupKind{Group: obj.Group, Kind: obj.Kind}
 	return resourceGK == crdGK
 }
 

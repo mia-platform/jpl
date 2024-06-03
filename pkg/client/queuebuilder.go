@@ -73,6 +73,7 @@ func (b *QueueBuilder) Build(options QueueOptions) <-chan runner.Task {
 				tasks = append(tasks, &task.WaitTask{
 					Objects: group,
 					Poller:  b.PollerBuilder.NewPoller(b.Client, b.Mapper),
+					Mapper:  b.Mapper,
 				})
 			}
 		}

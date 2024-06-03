@@ -22,6 +22,7 @@ import (
 	"github.com/mia-platform/jpl/pkg/event"
 	"github.com/mia-platform/jpl/pkg/resource"
 	"github.com/mia-platform/jpl/pkg/runner"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -33,6 +34,7 @@ var _ runner.Task = &WaitTask{}
 type WaitTask struct {
 	Objects []*unstructured.Unstructured
 	Poller  poller.StatusPoller
+	Mapper  meta.RESTMapper
 
 	objectsToWatch sets.Set[resource.ObjectMetadata]
 }
@@ -48,6 +50,7 @@ func (t *WaitTask) Run(state runner.State) {
 
 	pollerCh := t.Poller.Start(ctx, t.Objects)
 
+	resetMapper := false
 	for {
 		msg, open := <-pollerCh
 		if !open {
@@ -59,11 +62,18 @@ func (t *WaitTask) Run(state runner.State) {
 
 		if msg.Type == event.TypeStatusUpdate && msg.StatusUpdateInfo.Status == event.StatusSuccessful {
 			t.objectsToWatch.Delete(msg.StatusUpdateInfo.ObjectMetadata)
+			if resource.MetadataIsCRD(msg.StatusUpdateInfo.ObjectMetadata) {
+				resetMapper = true
+			}
 		}
 
 		if len(t.objectsToWatch) == 0 {
 			cancel()
 			break
 		}
+	}
+
+	if resetMapper {
+		meta.MaybeResetRESTMapper(t.Mapper)
 	}
 }
