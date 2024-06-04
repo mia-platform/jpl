@@ -45,7 +45,8 @@ func TestNewDependencyGraph(t *testing.T) {
 	namespacedCR := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdata, "namespaced-cr.yaml"))
 	namespacedCR.SetNamespace(namespace.GetName())
 
-	webhook := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdata, "validating-webhook-configuration.yaml"))
+	validatingWebhook := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdata, "validating-webhook-configuration.yaml"))
+	mutatingWebhook := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdata, "mutating-webhook-configuration.yaml"))
 	webhookService := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdata, "webhook-service.yaml"))
 
 	tests := map[string]struct {
@@ -58,7 +59,7 @@ func TestNewDependencyGraph(t *testing.T) {
 		"objects without crds or namesapaces": {
 			objects: []*unstructured.Unstructured{
 				cronjob,
-				webhook,
+				validatingWebhook,
 				namespacedCR,
 				deployment,
 			},
@@ -66,7 +67,7 @@ func TestNewDependencyGraph(t *testing.T) {
 				{
 					deployment,
 					cronjob,
-					webhook,
+					validatingWebhook,
 					namespacedCR,
 				},
 			},
@@ -98,14 +99,14 @@ func TestNewDependencyGraph(t *testing.T) {
 				namespacedCRD,
 				clusterCR,
 				namespace,
-				webhook,
+				validatingWebhook,
 			},
 			expectedGroups: [][]*unstructured.Unstructured{
 				{
 					namespace,
 					clusterCRD,
 					namespacedCRD,
-					webhook,
+					validatingWebhook,
 				},
 				{
 					deployment,
@@ -133,15 +134,17 @@ func TestNewDependencyGraph(t *testing.T) {
 		},
 		"webhook and its service": {
 			objects: []*unstructured.Unstructured{
-				webhook,
+				validatingWebhook,
 				webhookService,
+				mutatingWebhook,
 			},
 			expectedGroups: [][]*unstructured.Unstructured{
 				{
 					webhookService,
 				},
 				{
-					webhook,
+					mutatingWebhook,
+					validatingWebhook,
 				},
 			},
 		},

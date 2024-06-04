@@ -85,7 +85,7 @@ func NewDependencyGraph(objs []*unstructured.Unstructured) *DependencyGraph {
 
 	crds := make(map[schema.GroupKind]*unstructured.Unstructured)
 	namespaces := make(map[string]*unstructured.Unstructured)
-	webhooks := make(map[ObjectMetadata]*unstructured.Unstructured)
+	webhooks := make(map[ObjectMetadata][]*unstructured.Unstructured)
 
 	for _, obj := range objs {
 		graph.addVertex(obj)
@@ -101,7 +101,7 @@ func NewDependencyGraph(objs []*unstructured.Unstructured) *DependencyGraph {
 			namespaces[obj.GetName()] = obj
 		case IsRegistrationWebhook(obj):
 			for _, svc := range servicesMetadataFromWebhook(obj) {
-				webhooks[svc] = obj
+				webhooks[svc] = append(webhooks[svc], obj)
 			}
 		}
 	}
@@ -117,7 +117,9 @@ func NewDependencyGraph(objs []*unstructured.Unstructured) *DependencyGraph {
 		}
 
 		if webhook, found := webhooks[objMeta]; found {
-			graph.addEdge(webhook, obj)
+			for _, webhook := range webhook {
+				graph.addEdge(webhook, obj)
+			}
 		}
 	}
 

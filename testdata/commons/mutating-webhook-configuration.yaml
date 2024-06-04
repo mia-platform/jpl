@@ -1,30 +1,9 @@
 apiVersion: admissionregistration.k8s.io/v1
-kind: ValidatingWebhookConfiguration
+kind: MutatingWebhookConfiguration
 metadata:
   name: example
 webhooks:
 - name: hookname1
-  rules:
-  - apiGroups:
-    - serivce.example.com
-    apiVersions:
-    - v1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - "*/*"
-  admissionReviewVersions:
-  - v1
-  matchPolicy: Equivalent
-  timeoutSeconds: 10
-  failurePolicy: Fail
-  sideEffects: None
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: webhook-namespace
-- name: hookname2
   rules:
   - apiGroups:
     - url.example.com
@@ -43,3 +22,24 @@ webhooks:
   sideEffects: None
   clientConfig:
     url: https://example.com
+- name: hookname2
+  rules:
+  - apiGroups:
+    - serivice.example.com
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - "*/*"
+  admissionReviewVersions:
+  - v1
+  matchPolicy: Equivalent
+  timeoutSeconds: 10
+  failurePolicy: Fail
+  sideEffects: None
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: webhook-namespace
