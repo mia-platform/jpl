@@ -1,0 +1,45 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: example
+webhooks:
+- name: hookname1
+  rules:
+  - apiGroups:
+    - example.com
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - "*/*"
+  admissionReviewVersions:
+  - v1
+  matchPolicy: Equivalent
+  timeoutSeconds: 10
+  failurePolicy: Fail
+  sideEffects: None
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: webhook-namespace
+- name: hookname2
+  rules:
+  - apiGroups:
+    - second.example.com
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - "*/*"
+  admissionReviewVersions:
+  - v1
+  matchPolicy: Equivalent
+  timeoutSeconds: 10
+  failurePolicy: Fail
+  sideEffects: None
+  clientConfig:
+    url: https://example.com

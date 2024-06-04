@@ -19,7 +19,7 @@ import (
 	"maps"
 	"sort"
 
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -85,12 +85,13 @@ func NewDependencyGraph(objs []*unstructured.Unstructured) *DependencyGraph {
 
 	crds := make(map[schema.GroupKind]*unstructured.Unstructured)
 	namespaces := make(map[string]*unstructured.Unstructured)
+	webhooks := make(map[ObjectMetadata]*unstructured.Unstructured)
 
 	for _, obj := range objs {
 		graph.addVertex(obj)
 		switch {
 		case IsCRD(obj):
-			var typedCRD apiextensionsv1.CustomResourceDefinition
+			var typedCRD apiextv1.CustomResourceDefinition
 			if err := runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(obj.Object, &typedCRD, true); err != nil {
 				continue
 			}
@@ -98,16 +99,25 @@ func NewDependencyGraph(objs []*unstructured.Unstructured) *DependencyGraph {
 			crds[schema.GroupKind{Group: typedCRD.Spec.Group, Kind: typedCRD.Spec.Names.Kind}] = obj
 		case IsNamespace(obj):
 			namespaces[obj.GetName()] = obj
+		case IsRegistrationWebhook(obj):
+			for _, svc := range servicesMetadataFromWebhook(obj) {
+				webhooks[svc] = obj
+			}
 		}
 	}
 
 	for _, obj := range objs {
-		if crd, found := crds[obj.GroupVersionKind().GroupKind()]; found {
+		objMeta := ObjectMetadataFromUnstructured(obj)
+		if crd, found := crds[schema.GroupKind{Group: objMeta.Group, Kind: objMeta.Kind}]; found {
 			graph.addEdge(obj, crd)
 		}
 
-		if ns, found := namespaces[obj.GetNamespace()]; found {
+		if ns, found := namespaces[objMeta.Namespace]; found {
 			graph.addEdge(obj, ns)
+		}
+
+		if webhook, found := webhooks[objMeta]; found {
+			graph.addEdge(webhook, obj)
 		}
 	}
 
