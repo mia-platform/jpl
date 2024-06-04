@@ -95,8 +95,7 @@ func TestWaitTask(t *testing.T) {
 	state := &runner.FakeState{Context: withTimeout}
 
 	go func() {
-		require.NoError(t, tf.FakeDynamicClient.Tracker().Create(mapping.Resource, deployment, deployment.GetNamespace()))
-		require.NoError(t, tf.FakeDynamicClient.Tracker().Update(mapping.Resource, deploymentUpdate, deployment.GetNamespace()))
+		require.NoError(t, tf.FakeDynamicClient.Tracker().Create(mapping.Resource, deploymentUpdate, deployment.GetNamespace()))
 	}()
 
 	task.Run(state)
