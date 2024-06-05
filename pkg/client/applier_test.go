@@ -418,3 +418,63 @@ func TestGenerators(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadObjectFromInventory(t *testing.T) {
+	t.Parallel()
+
+	testdataPath := "testdata"
+
+	deployment := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdataPath, "deployment.yaml"))
+	namespace := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdataPath, "namespace.yaml"))
+
+	tests := map[string]struct {
+		inventory       *fakeinventory.Inventory
+		remoteObjects   []*unstructured.Unstructured
+		expectedObjects int
+	}{
+		"load no objects if inventory is empty": {
+			inventory:       &fakeinventory.Inventory{InventoryObjects: nil},
+			expectedObjects: 0,
+		},
+		"load all objects inside the inventory": {
+			inventory: &fakeinventory.Inventory{InventoryObjects: []*unstructured.Unstructured{
+				deployment,
+				namespace,
+			}},
+			remoteObjects: []*unstructured.Unstructured{
+				deployment,
+				namespace,
+			},
+			expectedObjects: 2,
+		},
+		"return all objects available on remote and not return error": {
+			inventory: &fakeinventory.Inventory{InventoryObjects: []*unstructured.Unstructured{
+				deployment,
+				namespace,
+			}},
+			remoteObjects: []*unstructured.Unstructured{
+				namespace,
+			},
+			expectedObjects: 1,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			factory := factoryForTesting(t, nil, test.remoteObjects)
+			applier, err := NewBuilder().
+				WithInventory(test.inventory).
+				WithFactory(factory).
+				Build()
+
+			require.NoError(t, err)
+
+			ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+			defer cancel()
+
+			objs, err := applier.loadObjectsFromInventory(ctx)
+			assert.NoError(t, err)
+			assert.Equal(t, test.expectedObjects, len(objs))
+		})
+	}
+}

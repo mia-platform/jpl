@@ -157,9 +157,13 @@ func (a *Applier) loadObjectsFromInventory(ctx context.Context) ([]*unstructured
 	remoteObjects := make([]*unstructured.Unstructured, 0, len(objIDs))
 	for objID := range objIDs {
 		obj, err := a.getObject(ctx, objID)
-		if err != nil && (!meta.IsNoMatchError(err) && !apierrors.IsNotFound(err)) {
+		if err != nil {
+			if meta.IsNoMatchError(err) || apierrors.IsNotFound(err) {
+				continue
+			}
 			return nil, err
 		}
+
 		remoteObjects = append(remoteObjects, obj)
 	}
 
