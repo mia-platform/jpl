@@ -18,8 +18,8 @@ package task
 import (
 	"context"
 	"fmt"
+	"os"
 
-	"github.com/go-logr/logr"
 	"github.com/mia-platform/jpl/pkg/event"
 	pkgresource "github.com/mia-platform/jpl/pkg/resource"
 	"github.com/mia-platform/jpl/pkg/runner"
@@ -129,7 +129,7 @@ func applyObject(ctx context.Context, info resource.Info, dryRun bool, fieldMana
 	// we ignore the error, so no need to catch it
 	_ = info.Refresh(obj, true)
 
-	warnIfDeleting(info.Object, logr.FromContextOrDiscard(ctx))
+	warnIfDeleting(info.Object)
 	return nil
 }
 
@@ -158,8 +158,8 @@ func DefaultInfoFetcherBuilder(factory util.ClientFactory) (InfoFetcher, error) 
 }
 
 // warnIfDeleting prints a warning if a resource is being deleted
-func warnIfDeleting(obj runtime.Object, logger logr.Logger) {
+func warnIfDeleting(obj runtime.Object) {
 	if metadata, _ := meta.Accessor(obj); metadata != nil && metadata.GetDeletionTimestamp() != nil {
-		logger.Info(fmt.Sprintf(warningChangesOnDeletingResource, metadata.GetName()))
+		fmt.Fprintf(os.Stderr, warningChangesOnDeletingResource, metadata.GetName())
 	}
 }

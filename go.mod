@@ -3,7 +3,6 @@ module github.com/mia-platform/jpl
 go 1.22.3
 
 require (
-	github.com/go-logr/logr v1.4.2
 	github.com/stretchr/testify v1.9.0
 	k8s.io/api v0.28.10
 	k8s.io/apiextensions-apiserver v0.28.10
@@ -20,6 +19,7 @@ require (
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
+	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
 	github.com/go-openapi/swag v0.22.4 // indirect
