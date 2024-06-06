@@ -277,24 +277,33 @@ func TestPoller(t *testing.T) {
 			steppingCh := make(chan struct{})
 			defer close(steppingCh)
 
-			receivedEvents := make([]event.Event, 0)
 			go func() {
-				steppingCh <- struct{}{}
-				for event := range eventCh {
+				<-steppingCh
+				for _, update := range testCase.updates {
+					update(client)
+					<-steppingCh
+				}
+				cancel()
+			}()
+
+			steppingCh <- struct{}{}
+
+			receivedEvents := make([]event.Event, 0)
+		loop:
+			for {
+				select {
+				case event, open := <-eventCh:
+					if !open {
+						break loop
+					}
 					t.Log(event)
 					receivedEvents = append(receivedEvents, event)
 					steppingCh <- struct{}{}
-				}
-			}()
 
-			<-steppingCh
-			for idx, update := range testCase.updates {
-				t.Log(idx)
-				update(client)
-				<-steppingCh
+				case <-ctx.Done():
+					break loop
+				}
 			}
-			cancel()
-			<-ctx.Done()
 
 			require.NotEqual(t, context.DeadlineExceeded, ctx.Err())
 			assert.Equal(t, len(testCase.expectedEvents), len(receivedEvents))
