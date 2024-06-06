@@ -83,7 +83,7 @@ func (e Event) IsErrorEvent() bool {
 	case TypeInventory:
 		return e.InventoryInfo.Error != nil
 	case TypeStatusUpdate:
-		return e.StatusUpdateInfo.Status != StatusFailed
+		return e.StatusUpdateInfo.Status == StatusFailed
 	default:
 		return false
 	}
