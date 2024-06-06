@@ -20,6 +20,7 @@ import (
 
 	"github.com/mia-platform/jpl/pkg/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // Type determines the type of events that are available.
@@ -200,5 +201,9 @@ type StatusUpdateInfo struct {
 }
 
 func (i StatusUpdateInfo) String() string {
-	return i.Message
+	gk := schema.GroupKind{
+		Group: i.ObjectMetadata.Group,
+		Kind:  i.ObjectMetadata.Kind,
+	}
+	return fmt.Sprintf("%s %s: %s", gk.String(), i.ObjectMetadata.Name, i.Message)
 }
