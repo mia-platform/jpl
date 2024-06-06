@@ -58,11 +58,12 @@ func NewInfromerBuilder(client dynamic.Interface, mapper meta.RESTMapper, resync
 
 // NewInformer return a new SharedInformer configured for resource or an error if the resource group/kind cannot be
 // looked up to the remote server
-func (b *InformerBuilder) NewInformer(informerCtx context.Context, resource InformerResource) (*Informer, error) {
+func (b *InformerBuilder) NewInformer(ctx context.Context, resource InformerResource) (*Informer, error) {
 	mapping, err := b.Mapper.RESTMapping(resource.GroupKind)
 	if err != nil {
 		return nil, err
 	}
+	informerCtx, cancelFunc := context.WithCancel(ctx)
 
 	lw := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
@@ -81,7 +82,6 @@ func (b *InformerBuilder) NewInformer(informerCtx context.Context, resource Info
 
 	example := &unstructured.Unstructured{}
 	example.SetGroupVersionKind(mapping.GroupVersionKind)
-	informerCtx, cancelFunc := context.WithCancel(informerCtx)
 
 	return &Informer{
 		sharedInformer: cache.NewSharedIndexInformer(lw, example, b.ResyncPeriod, b.Indexers),

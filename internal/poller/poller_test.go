@@ -248,7 +248,7 @@ func TestPoller(t *testing.T) {
 
 	for testName, testCase := range tests {
 		t.Run(testName, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
+			ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 			defer cancel()
 
 			client := dynamicfake.NewSimpleDynamicClient(pkgtesting.Scheme)
@@ -277,23 +277,24 @@ func TestPoller(t *testing.T) {
 			steppingCh := make(chan struct{})
 			defer close(steppingCh)
 
+			receivedEvents := make([]event.Event, 0)
 			go func() {
-				<-steppingCh
-				for _, update := range testCase.updates {
-					update(client)
-					<-steppingCh
+				steppingCh <- struct{}{}
+				for event := range eventCh {
+					t.Log(event)
+					receivedEvents = append(receivedEvents, event)
+					steppingCh <- struct{}{}
 				}
-				cancel()
 			}()
 
-			steppingCh <- struct{}{}
-
-			receivedEvents := make([]event.Event, 0)
-			for event := range eventCh {
-				t.Log(event)
-				receivedEvents = append(receivedEvents, event)
-				steppingCh <- struct{}{}
+			<-steppingCh
+			for idx, update := range testCase.updates {
+				t.Log(idx)
+				update(client)
+				<-steppingCh
 			}
+			cancel()
+			<-ctx.Done()
 
 			require.NotEqual(t, context.DeadlineExceeded, ctx.Err())
 			assert.Equal(t, len(testCase.expectedEvents), len(receivedEvents))
