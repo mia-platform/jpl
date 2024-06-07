@@ -194,7 +194,7 @@ func (im *InformerMultiplexer) eventHandler(ctx context.Context, eventCh chan<- 
 			return
 		}
 
-		result, err := statusCheck(unstruct)
+		result, err := StatusCheck(unstruct)
 		if err != nil {
 			im.handleInformerError(eventCh, err)
 			return
@@ -220,7 +220,7 @@ func (im *InformerMultiplexer) eventHandler(ctx context.Context, eventCh chan<- 
 			return
 		}
 
-		result, err := statusCheck(unstruct)
+		result, err := StatusCheck(unstruct)
 		if err != nil {
 			im.handleInformerError(eventCh, err)
 			return

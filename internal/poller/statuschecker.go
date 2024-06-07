@@ -97,14 +97,14 @@ var (
 	stsGK    = appsv1.SchemeGroupVersion.WithKind(reflect.TypeOf(appsv1.StatefulSet{}).Name()).GroupKind()
 )
 
-// statusCheck will perform a series of checks to find if objects has some properties set on its status
+// StatusCheck will perform a series of checks to find if objects has some properties set on its status
 // that can be extrapolated to find what its current status in the cluster is.
 // The checks are:
 //   - presence of deletion timestamp
 //   - comparing current and observed generations
 //   - specific checks for core native k8s kinds
 //   - presence of particular conditions types
-func statusCheck(object *unstructured.Unstructured) (*Result, error) {
+func StatusCheck(object *unstructured.Unstructured) (*Result, error) {
 	// 1. control if a deletion timestamp is present on the resource,
 	// if is not nil the object has been marked for deletion
 	deletionTimestamp := object.GetDeletionTimestamp()

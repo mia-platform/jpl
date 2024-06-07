@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mia-platform/jpl/internal/poller"
+	fakepoller "github.com/mia-platform/jpl/internal/poller/fake"
 	"github.com/mia-platform/jpl/pkg/event"
 	"github.com/mia-platform/jpl/pkg/resource"
 	"github.com/mia-platform/jpl/pkg/runner"
@@ -33,17 +33,8 @@ import (
 func TestCancelWaitTask(t *testing.T) {
 	t.Parallel()
 
-	tf := pkgtesting.NewTestClientFactory().WithNamespace("test")
-	tf.FakeDynamicClient = nil
-
-	mapper, err := tf.ToRESTMapper()
-	require.NoError(t, err)
-
 	ctx, cancel := context.WithCancel(context.TODO())
 	state := &runner.FakeState{Context: ctx}
-
-	client, err := tf.DynamicClient()
-	require.NoError(t, err)
 
 	deployment := pkgtesting.UnstructuredFromFile(t, deploymentFilename)
 
@@ -51,7 +42,7 @@ func TestCancelWaitTask(t *testing.T) {
 		Objects: []*unstructured.Unstructured{
 			deployment,
 		},
-		Poller: poller.NewDefaultStatusPoller(client, mapper),
+		Poller: &fakepoller.TestPoller{},
 	}
 
 	cancel()
@@ -63,29 +54,43 @@ func TestCancelWaitTask(t *testing.T) {
 func TestWaitTask(t *testing.T) {
 	t.Parallel()
 
-	tf := pkgtesting.NewTestClientFactory()
-	mapper, err := tf.ToRESTMapper()
-	require.NoError(t, err)
-
 	deployment := pkgtesting.UnstructuredFromFile(t, deploymentFilename)
-	deploymentUpdate := pkgtesting.UnstructuredFromFile(t, deploymentAppliedFilename)
-	mapping, err := mapper.RESTMapping(deployment.GroupVersionKind().GroupKind())
-	require.NoError(t, err)
+	deploymentApplied := pkgtesting.UnstructuredFromFile(t, deploymentAppliedFilename)
+	namespace := pkgtesting.UnstructuredFromFile(t, namespaceFilename)
 
 	task := &WaitTask{
 		Objects: []*unstructured.Unstructured{
 			deployment,
+			deploymentApplied,
+			deploymentApplied,
+			namespace,
 		},
-		Poller: poller.NewDefaultStatusPoller(tf.FakeDynamicClient, mapper),
+		Poller: &fakepoller.TestPoller{},
 	}
 
 	expectedEvents := []event.Event{
 		{
 			Type: event.TypeStatusUpdate,
 			StatusUpdateInfo: event.StatusUpdateInfo{
+				Status:         event.StatusPending,
+				Message:        "Deployment creating replicas: 0/1",
+				ObjectMetadata: resource.ObjectMetadataFromUnstructured(deployment),
+			},
+		},
+		{
+			Type: event.TypeStatusUpdate,
+			StatusUpdateInfo: event.StatusUpdateInfo{
 				Status:         event.StatusSuccessful,
 				Message:        "Deployment is available with 1 replicas",
 				ObjectMetadata: resource.ObjectMetadataFromUnstructured(deployment),
+			},
+		},
+		{
+			Type: event.TypeStatusUpdate,
+			StatusUpdateInfo: event.StatusUpdateInfo{
+				Status:         event.StatusSuccessful,
+				Message:        "Resource is current",
+				ObjectMetadata: resource.ObjectMetadataFromUnstructured(namespace),
 			},
 		},
 	}
@@ -95,13 +100,13 @@ func TestWaitTask(t *testing.T) {
 	state := &runner.FakeState{Context: withTimeout}
 
 	go func() {
-		require.NoError(t, tf.FakeDynamicClient.Tracker().Create(mapping.Resource, deploymentUpdate, deployment.GetNamespace()))
+		task.Run(state)
+		cancel()
 	}()
 
-	task.Run(state)
-
+	<-withTimeout.Done()
 	require.NotEqual(t, withTimeout.Err(), context.DeadlineExceeded)
-	require.Equal(t, len(expectedEvents), len(state.SentEvents))
+	assert.Equal(t, len(expectedEvents), len(state.SentEvents))
 	for idx, expectedEvent := range expectedEvents {
 		assert.Equal(t, expectedEvent.String(), state.SentEvents[idx].String())
 	}

@@ -58,6 +58,11 @@ func (t *WaitTask) Run(state runner.State) {
 			break
 		}
 
+		// avoid to send events for an object that has been already received as ready
+		if !t.objectsToWatch.Has(msg.StatusUpdateInfo.ObjectMetadata) {
+			continue
+		}
+
 		state.SendEvent(msg)
 
 		if msg.Type == event.TypeStatusUpdate && msg.StatusUpdateInfo.Status == event.StatusSuccessful {

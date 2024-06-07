@@ -276,7 +276,7 @@ func TestStatusCheck(t *testing.T) {
 
 	for testName, testCase := range tests {
 		t.Run(testName, func(t *testing.T) {
-			result, err := statusCheck(testCase.object)
+			result, err := StatusCheck(testCase.object)
 			if len(testCase.expectedError) > 0 {
 				assert.ErrorContains(t, err, testCase.expectedError)
 				assert.Equal(t, testCase.expectedResult, result)
