@@ -46,6 +46,7 @@ the versions of Kubernetes that are compatible with them.
 |             | Kubernetes 1.24 | Kubernetes 1.25 | Kubernetes 1.26 | Kubernetes 1.27 | Kubernetes 1.28 | Kubernetes 1.29 | Kubernetes 1.30 |
 | ------------| --------------- | --------------- | --------------- | --------------- | --------------- | --------------- | --------------- |
 | `jpl-0.1.x` | +-              | ✓               | +-              | +-              | +-              | +-              | +-              |
+| `jpl-0.2.x` | +-              | +-              | +-              | +-              | ✓               | +-              | +-              |
 | `HEAD`      | +-              | +-              | +-              | +-              | ✓               | +-              | +-              |
 
 Key:
@@ -72,7 +73,7 @@ go get github.com/mia-platform/jpl@latest
 To get a specific version, use go1.11+ and fetch the desired version using the `go get` command. For example:
 
 ```sh
-go get github.com/mia-platform/jpl@v0.20.4
+go get github.com/mia-platform/jpl@v0.2.0
 ```
 
 [go-report-card]: https://goreportcard.com/badge/github.com/mia-platform/jpl
