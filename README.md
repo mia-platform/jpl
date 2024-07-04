@@ -27,8 +27,9 @@ The fastest way to add this library to a project is to run `go get github.com/mi
 - the `event` package contains the various events that the `client` will return to tell the user what is happening
 - the `flowcontrol` package contains the checks necessary to know if the Kubernetes API server has the flowcontrol enabled
 - the `generator` package contain built-in generators that can be used to generate new resources from other manifests
-- the `invetnory` package is used to keep track of the resources deployed in precedent apply to compute the
+- the `inventory` package is used to keep track of the resources deployed in precedent apply to compute the
 	necessary pruning actions
+- the `mutator` package contain built-in mutators that can be used to modify resources before applying them
 - the `resource` package contains useful utils function to work with Unstructured data
 - the `resourcereader` package is useful for parsing valid kubernetes resource manifests from a folder of yaml file
 	or via stdin

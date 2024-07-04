@@ -25,6 +25,7 @@ import (
 	"github.com/mia-platform/jpl/pkg/event"
 	"github.com/mia-platform/jpl/pkg/generator"
 	"github.com/mia-platform/jpl/pkg/inventory"
+	"github.com/mia-platform/jpl/pkg/mutator"
 	"github.com/mia-platform/jpl/pkg/resource"
 	"github.com/mia-platform/jpl/pkg/runner"
 	"github.com/mia-platform/jpl/pkg/runner/task"
@@ -46,6 +47,7 @@ type Applier struct {
 	runner        runner.TaskRunner
 	inventory     inventory.Store
 	generators    []generator.Interface
+	mutators      []mutator.Interface
 	pollerBuilder poller.Builder
 }
 
@@ -72,6 +74,10 @@ func (a *Applier) Run(ctx context.Context, objects []*unstructured.Unstructured,
 
 		generatedObject, abort := a.generateObjects(objects, eventChannel)
 		if abort {
+			return
+		}
+
+		if abort := a.mutateObjects(objects, eventChannel); abort {
 			return
 		}
 
@@ -143,6 +149,30 @@ func (a *Applier) generateObjects(objects []*unstructured.Unstructured, eventCha
 	}
 
 	return generatedObject, false
+}
+
+// mutateObjects will cycle through all the mutators of the applier, return false if an error is encountered
+func (a *Applier) mutateObjects(objects []*unstructured.Unstructured, eventChannel chan event.Event) bool {
+	for _, mt := range a.mutators {
+		for _, obj := range objects {
+			objMetadata := meta.AsPartialObjectMetadata(obj)
+			objMetadata.TypeMeta = metav1.TypeMeta{
+				Kind:       obj.GetKind(),
+				APIVersion: obj.GetAPIVersion(),
+			}
+
+			if !mt.CanHandleResource(objMetadata) {
+				continue
+			}
+
+			if err := mt.Mutate(obj); err != nil {
+				handleError(eventChannel, fmt.Errorf("mutate resource failed: %w", err))
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // loadObjectsFromInventory return the array of Unstructured objects that are being tracked in the inventory.

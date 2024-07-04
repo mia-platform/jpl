@@ -27,6 +27,7 @@ import (
 	"github.com/mia-platform/jpl/pkg/event"
 	"github.com/mia-platform/jpl/pkg/generator"
 	fakeinventory "github.com/mia-platform/jpl/pkg/inventory/fake"
+	"github.com/mia-platform/jpl/pkg/mutator"
 	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 	"github.com/mia-platform/jpl/pkg/util"
 	"github.com/stretchr/testify/require"
@@ -44,15 +45,21 @@ var (
 	codec = pkgtesting.Codecs.LegacyCodec(pkgtesting.Scheme.PrioritizedVersionsAllGroups()...)
 )
 
-func newTestApplier(t *testing.T, objects []*unstructured.Unstructured, inventoryObjects []*unstructured.Unstructured, statusEvents []event.Event, generators ...generator.Interface) *Applier {
+func newTestApplier(t *testing.T, objects []*unstructured.Unstructured, inventoryObjects []*unstructured.Unstructured, statusEvents []event.Event, generator generator.Interface, mutator mutator.Interface) *Applier {
 	t.Helper()
 
-	applier, err := NewBuilder().
+	builder := NewBuilder().
 		WithFactory(factoryForTesting(t, objects, inventoryObjects)).
 		WithInventory(&fakeinventory.Inventory{InventoryObjects: inventoryObjects}).
-		WithGenerators(generators...).
-		WithStatusPollerBuilder(&fakePollerBuilder{events: statusEvents}).
-		Build()
+		WithStatusPollerBuilder(&fakePollerBuilder{events: statusEvents})
+	if generator != nil {
+		builder.WithGenerators(generator)
+	}
+	if mutator != nil {
+		builder.WithMutator(mutator)
+	}
+
+	applier, err := builder.Build()
 	require.NoError(t, err)
 
 	return applier

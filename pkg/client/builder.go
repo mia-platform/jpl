@@ -21,6 +21,7 @@ import (
 	"github.com/mia-platform/jpl/internal/poller"
 	"github.com/mia-platform/jpl/pkg/generator"
 	"github.com/mia-platform/jpl/pkg/inventory"
+	"github.com/mia-platform/jpl/pkg/mutator"
 	"github.com/mia-platform/jpl/pkg/runner"
 	"github.com/mia-platform/jpl/pkg/runner/task"
 	"github.com/mia-platform/jpl/pkg/util"
@@ -32,6 +33,7 @@ type Builder struct {
 	runner        runner.TaskRunner
 	inventory     inventory.Store
 	generators    []generator.Interface
+	mutators      []mutator.Interface
 	pollerBuilder poller.Builder
 }
 
@@ -58,6 +60,12 @@ func (b *Builder) WithInventory(inventory inventory.Store) *Builder {
 // WithFactory assing one or more generators to the Builder
 func (b *Builder) WithGenerators(generators ...generator.Interface) *Builder {
 	b.generators = generators
+	return b
+}
+
+// WithFactory assing one or more generators to the Builder
+func (b *Builder) WithMutator(mutators ...mutator.Interface) *Builder {
+	b.mutators = mutators
 	return b
 }
 
@@ -107,6 +115,7 @@ func (b *Builder) Build() (*Applier, error) {
 		inventory:     b.inventory,
 		infoFetcher:   fetcher,
 		generators:    b.generators,
+		mutators:      b.mutators,
 		pollerBuilder: pollerBuilder,
 	}, nil
 }

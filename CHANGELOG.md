@@ -9,7 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- upadate k8s.io packages to v0.28.11
+- update k8s.io packages to v0.28.11
+
+### Added
+
+- mutator package for mutating objects before sending them to the remote api-server
 
 ## [v0.2.0] - 2024-06-07
 

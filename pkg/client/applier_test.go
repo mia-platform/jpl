@@ -26,6 +26,7 @@ import (
 	"github.com/mia-platform/jpl/pkg/event"
 	"github.com/mia-platform/jpl/pkg/generator"
 	fakeinventory "github.com/mia-platform/jpl/pkg/inventory/fake"
+	"github.com/mia-platform/jpl/pkg/mutator"
 	"github.com/mia-platform/jpl/pkg/resource"
 	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 	"github.com/stretchr/testify/assert"
@@ -255,7 +256,7 @@ func TestApplierRun(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
-			applier := newTestApplier(t, testCase.objects, testCase.inventoryObjects, testCase.statusEvents)
+			applier := newTestApplier(t, testCase.objects, testCase.inventoryObjects, testCase.statusEvents, nil, nil)
 			withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 			defer cancel()
 
@@ -392,7 +393,144 @@ func TestGenerators(t *testing.T) {
 		defer cancel()
 
 		t.Run(testName, func(t *testing.T) {
-			applier := newTestApplier(t, append(testCase.objects, job), nil, []event.Event{}, testCase.generator)
+			applier := newTestApplier(t, append(testCase.objects, job), nil, []event.Event{}, testCase.generator, nil)
+			eventCh := applier.Run(withTimeout, testCase.objects, ApplierOptions{DryRun: true})
+			var events []event.Event
+		loop:
+			for {
+				select {
+				case <-withTimeout.Done():
+					assert.Fail(t, "context endend in timeout, something is pending")
+					break loop
+
+				case e, open := <-eventCh:
+					if !open {
+						break loop
+					}
+
+					events = append(events, e)
+				}
+			}
+
+			require.Equal(t, len(testCase.expectedEvents), len(events), "actual events found: %v", events)
+			for idx, expectedEvent := range testCase.expectedEvents {
+				assert.Equal(t, expectedEvent.String(), events[idx].String())
+			}
+		})
+	}
+}
+
+func TestMutators(t *testing.T) {
+	t.Parallel()
+	testdataPath := "testdata"
+	deployment := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdataPath, "deployment.yaml"))
+	job := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdataPath, "job.yaml"))
+
+	testCases := map[string]struct {
+		objects        []*unstructured.Unstructured
+		options        ApplierOptions
+		mutator        mutator.Interface
+		expectedEvents []event.Event
+	}{
+		"mutate object": {
+			objects: []*unstructured.Unstructured{
+				deployment,
+			},
+			options: ApplierOptions{
+				DryRun: true,
+			},
+			mutator: mutator.NewLabelsMutator(map[string]string{"foo": "bar"}),
+			expectedEvents: []event.Event{
+				{
+					Type: event.TypeApply,
+					ApplyInfo: event.ApplyInfo{
+						Object: deployment,
+						Status: event.StatusPending,
+					},
+				},
+				{
+					Type: event.TypeApply,
+					ApplyInfo: event.ApplyInfo{
+						Object: deployment,
+						Status: event.StatusSuccessful,
+					},
+				},
+				{
+					Type: event.TypeInventory,
+					InventoryInfo: event.InventoryInfo{
+						Status: event.StatusPending,
+					},
+				},
+				{
+					Type: event.TypeInventory,
+					InventoryInfo: event.InventoryInfo{
+						Status: event.StatusSuccessful,
+					},
+				},
+			},
+		},
+		"skip mutate object": {
+			objects: []*unstructured.Unstructured{
+				deployment,
+			},
+			options: ApplierOptions{
+				DryRun: true,
+			},
+			mutator: mutator.NewLabelsMutator(nil),
+			expectedEvents: []event.Event{
+				{
+					Type: event.TypeApply,
+					ApplyInfo: event.ApplyInfo{
+						Object: deployment,
+						Status: event.StatusPending,
+					},
+				},
+				{
+					Type: event.TypeApply,
+					ApplyInfo: event.ApplyInfo{
+						Object: deployment,
+						Status: event.StatusSuccessful,
+					},
+				},
+				{
+					Type: event.TypeInventory,
+					InventoryInfo: event.InventoryInfo{
+						Status: event.StatusPending,
+					},
+				},
+				{
+					Type: event.TypeInventory,
+					InventoryInfo: event.InventoryInfo{
+						Status: event.StatusSuccessful,
+					},
+				},
+			},
+		},
+		"error during object generation": {
+			objects: []*unstructured.Unstructured{
+				deployment,
+			},
+			options: ApplierOptions{
+				DryRun: true,
+			},
+			mutator: mutator.NewLabelsMutator(map[string]string{"invalid-": "value"}),
+			expectedEvents: []event.Event{
+				{
+					Type: event.TypeError,
+					ErrorInfo: event.ErrorInfo{
+						Error: fmt.Errorf(`mutate resource failed: labels: Invalid value: "invalid-": name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')`),
+					},
+				},
+			},
+		},
+	}
+
+	for testName, testCase := range testCases {
+		withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+		defer cancel()
+
+		t.Run(testName, func(t *testing.T) {
+			applier := newTestApplier(t, append(testCase.objects, job), nil, []event.Event{}, nil, testCase.mutator)
 			eventCh := applier.Run(withTimeout, testCase.objects, ApplierOptions{DryRun: true})
 			var events []event.Event
 		loop:
