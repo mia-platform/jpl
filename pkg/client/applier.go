@@ -77,11 +77,11 @@ func (a *Applier) Run(ctx context.Context, objects []*unstructured.Unstructured,
 			return
 		}
 
+		objects = append(objects, generatedObject...)
 		if abort := a.mutateObjects(objects, eventChannel); abort {
 			return
 		}
 
-		objects = append(objects, generatedObject...)
 		remoteObjects, err := a.loadObjectsFromInventory(applierCtx)
 		if err != nil {
 			handleError(eventChannel, err)
