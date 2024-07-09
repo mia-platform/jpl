@@ -23,6 +23,7 @@ import (
 
 	"github.com/mia-platform/jpl/internal/poller"
 	"github.com/mia-platform/jpl/pkg/event"
+	"github.com/mia-platform/jpl/pkg/filter"
 	"github.com/mia-platform/jpl/pkg/generator"
 	"github.com/mia-platform/jpl/pkg/inventory"
 	"github.com/mia-platform/jpl/pkg/mutator"
@@ -44,10 +45,12 @@ type Applier struct {
 	client      dynamic.Interface
 	infoFetcher task.InfoFetcher
 
-	runner        runner.TaskRunner
-	inventory     inventory.Store
-	generators    []generator.Interface
-	mutators      []mutator.Interface
+	runner     runner.TaskRunner
+	inventory  inventory.Store
+	generators []generator.Interface
+	mutators   []mutator.Interface
+	filters    []filter.Interface
+
 	pollerBuilder poller.Builder
 }
 
@@ -96,6 +99,7 @@ func (a *Applier) Run(ctx context.Context, objects []*unstructured.Unstructured,
 			Mapper:        a.mapper,
 			Manager:       manager,
 			InfoFetcher:   a.infoFetcher,
+			Filters:       a.filters,
 			PollerBuilder: a.pollerBuilder,
 		}
 		queueOptions := QueueOptions{

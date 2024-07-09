@@ -46,6 +46,7 @@ const (
 	StatusPending Status = iota
 	StatusSuccessful
 	StatusFailed
+	StatusSkipped
 )
 
 // Event is the basic block for encapsulate the progression of a task or queue during its execution, more state
@@ -144,6 +145,8 @@ func (i ApplyInfo) String() string {
 		return fmt.Sprintf("%s: apply started...", objID)
 	case StatusSuccessful:
 		return fmt.Sprintf("%s: applied successfully", objID)
+	case StatusSkipped:
+		return fmt.Sprintf("%s: apply skipped", objID)
 	case StatusFailed:
 		return fmt.Sprintf("%s: failed to apply: %s", objID, i.Error)
 	default:

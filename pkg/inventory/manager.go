@@ -30,6 +30,7 @@ const (
 	objectStatusApplyFailed
 	objectStatusDeleteSuccessfull
 	objectStatusDeleteFailed
+	objectStatusSkipped
 )
 
 // Manager will save and manage the current state of objects for
@@ -76,6 +77,16 @@ func (m *Manager) SetFailedApply(obj *unstructured.Unstructured) {
 	m.setStatus(obj, objectStatusApplyFailed)
 }
 
+// IsFailedApply return if the passed in object has been marked as failed to apply from the manager
+func (m *Manager) IsFailedApply(obj *unstructured.Unstructured) bool {
+	status, found := m.objectStatuses[obj]
+	if !found {
+		return false
+	}
+
+	return status == objectStatusApplyFailed
+}
+
 // SetSuccessfullDelete keep track of the passed objs as successfully deleted
 func (m *Manager) SetSuccessfullDelete(obj *unstructured.Unstructured) {
 	m.setStatus(obj, objectStatusDeleteSuccessfull)
@@ -84,6 +95,21 @@ func (m *Manager) SetSuccessfullDelete(obj *unstructured.Unstructured) {
 // SetFailedDelete keep track of the passed objs as failed to delete
 func (m *Manager) SetFailedDelete(obj *unstructured.Unstructured) {
 	m.setStatus(obj, objectStatusDeleteFailed)
+}
+
+// SetSkipped keep track of the passed objs as skipped
+func (m *Manager) SetSkipped(obj *unstructured.Unstructured) {
+	m.setStatus(obj, objectStatusSkipped)
+}
+
+// IsSkipped return if the passed in object has been marked as skipped from the manager
+func (m *Manager) IsSkipped(obj *unstructured.Unstructured) bool {
+	status, found := m.objectStatuses[obj]
+	if !found {
+		return false
+	}
+
+	return status == objectStatusSkipped
 }
 
 // SaveCurrentInventoryState will use the current tracked objects statuses for creating a new inventory status
@@ -96,8 +122,13 @@ func (m *Manager) SaveCurrentInventoryState(ctx context.Context, dryRun bool) er
 	// add all object that failed to be pruned for not leaving abandoned objects in the cluster
 	newInventory = newInventory.Union(m.objectsForStatus(objectStatusDeleteFailed))
 
+	// add all objects that failed to apply only if they are already been tracked
 	applyFailed := m.intersectedObjects(m.objectsForStatus(objectStatusApplyFailed), m.startingObjects)
 	newInventory = newInventory.Union(applyFailed)
+
+	// add all skipped objects only if they are already been tracked
+	skipped := m.intersectedObjects(m.objectsForStatus(objectStatusSkipped), m.startingObjects)
+	newInventory = newInventory.Union(skipped)
 
 	m.Inventory.SetObjects(newInventory)
 	return m.Inventory.Save(ctx, dryRun)

@@ -11,11 +11,12 @@ func _() {
 	_ = x[StatusPending-0]
 	_ = x[StatusSuccessful-1]
 	_ = x[StatusFailed-2]
+	_ = x[StatusSkipped-3]
 }
 
-const _Status_name = "PendingSuccessfulFailed"
+const _Status_name = "PendingSuccessfulFailedSkipped"
 
-var _Status_index = [...]uint8{0, 7, 17, 23}
+var _Status_index = [...]uint8{0, 7, 17, 23, 30}
 
 func (i Status) String() string {
 	if i < 0 || i >= Status(len(_Status_index)-1) {

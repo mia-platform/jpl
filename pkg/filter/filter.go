@@ -13,30 +13,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package runner
+package filter
 
 import (
-	"context"
-
-	"github.com/mia-platform/jpl/pkg/event"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-var _ State = &FakeState{}
-
-type FakeState struct {
-	Context    context.Context
-	SentEvents []event.Event
-}
-
-func (s *FakeState) GetContext() context.Context {
-	return s.Context
-}
-
-func (s *FakeState) SendEvent(event event.Event) {
-	s.SentEvents = append(s.SentEvents, event)
-}
-
-func (s *FakeState) SkipWaitCurrentStatus(*unstructured.Unstructured) bool {
-	return false
+// Interface defines the interface for a filter that can choose to remove or keep objects from application
+type Interface interface {
+	// Filter receive a resource and return if has to be filtered out or an error if something has gone wrong
+	Filter(*unstructured.Unstructured) (bool, error)
 }

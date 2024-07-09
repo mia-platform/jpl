@@ -25,6 +25,7 @@ import (
 
 	"github.com/mia-platform/jpl/internal/poller"
 	"github.com/mia-platform/jpl/pkg/event"
+	"github.com/mia-platform/jpl/pkg/filter"
 	"github.com/mia-platform/jpl/pkg/generator"
 	fakeinventory "github.com/mia-platform/jpl/pkg/inventory/fake"
 	"github.com/mia-platform/jpl/pkg/mutator"
@@ -45,7 +46,7 @@ var (
 	codec = pkgtesting.Codecs.LegacyCodec(pkgtesting.Scheme.PrioritizedVersionsAllGroups()...)
 )
 
-func newTestApplier(t *testing.T, objects []*unstructured.Unstructured, inventoryObjects []*unstructured.Unstructured, statusEvents []event.Event, generator generator.Interface, mutator mutator.Interface) *Applier {
+func newTestApplier(t *testing.T, objects []*unstructured.Unstructured, inventoryObjects []*unstructured.Unstructured, statusEvents []event.Event, generator generator.Interface, mutator mutator.Interface, filter filter.Interface) *Applier {
 	t.Helper()
 
 	builder := NewBuilder().
@@ -57,6 +58,9 @@ func newTestApplier(t *testing.T, objects []*unstructured.Unstructured, inventor
 	}
 	if mutator != nil {
 		builder.WithMutator(mutator)
+	}
+	if filter != nil {
+		builder.WithFilters(filter)
 	}
 
 	applier, err := builder.Build()

@@ -13,30 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package runner
-
-import (
-	"context"
-
-	"github.com/mia-platform/jpl/pkg/event"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-)
-
-var _ State = &FakeState{}
-
-type FakeState struct {
-	Context    context.Context
-	SentEvents []event.Event
-}
-
-func (s *FakeState) GetContext() context.Context {
-	return s.Context
-}
-
-func (s *FakeState) SendEvent(event event.Event) {
-	s.SentEvents = append(s.SentEvents, event)
-}
-
-func (s *FakeState) SkipWaitCurrentStatus(*unstructured.Unstructured) bool {
-	return false
-}
+// filter package provide an interface for filtering resources during apply time.
+// The resource(s) that will be filtered out will be kept inside the inventory.
+package filter

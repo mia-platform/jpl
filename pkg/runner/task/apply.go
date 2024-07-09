@@ -21,6 +21,7 @@ import (
 	"os"
 
 	"github.com/mia-platform/jpl/pkg/event"
+	"github.com/mia-platform/jpl/pkg/filter"
 	pkgresource "github.com/mia-platform/jpl/pkg/resource"
 	"github.com/mia-platform/jpl/pkg/runner"
 	"github.com/mia-platform/jpl/pkg/util"
@@ -49,6 +50,7 @@ type ApplyTask struct {
 	FieldManager string
 
 	Objects     []*unstructured.Unstructured
+	Filters     []filter.Interface
 	InfoFetcher InfoFetcher
 }
 
@@ -57,6 +59,26 @@ func (t *ApplyTask) Run(state runner.State) {
 	ctx := state.GetContext()
 
 	for _, obj := range t.Objects {
+		filteredObj := false
+		for _, filter := range t.Filters {
+			filtered, filterError := filter.Filter(obj)
+			if filterError != nil {
+				state.SendEvent(applyEvent(event.StatusFailed, obj, filterError))
+				filteredObj = true
+				break
+			}
+
+			if filtered {
+				state.SendEvent(skippedEvent(obj))
+				filteredObj = true
+				break
+			}
+		}
+
+		if filteredObj {
+			continue
+		}
+
 		state.SendEvent(applyEvent(event.StatusPending, obj, nil))
 		info, err := t.InfoFetcher(obj)
 		if err != nil {
@@ -86,6 +108,17 @@ func applyEvent(status event.Status, obj *unstructured.Unstructured, err error) 
 			Status: status,
 			Object: obj,
 			Error:  err,
+		},
+	}
+}
+
+func skippedEvent(obj *unstructured.Unstructured) event.Event {
+	return event.Event{
+		Type: event.TypeApply,
+		ApplyInfo: event.ApplyInfo{
+			Status: event.StatusSkipped,
+			Object: obj,
+			Error:  nil,
 		},
 	}
 }

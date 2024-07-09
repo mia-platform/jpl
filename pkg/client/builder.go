@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/mia-platform/jpl/internal/poller"
+	"github.com/mia-platform/jpl/pkg/filter"
 	"github.com/mia-platform/jpl/pkg/generator"
 	"github.com/mia-platform/jpl/pkg/inventory"
 	"github.com/mia-platform/jpl/pkg/mutator"
@@ -34,6 +35,7 @@ type Builder struct {
 	inventory     inventory.Store
 	generators    []generator.Interface
 	mutators      []mutator.Interface
+	filters       []filter.Interface
 	pollerBuilder poller.Builder
 }
 
@@ -57,15 +59,21 @@ func (b *Builder) WithInventory(inventory inventory.Store) *Builder {
 	return b
 }
 
-// WithFactory assing one or more generators to the Builder
+// WithGenerators assing one or more generators to the Builder
 func (b *Builder) WithGenerators(generators ...generator.Interface) *Builder {
 	b.generators = generators
 	return b
 }
 
-// WithFactory assing one or more generators to the Builder
+// WithMutator assing one or more generators to the Builder
 func (b *Builder) WithMutator(mutators ...mutator.Interface) *Builder {
 	b.mutators = mutators
+	return b
+}
+
+// WithFilters assing one or more generators to the Builder
+func (b *Builder) WithFilters(filters ...filter.Interface) *Builder {
+	b.filters = filters
 	return b
 }
 
@@ -116,6 +124,7 @@ func (b *Builder) Build() (*Applier, error) {
 		infoFetcher:   fetcher,
 		generators:    b.generators,
 		mutators:      b.mutators,
+		filters:       b.filters,
 		pollerBuilder: pollerBuilder,
 	}, nil
 }

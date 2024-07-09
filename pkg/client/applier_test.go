@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/mia-platform/jpl/pkg/event"
+	"github.com/mia-platform/jpl/pkg/filter"
 	"github.com/mia-platform/jpl/pkg/generator"
 	fakeinventory "github.com/mia-platform/jpl/pkg/inventory/fake"
 	"github.com/mia-platform/jpl/pkg/mutator"
@@ -256,7 +257,7 @@ func TestApplierRun(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
-			applier := newTestApplier(t, testCase.objects, testCase.inventoryObjects, testCase.statusEvents, nil, nil)
+			applier := newTestApplier(t, testCase.objects, testCase.inventoryObjects, testCase.statusEvents, nil, nil, nil)
 			withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 			defer cancel()
 
@@ -393,7 +394,7 @@ func TestGenerators(t *testing.T) {
 		defer cancel()
 
 		t.Run(testName, func(t *testing.T) {
-			applier := newTestApplier(t, append(testCase.objects, job), nil, []event.Event{}, testCase.generator, nil)
+			applier := newTestApplier(t, append(testCase.objects, job), nil, []event.Event{}, testCase.generator, nil, nil)
 			eventCh := applier.Run(withTimeout, testCase.objects, ApplierOptions{DryRun: true})
 			var events []event.Event
 		loop:
@@ -424,7 +425,6 @@ func TestMutators(t *testing.T) {
 	t.Parallel()
 	testdataPath := "testdata"
 	deployment := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdataPath, "deployment.yaml"))
-	job := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdataPath, "job.yaml"))
 
 	testCases := map[string]struct {
 		objects        []*unstructured.Unstructured
@@ -506,7 +506,7 @@ func TestMutators(t *testing.T) {
 				},
 			},
 		},
-		"error during object generation": {
+		"error during object mutation": {
 			objects: []*unstructured.Unstructured{
 				deployment,
 			},
@@ -530,7 +530,7 @@ func TestMutators(t *testing.T) {
 		defer cancel()
 
 		t.Run(testName, func(t *testing.T) {
-			applier := newTestApplier(t, append(testCase.objects, job), nil, []event.Event{}, nil, testCase.mutator)
+			applier := newTestApplier(t, testCase.objects, nil, []event.Event{}, nil, testCase.mutator, nil)
 			eventCh := applier.Run(withTimeout, testCase.objects, ApplierOptions{DryRun: true})
 			var events []event.Event
 		loop:
@@ -554,6 +554,83 @@ func TestMutators(t *testing.T) {
 				assert.Equal(t, expectedEvent.String(), events[idx].String())
 			}
 		})
+	}
+}
+
+func TestFilters(t *testing.T) {
+	t.Parallel()
+	testdataPath := "testdata"
+	deployment := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdataPath, "deployment.yaml"))
+	job := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdataPath, "job.yaml"))
+
+	objects := []*unstructured.Unstructured{
+		deployment,
+		job,
+	}
+
+	expectedEvents := []event.Event{
+		{
+			Type: event.TypeApply,
+			ApplyInfo: event.ApplyInfo{
+				Object: deployment,
+				Status: event.StatusSkipped,
+			},
+		},
+		{
+			Type: event.TypeApply,
+			ApplyInfo: event.ApplyInfo{
+				Object: job,
+				Status: event.StatusPending,
+			},
+		},
+		{
+			Type: event.TypeApply,
+			ApplyInfo: event.ApplyInfo{
+				Object: job,
+				Status: event.StatusSuccessful,
+			},
+		},
+		{
+			Type: event.TypeInventory,
+			InventoryInfo: event.InventoryInfo{
+				Status: event.StatusPending,
+			},
+		},
+		{
+			Type: event.TypeInventory,
+			InventoryInfo: event.InventoryInfo{
+				Status: event.StatusSuccessful,
+			},
+		},
+	}
+
+	filter := &testFilter{}
+
+	withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+	defer cancel()
+
+	applier := newTestApplier(t, objects, nil, []event.Event{}, nil, nil, filter)
+	eventCh := applier.Run(withTimeout, objects, ApplierOptions{DryRun: true})
+	var events []event.Event
+loop:
+	for {
+		select {
+		case <-withTimeout.Done():
+			assert.Fail(t, "context endend in timeout, something is pending")
+			break loop
+
+		case e, open := <-eventCh:
+			if !open {
+				break loop
+			}
+
+			events = append(events, e)
+		}
+	}
+
+	require.Equal(t, len(expectedEvents), len(events), "actual events found: %v", events)
+	for idx, expectedEvent := range expectedEvents {
+		assert.Equal(t, expectedEvent.String(), events[idx].String())
 	}
 }
 
@@ -615,4 +692,16 @@ func TestLoadObjectFromInventory(t *testing.T) {
 			assert.Equal(t, test.expectedObjects, len(objs))
 		})
 	}
+}
+
+var _ filter.Interface = &testFilter{}
+
+type testFilter struct{}
+
+func (f *testFilter) Filter(obj *unstructured.Unstructured) (bool, error) {
+	if obj.GroupVersionKind().Kind == "Deployment" {
+		return true, nil
+	}
+
+	return false, nil
 }

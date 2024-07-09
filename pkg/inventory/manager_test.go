@@ -57,20 +57,23 @@ func TestObjectSatus(t *testing.T) {
 	namespace := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdata, "namespace.yaml"))
 	clustercr := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdata, "cluster-cr.yaml"))
 	clustercrd := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdata, "cluster-crd.yaml"))
+	cronjob := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdata, "cronjob.yaml"))
 
 	manager.SetFailedApply(deployment)
 	manager.SetFailedDelete(namespace)
 	manager.SetSuccessfullApply(clustercr)
 	manager.SetSuccessfullDelete(clustercrd)
+	manager.SetSkipped(cronjob)
 
-	assert.Equal(t, 4, len(manager.objectStatuses))
+	assert.Equal(t, 5, len(manager.objectStatuses))
 	assert.Equal(t, sets.New(deployment), manager.objectsForStatus(objectStatusApplyFailed))
 	assert.Equal(t, sets.New(namespace), manager.objectsForStatus(objectStatusDeleteFailed))
 	assert.Equal(t, sets.New(clustercr), manager.objectsForStatus(objectStatusApplySuccessfull))
 	assert.Equal(t, sets.New(clustercrd), manager.objectsForStatus(objectStatusDeleteSuccessfull))
+	assert.Equal(t, sets.New(cronjob), manager.objectsForStatus(objectStatusSkipped))
 
 	manager.SetSuccessfullApply(deployment)
-	assert.Equal(t, 4, len(manager.objectStatuses))
+	assert.Equal(t, 5, len(manager.objectStatuses))
 	assert.Equal(t, sets.New[*unstructured.Unstructured](), manager.objectsForStatus(objectStatusApplyFailed))
 	assert.Equal(t, sets.New(clustercr, deployment), manager.objectsForStatus(objectStatusApplySuccessfull))
 }
@@ -83,6 +86,7 @@ func TestSaveConfigMap(t *testing.T) {
 	cronjob := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdata, "cronjob.yaml"))
 	namespace := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdata, "namespace.yaml"))
 	namespacedcrd := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdata, "namespaced-crd.yaml"))
+	clustercrd := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdata, "cluster-crd.yaml"))
 
 	testCases := map[string]struct {
 		client          *fake.RESTClient
@@ -122,6 +126,7 @@ func TestSaveConfigMap(t *testing.T) {
 				cronjob:       objectStatusDeleteSuccessfull,
 				namespace:     objectStatusDeleteFailed,
 				namespacedcrd: objectStatusApplyFailed,
+				clustercrd:    objectStatusSkipped,
 			},
 		},
 		"save inventory with previous data": {
@@ -155,9 +160,49 @@ func TestSaveConfigMap(t *testing.T) {
 				cronjob:       objectStatusDeleteSuccessfull,
 				namespace:     objectStatusApplyFailed,
 				namespacedcrd: objectStatusApplyFailed,
+				clustercrd:    objectStatusSkipped,
 			},
 			startingObjects: []*unstructured.Unstructured{
 				pkgtesting.UnstructuredFromFile(t, filepath.Join(testdata, "namespace.yaml")),
+			},
+		},
+		"save inventory with previous data, keep skipped object": {
+			client: &fake.RESTClient{
+				Client: fake.CreateHTTPClient(func(r *http.Request) (*http.Response, error) {
+					switch {
+					case r.Method == http.MethodPatch && r.URL.Path == "/api/v1/namespaces/test/configmaps/test":
+						data, err := io.ReadAll(r.Body)
+						require.NoError(t, err)
+						decoder := pkgtesting.Codecs.UniversalDecoder()
+						var configMap corev1.ConfigMap
+						err = runtime.DecodeInto(decoder, data, &configMap)
+						require.NoError(t, err)
+						assert.Equal(t, map[string]string{
+							"_clustercrd.example.com_apiextensions.k8s.io_CustomResourceDefinition": "",
+							"_nginx_apps_Deployment": "",
+							"_test__Namespace":       "",
+						}, configMap.Data)
+						return &http.Response{
+							StatusCode: http.StatusNoContent,
+							Header:     pkgtesting.DefaultHeaders(),
+							Body:       io.NopCloser(bytes.NewBuffer(data)),
+						}, nil
+					default:
+						t.Logf("unexpected request: %#v\n%#v", r.URL, r)
+						return nil, fmt.Errorf("no calls are expected here")
+					}
+				}),
+			},
+			currentStatus: map[*unstructured.Unstructured]objectStatus{
+				deployment:    objectStatusApplySuccessfull,
+				cronjob:       objectStatusDeleteSuccessfull,
+				namespace:     objectStatusApplyFailed,
+				namespacedcrd: objectStatusApplyFailed,
+				clustercrd:    objectStatusSkipped,
+			},
+			startingObjects: []*unstructured.Unstructured{
+				pkgtesting.UnstructuredFromFile(t, filepath.Join(testdata, "namespace.yaml")),
+				pkgtesting.UnstructuredFromFile(t, filepath.Join(testdata, "cluster-crd.yaml")),
 			},
 		},
 		"dry run save inventory": {

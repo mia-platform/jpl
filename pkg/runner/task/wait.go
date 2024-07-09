@@ -20,6 +20,7 @@ import (
 
 	"github.com/mia-platform/jpl/internal/poller"
 	"github.com/mia-platform/jpl/pkg/event"
+	"github.com/mia-platform/jpl/pkg/inventory"
 	"github.com/mia-platform/jpl/pkg/resource"
 	"github.com/mia-platform/jpl/pkg/runner"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -35,6 +36,7 @@ type WaitTask struct {
 	Objects []*unstructured.Unstructured
 	Poller  poller.StatusPoller
 	Mapper  meta.RESTMapper
+	Manager *inventory.Manager
 
 	objectsToWatch sets.Set[resource.ObjectMetadata]
 }
@@ -44,11 +46,17 @@ func (t *WaitTask) Run(state runner.State) {
 	ctx, cancel := context.WithCancel(state.GetContext())
 
 	t.objectsToWatch = sets.New[resource.ObjectMetadata]()
+	pollerObjects := make([]*unstructured.Unstructured, 0)
 	for _, obj := range t.Objects {
+		if state.SkipWaitCurrentStatus(obj) {
+			continue
+		}
+
+		pollerObjects = append(pollerObjects, obj)
 		t.objectsToWatch.Insert(resource.ObjectMetadataFromUnstructured(obj))
 	}
 
-	pollerCh := t.Poller.Start(ctx, t.Objects)
+	pollerCh := t.Poller.Start(ctx, pollerObjects)
 
 	resetMapper := false
 	for {

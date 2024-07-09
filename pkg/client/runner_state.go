@@ -52,9 +52,15 @@ func (s *RunnerState) registerEventInManager(eventType event.Type, status event.
 		s.manager.SetSuccessfullApply(obj)
 	case eventType == event.TypeApply && status == event.StatusFailed:
 		s.manager.SetFailedApply(obj)
+	case eventType == event.TypeApply && status == event.StatusSkipped:
+		s.manager.SetSkipped(obj)
 	case eventType == event.TypePrune && status == event.StatusSuccessful:
 		s.manager.SetSuccessfullDelete(obj)
 	case eventType == event.TypePrune && status == event.StatusFailed:
 		s.manager.SetFailedDelete(obj)
 	}
+}
+
+func (s *RunnerState) SkipWaitCurrentStatus(obj *unstructured.Unstructured) bool {
+	return s.manager.IsFailedApply(obj) || s.manager.IsSkipped(obj)
 }

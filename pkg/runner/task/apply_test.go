@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/mia-platform/jpl/pkg/event"
+	"github.com/mia-platform/jpl/pkg/filter"
 	"github.com/mia-platform/jpl/pkg/runner"
 	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 	"github.com/stretchr/testify/assert"
@@ -234,6 +235,7 @@ func TestApplyTask(t *testing.T) {
 	testCases := map[string]struct {
 		resources      []*unstructured.Unstructured
 		expectedEvents []event.Event
+		filters        []filter.Interface
 		dryRun         bool
 	}{
 		"apply one object": {
@@ -291,6 +293,69 @@ func TestApplyTask(t *testing.T) {
 						Object: namespace,
 					},
 				},
+			},
+			filters: []filter.Interface{
+				&testFilter{Kind: "CronJob"},
+				&testFilter{Kind: "Pod"},
+			},
+		},
+		"apply object with filters": {
+			resources: []*unstructured.Unstructured{
+				deployment,
+				namespace,
+			},
+			expectedEvents: []event.Event{
+				{
+					Type: event.TypeApply,
+					ApplyInfo: event.ApplyInfo{
+						Status: event.StatusSkipped,
+						Object: deployment,
+					},
+				},
+				{
+					Type: event.TypeApply,
+					ApplyInfo: event.ApplyInfo{
+						Status: event.StatusPending,
+						Object: namespace,
+					},
+				},
+				{
+					Type: event.TypeApply,
+					ApplyInfo: event.ApplyInfo{
+						Status: event.StatusSuccessful,
+						Object: namespace,
+					},
+				},
+			},
+			filters: []filter.Interface{
+				&testFilter{Kind: "Deployment"},
+			},
+		},
+		"error during filtering": {
+			resources: []*unstructured.Unstructured{
+				deployment,
+				namespace,
+			},
+			expectedEvents: []event.Event{
+				{
+					Type: event.TypeApply,
+					ApplyInfo: event.ApplyInfo{
+						Status: event.StatusSkipped,
+						Object: deployment,
+					},
+				},
+				{
+					Type: event.TypeApply,
+					ApplyInfo: event.ApplyInfo{
+						Status: event.StatusFailed,
+						Object: namespace,
+						Error:  fmt.Errorf("error in filter"),
+					},
+				},
+			},
+			filters: []filter.Interface{
+				&testFilter{Kind: "Deployment"},
+				&testFilter{Error: fmt.Errorf("error in filter")},
 			},
 		},
 		"dry run": {
@@ -357,6 +422,7 @@ func TestApplyTask(t *testing.T) {
 			task := &ApplyTask{
 				InfoFetcher: infoFetcher,
 				Objects:     testCase.resources,
+				Filters:     testCase.filters,
 				DryRun:      testCase.dryRun,
 			}
 
@@ -365,10 +431,23 @@ func TestApplyTask(t *testing.T) {
 			state := &runner.FakeState{Context: withTimeout}
 
 			task.Run(state)
+			t.Log(state.SentEvents)
 			require.Equal(t, len(testCase.expectedEvents), len(state.SentEvents))
 			for idx, expectedEvent := range testCase.expectedEvents {
 				assert.Equal(t, expectedEvent.String(), state.SentEvents[idx].String())
 			}
 		})
 	}
+}
+
+type testFilter struct {
+	Kind  string
+	Error error
+}
+
+func (f *testFilter) Filter(obj *unstructured.Unstructured) (bool, error) {
+	if f.Error != nil {
+		return false, f.Error
+	}
+	return obj.GroupVersionKind().Kind == f.Kind, nil
 }

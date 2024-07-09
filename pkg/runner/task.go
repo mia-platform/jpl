@@ -19,6 +19,7 @@ import (
 	"context"
 
 	"github.com/mia-platform/jpl/pkg/event"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // Task provides abstractions that a Task must implement to be able to be used by a Runner
@@ -34,5 +35,9 @@ type State interface {
 	GetContext() context.Context
 
 	// SendEvent is used for sending back status updates for the current task
-	SendEvent(event event.Event)
+	SendEvent(event.Event)
+
+	// SkipWaitCurrentStatus return if the object has to be skipped for waiting.
+	// Return true if for some reasons is knowns that the object cannot be watched
+	SkipWaitCurrentStatus(*unstructured.Unstructured) bool
 }

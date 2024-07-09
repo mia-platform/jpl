@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - mutator package for mutating objects before sending them to the remote api-server
+- filter package for filtering objects before sending them to the remote api-server
+
+### Fixed
+
+- without a timeout set in the case of a failed apply the wait task will keep wating for an event that will never come
 
 ## [v0.2.0] - 2024-06-07
 

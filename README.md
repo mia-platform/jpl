@@ -25,6 +25,7 @@ The fastest way to add this library to a project is to run `go get github.com/mi
 
 - the `client` package contains the client to apply the resources to a Kubernetes API server
 - the `event` package contains the various events that the `client` will return to tell the user what is happening
+- the `filter` package contain a filter interface for omit resources from the current apply action
 - the `flowcontrol` package contains the checks necessary to know if the Kubernetes API server has the flowcontrol enabled
 - the `generator` package contain built-in generators that can be used to generate new resources from other manifests
 - the `inventory` package is used to keep track of the resources deployed in precedent apply to compute the

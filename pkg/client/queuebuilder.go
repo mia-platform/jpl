@@ -19,6 +19,7 @@ import (
 	"sort"
 
 	"github.com/mia-platform/jpl/internal/poller"
+	"github.com/mia-platform/jpl/pkg/filter"
 	"github.com/mia-platform/jpl/pkg/inventory"
 	"github.com/mia-platform/jpl/pkg/resource"
 	"github.com/mia-platform/jpl/pkg/runner"
@@ -41,6 +42,7 @@ type QueueBuilder struct {
 	Manager       *inventory.Manager
 	Client        dynamic.Interface
 	Mapper        meta.RESTMapper
+	Filters       []filter.Interface
 	InfoFetcher   task.InfoFetcher
 	PollerBuilder poller.Builder
 }
@@ -67,6 +69,7 @@ func (b *QueueBuilder) Build(options QueueOptions) <-chan runner.Task {
 				FieldManager: options.FieldManager,
 
 				Objects:     group,
+				Filters:     b.Filters,
 				InfoFetcher: b.InfoFetcher,
 			})
 			if !options.DryRun {
