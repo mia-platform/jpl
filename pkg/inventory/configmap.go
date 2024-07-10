@@ -18,6 +18,7 @@ package inventory
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/mia-platform/jpl/pkg/resource"
 	"github.com/mia-platform/jpl/pkg/util"
@@ -41,6 +42,9 @@ type configMapStore struct {
 
 	clientset    kubernetes.Interface
 	savedObjects sets.Set[*unstructured.Unstructured]
+
+	cachedRemoteSet sets.Set[resource.ObjectMetadata]
+	lock            sync.Mutex
 }
 
 // NewConfigMapStore return a new Store instance configured with the provided factory that will persist
@@ -61,6 +65,9 @@ func NewConfigMapStore(factory util.ClientFactory, name, namespace, fieldManager
 
 // Save implement Store interface
 func (s *configMapStore) Save(ctx context.Context, dryRun bool) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	opts := metav1.ApplyOptions{
 		Force:        true,
 		FieldManager: s.fieldManager,
@@ -75,11 +82,15 @@ func (s *configMapStore) Save(ctx context.Context, dryRun bool) error {
 		return fmt.Errorf("failed to save inventory: %w", err)
 	}
 
+	s.savedObjects = nil
 	return nil
 }
 
 // Delete implement Store interface
 func (s *configMapStore) Delete(ctx context.Context, dryRun bool) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	propagation := metav1.DeletePropagationBackground
 	opts := metav1.DeleteOptions{
 		PropagationPolicy: &propagation,
@@ -93,6 +104,7 @@ func (s *configMapStore) Delete(ctx context.Context, dryRun bool) error {
 		return fmt.Errorf("failed to delete inventory: %w", err)
 	}
 
+	s.savedObjects = nil
 	return nil
 }
 
@@ -103,6 +115,13 @@ func (s *configMapStore) SetObjects(objs sets.Set[*unstructured.Unstructured]) {
 
 // Load will read the remote storage to retrieve the saved metadata
 func (s *configMapStore) Load(ctx context.Context) (sets.Set[resource.ObjectMetadata], error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	if s.cachedRemoteSet != nil {
+		return s.cachedRemoteSet, nil
+	}
+
 	metadataSet := make(sets.Set[resource.ObjectMetadata], 0)
 	cm, err := s.clientset.CoreV1().ConfigMaps(s.namespace).Get(ctx, s.name, metav1.GetOptions{})
 	if err != nil {
@@ -118,6 +137,7 @@ func (s *configMapStore) Load(ctx context.Context) (sets.Set[resource.ObjectMeta
 		}
 	}
 
+	s.cachedRemoteSet = metadataSet
 	return metadataSet, nil
 }
 

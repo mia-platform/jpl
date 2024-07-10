@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - mutator package for mutating objects before sending them to the remote api-server
 - filter package for filtering objects before sending them to the remote api-server
+- configmap inventory now keep a local cache for remote status after first load, and reset it after save and delete
 
 ### Fixed
 

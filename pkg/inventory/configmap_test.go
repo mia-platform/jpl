@@ -389,3 +389,46 @@ func TestSetObjects(t *testing.T) {
 		})
 	}
 }
+
+func TestLocalCache(t *testing.T) {
+	t.Parallel()
+
+	name := "test-name"
+	namespace := "test-namespace"
+	codec := pkgtesting.Codecs.LegacyCodec(pkgtesting.Scheme.PrioritizedVersionsAllGroups()...)
+	configMap := &corev1.ConfigMap{Data: map[string]string{
+		"namespace_pod__Pod":               "",
+		"namespace_deploy_apps_Deployment": "",
+	}}
+
+	counter := 0
+	factory := pkgtesting.NewTestClientFactory()
+	factory.Client = &fake.RESTClient{
+		Client: fake.CreateHTTPClient(func(r *http.Request) (*http.Response, error) {
+			counter++
+			switch path, method := r.URL.Path, r.Method; {
+			case method == http.MethodGet && path == fmt.Sprintf("/api/v1/namespaces/%s/configmaps/%s", namespace, name) && counter == 1:
+				body := io.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(codec, configMap))))
+				return &http.Response{StatusCode: http.StatusOK, Header: pkgtesting.DefaultHeaders(), Body: body}, nil
+			default:
+				t.Logf("unexpected request: %#v\n%#v", r.URL, r)
+				return nil, fmt.Errorf("unexpected request")
+			}
+		}),
+	}
+
+	store, err := NewConfigMapStore(factory, name, namespace, "jpl-inventory-test")
+	require.NoError(t, err)
+	configMapStore, ok := store.(*configMapStore)
+	require.True(t, ok)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+	defer cancel()
+
+	metadata, err := configMapStore.Load(ctx)
+	require.NoError(t, err)
+
+	secondMetadata, err := configMapStore.Load(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, metadata, secondMetadata)
+}
