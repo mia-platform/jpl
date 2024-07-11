@@ -13,17 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mutator
-
-import (
-	"github.com/mia-platform/jpl/pkg/client/cache"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-)
-
-// Interface defines the interface for a mutator that can change the resource
-type Interface interface {
-	CanHandleResource(*metav1.PartialObjectMetadata) bool
-	// Mutate receive a resource that can be mutated or an error if something goes wrong
-	Mutate(*unstructured.Unstructured, cache.RemoteResourceGetter) error
-}
+// cache package contains a RemoteResourceGetter interface for retrieving remote resource state without exposing
+// the underline clients implementation. It also provide a concrete implementation that use a basic cache
+// mechanism to avoid multiple calls to the remote api-server.
+package cache

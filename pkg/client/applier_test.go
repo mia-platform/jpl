@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mia-platform/jpl/pkg/client/cache"
 	"github.com/mia-platform/jpl/pkg/event"
 	"github.com/mia-platform/jpl/pkg/filter"
 	"github.com/mia-platform/jpl/pkg/generator"
@@ -687,7 +688,8 @@ func TestLoadObjectFromInventory(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 			defer cancel()
 
-			objs, err := applier.loadObjectsFromInventory(ctx)
+			resourceCache := cache.NewCachedResourceGetter(applier.mapper, applier.client)
+			objs, err := applier.loadObjectsFromInventory(ctx, resourceCache)
 			assert.NoError(t, err)
 			assert.Equal(t, test.expectedObjects, len(objs))
 		})

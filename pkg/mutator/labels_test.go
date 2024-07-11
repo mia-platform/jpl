@@ -82,7 +82,7 @@ func TestLabelsMutator(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			mutator := NewLabelsMutator(test.labels)
-			err := mutator.Mutate(test.obj)
+			err := mutator.Mutate(test.obj, nil)
 			switch test.expectedError {
 			case true:
 				assert.Error(t, err)

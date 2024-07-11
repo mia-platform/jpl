@@ -16,6 +16,7 @@
 package mutator
 
 import (
+	"github.com/mia-platform/jpl/pkg/client/cache"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/validation"
@@ -43,7 +44,7 @@ func (m *labelsMutator) CanHandleResource(*metav1.PartialObjectMetadata) bool {
 }
 
 // Mutate implement mutator.Interface interface
-func (m *labelsMutator) Mutate(obj *unstructured.Unstructured) error {
+func (m *labelsMutator) Mutate(obj *unstructured.Unstructured, _ cache.RemoteResourceGetter) error {
 	if errs := validation.ValidateLabels(m.labels, field.NewPath("labels")); len(errs) != 0 {
 		return errs.ToAggregate()
 	}

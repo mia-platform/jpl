@@ -13,17 +13,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mutator
+package cache
 
 import (
-	"github.com/mia-platform/jpl/pkg/client/cache"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"context"
+
+	"github.com/mia-platform/jpl/pkg/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-// Interface defines the interface for a mutator that can change the resource
-type Interface interface {
-	CanHandleResource(*metav1.PartialObjectMetadata) bool
-	// Mutate receive a resource that can be mutated or an error if something goes wrong
-	Mutate(*unstructured.Unstructured, cache.RemoteResourceGetter) error
+// RemoteResourceGetter define the interface for a getter that can retrieve the remote status of a resource identified
+// by its ObjectMetadata, it will return the remote unstructured reppresentation or nil if it wasn't found.
+// An error will be returned only if is not for a not found resource.
+type RemoteResourceGetter interface {
+	// Get return the remote status of ObjectMetadata resource or an error
+	Get(context.Context, resource.ObjectMetadata) (*unstructured.Unstructured, error)
 }

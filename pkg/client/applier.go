@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/mia-platform/jpl/internal/poller"
+	"github.com/mia-platform/jpl/pkg/client/cache"
 	"github.com/mia-platform/jpl/pkg/event"
 	"github.com/mia-platform/jpl/pkg/filter"
 	"github.com/mia-platform/jpl/pkg/generator"
@@ -30,11 +31,9 @@ import (
 	"github.com/mia-platform/jpl/pkg/resource"
 	"github.com/mia-platform/jpl/pkg/runner"
 	"github.com/mia-platform/jpl/pkg/runner/task"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/dynamic"
 )
@@ -75,19 +74,20 @@ func (a *Applier) Run(ctx context.Context, objects []*unstructured.Unstructured,
 			defer cancel()
 		}
 
+		resourceCache := cache.NewCachedResourceGetter(a.mapper, a.client)
+		remoteObjects, err := a.loadObjectsFromInventory(applierCtx, resourceCache)
+		if err != nil {
+			handleError(eventChannel, err)
+			return
+		}
+
 		generatedObject, abort := a.generateObjects(objects, eventChannel)
 		if abort {
 			return
 		}
 
 		objects = append(objects, generatedObject...)
-		if abort := a.mutateObjects(objects, eventChannel); abort {
-			return
-		}
-
-		remoteObjects, err := a.loadObjectsFromInventory(applierCtx)
-		if err != nil {
-			handleError(eventChannel, err)
+		if abort := a.mutateObjects(objects, eventChannel, resourceCache); abort {
 			return
 		}
 
@@ -156,7 +156,7 @@ func (a *Applier) generateObjects(objects []*unstructured.Unstructured, eventCha
 }
 
 // mutateObjects will cycle through all the mutators of the applier, return false if an error is encountered
-func (a *Applier) mutateObjects(objects []*unstructured.Unstructured, eventChannel chan event.Event) bool {
+func (a *Applier) mutateObjects(objects []*unstructured.Unstructured, eventChannel chan event.Event, remoteGetter cache.RemoteResourceGetter) bool {
 	for _, mt := range a.mutators {
 		for _, obj := range objects {
 			objMetadata := meta.AsPartialObjectMetadata(obj)
@@ -169,7 +169,7 @@ func (a *Applier) mutateObjects(objects []*unstructured.Unstructured, eventChann
 				continue
 			}
 
-			if err := mt.Mutate(obj); err != nil {
+			if err := mt.Mutate(obj, remoteGetter); err != nil {
 				handleError(eventChannel, fmt.Errorf("mutate resource failed: %w", err))
 				return true
 			}
@@ -182,7 +182,7 @@ func (a *Applier) mutateObjects(objects []*unstructured.Unstructured, eventChann
 // loadObjectsFromInventory return the array of Unstructured objects that are being tracked in the inventory.
 // It will skip objects that are not found, and return an error only in case some other problem is encountered
 // during retrivial, like network problems, or missing permissions
-func (a *Applier) loadObjectsFromInventory(ctx context.Context) ([]*unstructured.Unstructured, error) {
+func (a *Applier) loadObjectsFromInventory(ctx context.Context, cache cache.RemoteResourceGetter) ([]*unstructured.Unstructured, error) {
 	objIDs, err := a.inventory.Load(ctx)
 	if err != nil {
 		return nil, err
@@ -190,26 +190,16 @@ func (a *Applier) loadObjectsFromInventory(ctx context.Context) ([]*unstructured
 
 	remoteObjects := make([]*unstructured.Unstructured, 0, len(objIDs))
 	for objID := range objIDs {
-		obj, err := a.getObject(ctx, objID)
+		obj, err := cache.Get(ctx, objID)
 		if err != nil {
-			if meta.IsNoMatchError(err) || apierrors.IsNotFound(err) {
-				continue
-			}
 			return nil, err
 		}
-
-		remoteObjects = append(remoteObjects, obj)
+		if obj != nil {
+			remoteObjects = append(remoteObjects, obj)
+		}
 	}
 
 	return slices.Clip(remoteObjects), nil
-}
-
-func (a *Applier) getObject(ctx context.Context, id resource.ObjectMetadata) (*unstructured.Unstructured, error) {
-	mapping, err := a.mapper.RESTMapping(schema.GroupKind{Group: id.Group, Kind: id.Kind})
-	if err != nil {
-		return nil, err
-	}
-	return a.client.Resource(mapping.Resource).Namespace(id.Namespace).Get(ctx, id.Name, metav1.GetOptions{})
 }
 
 // findObjectsToPrune return the element in first that are not present in second
