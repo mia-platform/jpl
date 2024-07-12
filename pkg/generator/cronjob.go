@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"github.com/mia-platform/jpl/pkg/client/cache"
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -62,7 +63,7 @@ func (g *jobGenerator) CanHandleResource(objMeta *metav1.PartialObjectMetadata) 
 }
 
 // Generate implement generator.Interface interface
-func (g *jobGenerator) Generate(obj *unstructured.Unstructured) ([]*unstructured.Unstructured, error) {
+func (g *jobGenerator) Generate(obj *unstructured.Unstructured, _ cache.RemoteResourceGetter) ([]*unstructured.Unstructured, error) {
 	var cronJob *batchv1.CronJob
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(obj.Object, &cronJob, true); err != nil {
 		return nil, err

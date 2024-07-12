@@ -16,11 +16,12 @@
 package filter
 
 import (
+	"github.com/mia-platform/jpl/pkg/client/cache"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // Interface defines the interface for a filter that can choose to remove or keep objects from application
 type Interface interface {
 	// Filter receive a resource and return if has to be filtered out or an error if something has gone wrong
-	Filter(*unstructured.Unstructured) (bool, error)
+	Filter(*unstructured.Unstructured, cache.RemoteResourceGetter) (bool, error)
 }

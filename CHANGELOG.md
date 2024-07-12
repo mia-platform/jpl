@@ -11,12 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - update k8s.io packages to v0.28.11
 - introduced a caching mechanism to avoid multiple calls to the remote api-server
+- generator now accept also a remote getter for using data from the remote api-server if needed, for feature
+	parity with the new mutator interface
 
 ### Added
 
 - mutator package for mutating objects before sending them to the remote api-server
 - filter package for filtering objects before sending them to the remote api-server
-- configmap inventory now keep a local cache for remote status after first load, and reset it after save and delete
 
 ### Fixed
 

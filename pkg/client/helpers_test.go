@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/mia-platform/jpl/internal/poller"
+	"github.com/mia-platform/jpl/pkg/client/cache"
 	"github.com/mia-platform/jpl/pkg/event"
 	"github.com/mia-platform/jpl/pkg/filter"
 	"github.com/mia-platform/jpl/pkg/generator"
@@ -159,7 +160,7 @@ func (g *fakeGenerator) CanHandleResource(r *metav1.PartialObjectMetadata) bool 
 	return r.Kind == "CronJob"
 }
 
-func (g *fakeGenerator) Generate(_ *unstructured.Unstructured) ([]*unstructured.Unstructured, error) {
+func (g *fakeGenerator) Generate(_ *unstructured.Unstructured, _ cache.RemoteResourceGetter) ([]*unstructured.Unstructured, error) {
 	return []*unstructured.Unstructured{g.resource}, nil
 }
 
@@ -173,7 +174,7 @@ func (g *errorGenerator) CanHandleResource(_ *metav1.PartialObjectMetadata) bool
 	return true
 }
 
-func (g *errorGenerator) Generate(_ *unstructured.Unstructured) ([]*unstructured.Unstructured, error) {
+func (g *errorGenerator) Generate(_ *unstructured.Unstructured, _ cache.RemoteResourceGetter) ([]*unstructured.Unstructured, error) {
 	return []*unstructured.Unstructured{}, g.err
 }
 

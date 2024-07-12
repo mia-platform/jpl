@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/mia-platform/jpl/pkg/client/cache"
 	"github.com/mia-platform/jpl/pkg/event"
 	"github.com/mia-platform/jpl/pkg/filter"
 	pkgresource "github.com/mia-platform/jpl/pkg/resource"
@@ -49,9 +50,10 @@ type ApplyTask struct {
 	DryRun       bool
 	FieldManager string
 
-	Objects     []*unstructured.Unstructured
-	Filters     []filter.Interface
-	InfoFetcher InfoFetcher
+	RemoteGetter cache.RemoteResourceGetter
+	Objects      []*unstructured.Unstructured
+	Filters      []filter.Interface
+	InfoFetcher  InfoFetcher
 }
 
 // Run implement the runner.Task interface
@@ -61,7 +63,7 @@ func (t *ApplyTask) Run(state runner.State) {
 	for _, obj := range t.Objects {
 		filteredObj := false
 		for _, filter := range t.Filters {
-			filtered, filterError := filter.Filter(obj)
+			filtered, filterError := filter.Filter(obj, t.RemoteGetter)
 			if filterError != nil {
 				state.SendEvent(applyEvent(event.StatusFailed, obj, filterError))
 				filteredObj = true

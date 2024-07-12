@@ -16,6 +16,7 @@
 package generator
 
 import (
+	"github.com/mia-platform/jpl/pkg/client/cache"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -25,5 +26,5 @@ type Interface interface {
 	// CanHandleResource will be called to check if calling the Generate function
 	CanHandleResource(*metav1.PartialObjectMetadata) bool
 	// Generate receive a resource and return an array of new resources or an error
-	Generate(*unstructured.Unstructured) ([]*unstructured.Unstructured, error)
+	Generate(*unstructured.Unstructured, cache.RemoteResourceGetter) ([]*unstructured.Unstructured, error)
 }

@@ -700,7 +700,7 @@ var _ filter.Interface = &testFilter{}
 
 type testFilter struct{}
 
-func (f *testFilter) Filter(obj *unstructured.Unstructured) (bool, error) {
+func (f *testFilter) Filter(obj *unstructured.Unstructured, _ cache.RemoteResourceGetter) (bool, error) {
 	if obj.GroupVersionKind().Kind == "Deployment" {
 		return true, nil
 	}

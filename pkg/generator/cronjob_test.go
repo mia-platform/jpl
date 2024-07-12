@@ -140,7 +140,7 @@ func TestGenerate(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
-			jobs, err := generator.Generate(testCase.object)
+			jobs, err := generator.Generate(testCase.object, nil)
 			if testCase.expectErr {
 				assert.Error(t, err)
 				assert.ErrorContains(t, err, "strict decoding error")

@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mia-platform/jpl/pkg/client/cache"
 	"github.com/mia-platform/jpl/pkg/event"
 	"github.com/mia-platform/jpl/pkg/filter"
 	"github.com/mia-platform/jpl/pkg/runner"
@@ -445,7 +446,7 @@ type testFilter struct {
 	Error error
 }
 
-func (f *testFilter) Filter(obj *unstructured.Unstructured) (bool, error) {
+func (f *testFilter) Filter(obj *unstructured.Unstructured, _ cache.RemoteResourceGetter) (bool, error) {
 	if f.Error != nil {
 		return false, f.Error
 	}
