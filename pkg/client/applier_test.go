@@ -254,6 +254,29 @@ func TestApplierRun(t *testing.T) {
 			},
 			options: ApplierOptions{DryRun: true},
 		},
+		"error during graph building": {
+			objects: []*unstructured.Unstructured{
+				func() *unstructured.Unstructured {
+					dep := deployment.DeepCopy()
+					dep.SetAnnotations(map[string]string{
+						resource.Annotation: "value",
+					})
+					return dep
+				}(),
+			},
+			inventoryObjects: []*unstructured.Unstructured{
+				namespace,
+			},
+			expectedEvents: []event.Event{
+				{
+					Type: event.TypeError,
+					ErrorInfo: event.ErrorInfo{
+						Error: fmt.Errorf("failed to parse object reference: unexpected field composition: value"),
+					},
+				},
+			},
+			options: ApplierOptions{DryRun: true},
+		},
 	}
 
 	for testName, testCase := range testCases {
