@@ -115,10 +115,15 @@ func (a *Applier) Run(ctx context.Context, objects []*unstructured.Unstructured,
 			context:      applierCtx,
 		}
 
-		tasksQueue := queueBuilder.
+		tasksQueue, err := queueBuilder.
 			WithObjects(objects).
 			WithPruneObjects(objectsToPrune).
 			Build(queueOptions)
+
+		if err != nil {
+			handleError(eventChannel, err)
+			return
+		}
 
 		if err := a.runner.RunWithQueue(contextState, tasksQueue); err != nil {
 			handleError(eventChannel, err)
