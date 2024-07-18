@@ -7,9 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- explicit dependencies declaration via object annotation for object in the current resource set
+
 ### Changed
 
 - update k8s.io packages to v0.28.12
+
 
 ## [v0.3.0] - 2024-07-12
 
