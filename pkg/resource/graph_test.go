@@ -49,9 +49,24 @@ func TestNewDependencyGraph(t *testing.T) {
 	mutatingWebhook := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdata, "mutating-webhook-configuration.yaml"))
 	webhookService := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdata, "webhook-service.yaml"))
 
+	annotatedWebhook := validatingWebhook.DeepCopy()
+	err := SetObjectExplicitDependencies(annotatedWebhook, []ObjectMetadata{
+		ObjectMetadataFromUnstructured(deployment),
+		ObjectMetadataFromUnstructured(cronjob),
+	})
+	require.NoError(t, err)
+
+	annotatedDeployment := deployment.DeepCopy()
+	err = SetObjectExplicitDependencies(annotatedDeployment, []ObjectMetadata{
+		ObjectMetadataFromUnstructured(annotatedWebhook),
+	})
+	require.NoError(t, err)
+
 	tests := map[string]struct {
-		objects        []*unstructured.Unstructured
-		expectedGroups [][]*unstructured.Unstructured
+		objects              []*unstructured.Unstructured
+		expectedGroups       [][]*unstructured.Unstructured
+		expectedGraphError   string
+		expectedSortingError string
 	}{
 		"empty objects": {
 			expectedGroups: make([][]*unstructured.Unstructured, 0),
@@ -148,14 +163,92 @@ func TestNewDependencyGraph(t *testing.T) {
 				},
 			},
 		},
+		"explicit dependencies": {
+			objects: []*unstructured.Unstructured{
+				cronjob,
+				namespacedCR,
+				deployment,
+				clusterCRD,
+				namespacedCRD,
+				clusterCR,
+				namespace,
+				annotatedWebhook,
+			},
+			expectedGroups: [][]*unstructured.Unstructured{
+				{
+					namespace,
+					clusterCRD,
+					namespacedCRD,
+				},
+				{
+					deployment,
+					cronjob,
+					clusterCR,
+					namespacedCR,
+				},
+				{
+					annotatedWebhook,
+				},
+			},
+		},
+		"error in explicit dependencies": {
+			objects: []*unstructured.Unstructured{
+				cronjob,
+				namespacedCR,
+				deployment,
+				clusterCRD,
+				func() *unstructured.Unstructured {
+					obj := webhookService.DeepCopy()
+					obj.SetAnnotations(map[string]string{
+						DependsOnAnnotation: "value",
+					})
+					return obj
+				}(),
+			},
+			expectedGraphError: "failed to parse object reference",
+		},
+		"error in missing resource of explicit dependencies": {
+			objects: []*unstructured.Unstructured{
+				annotatedWebhook,
+			},
+			expectedGraphError: "external dependency from admissionregistration.k8s.io/ValidatingWebhookConfiguration example to apps/Deployment test/nginx, external dependency from admissionregistration.k8s.io/ValidatingWebhookConfiguration example to batch/CronJob test/cronjob",
+		},
+		"error in sorting graph with cyclical dependencies": {
+			objects: []*unstructured.Unstructured{
+				annotatedWebhook,
+				annotatedDeployment,
+				cronjob,
+			},
+			expectedSortingError: "cyclical dependencies:",
+			expectedGroups: [][]*unstructured.Unstructured{
+				{
+					cronjob,
+				},
+			},
+		},
 	}
 
 	for testName, testCase := range tests {
 		t.Run(testName, func(t *testing.T) {
-			graph := NewDependencyGraph(testCase.objects)
-			require.NotNil(t, graph)
+			graph, err := NewDependencyGraph(testCase.objects)
 
-			groups := graph.SortedResourceGroups()
+			switch len(testCase.expectedGraphError) {
+			case 0:
+				assert.NoError(t, err)
+				assert.NotNil(t, graph)
+			default:
+				assert.ErrorContains(t, err, testCase.expectedGraphError)
+				assert.Nil(t, graph)
+				return
+			}
+
+			groups, err := graph.SortedResourceGroups()
+			switch len(testCase.expectedSortingError) {
+			case 0:
+				assert.NoError(t, err)
+			default:
+				assert.ErrorContains(t, err, testCase.expectedSortingError)
+			}
 			assert.Equal(t, testCase.expectedGroups, groups)
 		})
 	}

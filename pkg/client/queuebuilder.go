@@ -59,13 +59,21 @@ func (b *QueueBuilder) WithPruneObjects(objs []*unstructured.Unstructured) *Queu
 	return b
 }
 
-func (b *QueueBuilder) Build(options QueueOptions) <-chan runner.Task {
+func (b *QueueBuilder) Build(options QueueOptions) (<-chan runner.Task, error) {
 	tasks := make([]runner.Task, 0)
 
 	if len(b.objects) > 0 {
-		graph := resource.NewDependencyGraph(b.objects)
+		graph, err := resource.NewDependencyGraph(b.objects)
+		if err != nil {
+			return nil, err
+		}
 
-		for _, group := range graph.SortedResourceGroups() {
+		groups, err := graph.SortedResourceGroups()
+		if err != nil {
+			return nil, err
+		}
+
+		for _, group := range groups {
 			tasks = append(tasks, &task.ApplyTask{
 				DryRun:       options.DryRun,
 				FieldManager: options.FieldManager,
@@ -108,5 +116,5 @@ func (b *QueueBuilder) Build(options QueueOptions) <-chan runner.Task {
 	}
 
 	defer close(queue)
-	return queue
+	return queue, nil
 }

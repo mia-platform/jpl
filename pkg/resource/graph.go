@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -44,7 +45,7 @@ func (g *DependencyGraph) addEdge(from, to *unstructured.Unstructured) {
 	edges.Insert(to)
 }
 
-func (g *DependencyGraph) SortedResourceGroups() [][]*unstructured.Unstructured {
+func (g *DependencyGraph) SortedResourceGroups() ([][]*unstructured.Unstructured, error) {
 	edges := maps.Clone(g.edges)
 
 	groups := make([][]*unstructured.Unstructured, 0)
@@ -57,7 +58,16 @@ func (g *DependencyGraph) SortedResourceGroups() [][]*unstructured.Unstructured 
 		}
 
 		if len(group) == 0 {
-			return groups
+			cyclicalDependencies := make([]Dependency, 0)
+			for from, toList := range edges {
+				for to := range toList {
+					cyclicalDependencies = append(cyclicalDependencies, Dependency{
+						from: ObjectMetadataFromUnstructured(from),
+						to:   ObjectMetadataFromUnstructured(to),
+					})
+				}
+			}
+			return groups, CyclicDependencyError{dependencies: cyclicalDependencies}
 		}
 
 		for _, resource := range group {
@@ -71,24 +81,27 @@ func (g *DependencyGraph) SortedResourceGroups() [][]*unstructured.Unstructured 
 		groups = append(groups, group)
 	}
 
-	return groups
+	return groups, nil
 }
 
-func NewDependencyGraph(objs []*unstructured.Unstructured) *DependencyGraph {
+//gocyclo:ignore
+func NewDependencyGraph(objs []*unstructured.Unstructured) (*DependencyGraph, error) {
 	graph := &DependencyGraph{
 		edges: make(map[*unstructured.Unstructured]sets.Set[*unstructured.Unstructured]),
 	}
 
 	if len(objs) == 0 {
-		return graph
+		return graph, nil
 	}
 
 	crds := make(map[schema.GroupKind]*unstructured.Unstructured)
 	namespaces := make(map[string]*unstructured.Unstructured)
 	webhooks := make(map[ObjectMetadata][]*unstructured.Unstructured)
+	metadataLookup := make(map[ObjectMetadata]*unstructured.Unstructured)
 
 	for _, obj := range objs {
 		graph.addVertex(obj)
+		metadataLookup[ObjectMetadataFromUnstructured(obj)] = obj
 		switch {
 		case IsCRD(obj):
 			var typedCRD apiextv1.CustomResourceDefinition
@@ -106,8 +119,8 @@ func NewDependencyGraph(objs []*unstructured.Unstructured) *DependencyGraph {
 		}
 	}
 
-	for _, obj := range objs {
-		objMeta := ObjectMetadataFromUnstructured(obj)
+	accumulatedErrors := make([]error, 0)
+	for objMeta, obj := range metadataLookup {
 		if crd, found := crds[schema.GroupKind{Group: objMeta.Group, Kind: objMeta.Kind}]; found {
 			graph.addEdge(obj, crd)
 		}
@@ -121,7 +134,49 @@ func NewDependencyGraph(objs []*unstructured.Unstructured) *DependencyGraph {
 				graph.addEdge(webhook, obj)
 			}
 		}
+
+		dependencies, errors := dependendenciesForObj(obj, metadataLookup)
+		if len(errors) > 0 {
+			accumulatedErrors = append(accumulatedErrors, errors...)
+		}
+		for _, dep := range dependencies {
+			graph.addEdge(obj, dep)
+		}
 	}
 
-	return graph
+	if len(accumulatedErrors) > 0 {
+		return nil, utilerrors.NewAggregate(accumulatedErrors)
+	}
+
+	return graph, nil
+}
+
+func dependendenciesForObj(obj *unstructured.Unstructured, lookup map[ObjectMetadata]*unstructured.Unstructured) ([]*unstructured.Unstructured, []error) {
+	accumulatedErrors := make([]error, 0)
+	accumulatedDependencies := make([]*unstructured.Unstructured, 0)
+	dependencies, err := ObjectExplicitDependencies(obj)
+	if err != nil {
+		accumulatedErrors = append(accumulatedErrors, err)
+	}
+
+	for _, dependencyMeta := range dependencies {
+		found := false
+		for objMeta, depObj := range lookup {
+			if dependencyMeta == objMeta {
+				found = true
+				accumulatedDependencies = append(accumulatedDependencies, depObj)
+				break
+			}
+		}
+		if !found {
+			accumulatedErrors = append(accumulatedErrors, ExternalDependencyError{
+				dependency: Dependency{
+					from: ObjectMetadataFromUnstructured(obj),
+					to:   dependencyMeta,
+				},
+			})
+		}
+	}
+
+	return accumulatedDependencies, accumulatedErrors
 }
