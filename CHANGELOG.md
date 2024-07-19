@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - explicit dependencies declaration via object annotation for object in the current resource set
+- poller can be customized for additional status check functions for custom GroupKind
 
 ### Changed
 
