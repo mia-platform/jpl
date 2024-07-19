@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - update k8s.io packages to v0.28.12
+- update to go 1.22.5
 
 ## [v0.3.0] - 2024-07-12
 
