@@ -4,11 +4,11 @@ go 1.22.4
 
 require (
 	github.com/stretchr/testify v1.9.0
-	k8s.io/api v0.28.11
-	k8s.io/apiextensions-apiserver v0.28.11
-	k8s.io/apimachinery v0.28.11
-	k8s.io/cli-runtime v0.28.11
-	k8s.io/client-go v0.28.11
+	k8s.io/api v0.28.12
+	k8s.io/apiextensions-apiserver v0.28.12
+	k8s.io/apimachinery v0.28.12
+	k8s.io/cli-runtime v0.28.12
+	k8s.io/client-go v0.28.12
 	sigs.k8s.io/controller-runtime v0.16.6
 	sigs.k8s.io/kustomize/kyaml v0.17.1
 )
