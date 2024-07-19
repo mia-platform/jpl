@@ -30,13 +30,14 @@ import (
 
 // Builder is used to correctly instantiate an Applier client with the correct properties
 type Builder struct {
-	factory    util.ClientFactory
-	runner     runner.TaskRunner
-	inventory  inventory.Store
-	generators []generator.Interface
-	mutators   []mutator.Interface
-	filters    []filter.Interface
-	poller     poller.StatusPoller
+	factory             util.ClientFactory
+	runner              runner.TaskRunner
+	inventory           inventory.Store
+	generators          []generator.Interface
+	mutators            []mutator.Interface
+	filters             []filter.Interface
+	poller              poller.StatusPoller
+	customResourceCheck poller.CustomStatusCheckers
 }
 
 // NewBuilder return a new Builder instance with configured defaults
@@ -82,6 +83,11 @@ func (b *Builder) WithStatusPoller(poller poller.StatusPoller) *Builder {
 	return b
 }
 
+func (b *Builder) WithCustomStatusChecker(customResourceCheck poller.CustomStatusCheckers) *Builder {
+	b.customResourceCheck = customResourceCheck
+	return b
+}
+
 // Build use default values and configured builder porperty for correctly setup an Applier
 func (b *Builder) Build() (*Applier, error) {
 	if b.factory == nil {
@@ -113,7 +119,7 @@ func (b *Builder) Build() (*Applier, error) {
 
 	statusPoller := b.poller
 	if statusPoller == nil {
-		statusPoller = poller.NewDefaultStatusPoller(client, mapper)
+		statusPoller = poller.NewDefaultStatusPoller(client, mapper, b.customResourceCheck)
 	}
 
 	return &Applier{
