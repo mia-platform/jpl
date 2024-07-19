@@ -27,6 +27,8 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
+type StatusCheckerFunc func(*unstructured.Unstructured) (*Result, error)
+
 type StatusPoller interface {
 	// Start will start polling the remote api-server for getting updates to the passed resources
 	Start(context.Context, []*unstructured.Unstructured) <-chan event.Event

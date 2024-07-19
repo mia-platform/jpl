@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 const (
@@ -105,7 +106,7 @@ var (
 //   - specific checks for core native k8s kinds
 //   - custom checks provided by the user
 //   - presence of particular conditions types
-func statusCheck(object *unstructured.Unstructured) (*Result, error) {
+func statusCheck(object *unstructured.Unstructured, customCheckers map[schema.GroupKind]StatusCheckerFunc) (*Result, error) {
 	// 1. control if a deletion timestamp is present on the resource,
 	// if is not nil the object has been marked for deletion
 	deletionTimestamp := object.GetDeletionTimestamp()
@@ -124,6 +125,9 @@ func statusCheck(object *unstructured.Unstructured) (*Result, error) {
 	}
 
 	// 4. call custom checks provided by end users
+	if fn, found := customCheckers[object.GroupVersionKind().GroupKind()]; found {
+		return fn(object)
+	}
 
 	// 5. control resource status conditions array and check if there are the standard one or the widely used "ready"
 	if result, err := checkStatusConditions(object); result != nil || err != nil {

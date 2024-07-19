@@ -39,7 +39,7 @@ func (p *FakePoller) Start(ctx context.Context, objs []*unstructured.Unstructure
 				break
 			}
 
-			result, err := statusCheck(obj)
+			result, err := statusCheck(obj, nil)
 			if err != nil {
 				eventCh <- event.Event{
 					Type: event.TypeError,

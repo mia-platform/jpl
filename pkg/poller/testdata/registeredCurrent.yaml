@@ -1,0 +1,9 @@
+kind: RegisteredResource
+apiVersion: example.com/v1
+metadata:
+  name: custom-resource
+status:
+  conditions:
+  - status: "True"
+    type: CustomType
+    message: custom type ready
