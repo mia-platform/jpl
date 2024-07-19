@@ -200,7 +200,7 @@ func TestNewDependencyGraph(t *testing.T) {
 				func() *unstructured.Unstructured {
 					obj := webhookService.DeepCopy()
 					obj.SetAnnotations(map[string]string{
-						Annotation: "value",
+						DependsOnAnnotation: "value",
 					})
 					return obj
 				}(),

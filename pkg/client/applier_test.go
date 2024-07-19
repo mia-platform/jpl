@@ -259,7 +259,7 @@ func TestApplierRun(t *testing.T) {
 				func() *unstructured.Unstructured {
 					dep := deployment.DeepCopy()
 					dep.SetAnnotations(map[string]string{
-						resource.Annotation: "value",
+						resource.DependsOnAnnotation: "value",
 					})
 					return dep
 				}(),

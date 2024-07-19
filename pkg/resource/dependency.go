@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	Annotation = "config.kubernetes.io/depends-on"
+	DependsOnAnnotation = "config.kubernetes.io/depends-on"
 
 	// Number of fields for a cluster-scoped depends-on object value. Example:
 	//   rbac.authorization.k8s.io/ClusterRole/my-cluster-role-name
@@ -45,7 +45,7 @@ func ObjectExplicitDependencies(obj *unstructured.Unstructured) ([]ObjectMetadat
 		return make([]ObjectMetadata, 0), nil
 	}
 
-	return unmarshalDepedenciesString(obj.GetAnnotations()[Annotation])
+	return unmarshalDepedenciesString(obj.GetAnnotations()[DependsOnAnnotation])
 }
 
 // SetObjectExplicitDependencies set an annotation on obj to contains the formatted dependencies as string.
@@ -65,7 +65,7 @@ func SetObjectExplicitDependencies(obj *unstructured.Unstructured, dependencies 
 		return err
 	}
 
-	annotations[Annotation] = dependenciesString
+	annotations[DependsOnAnnotation] = dependenciesString
 	obj.SetAnnotations(annotations)
 	return nil
 }
@@ -73,7 +73,7 @@ func SetObjectExplicitDependencies(obj *unstructured.Unstructured, dependencies 
 // hasDepedencyAnnotation control if obj has the annotation for explicit dependencies
 func hasDepedencyAnnotation(obj *unstructured.Unstructured) bool {
 	annotations := obj.GetAnnotations()
-	_, found := annotations[Annotation]
+	_, found := annotations[DependsOnAnnotation]
 	return found
 }
 
@@ -93,7 +93,7 @@ func unmarshalDepedenciesString(depString string) ([]ObjectMetadata, error) {
 }
 
 // marshalDepedenciesString return a string containing the formatted dependencies.
-// Return error if there are malformed depedndecies in the given set.
+// Return error if there are malformed dependencies in the given set.
 func marshalDepedenciesString(dependencies []ObjectMetadata) (string, error) {
 	depStrings := make([]string, 0, len(dependencies))
 	for _, objMetadata := range dependencies {

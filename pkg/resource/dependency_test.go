@@ -44,7 +44,7 @@ func TestObjectExplicitDependencies(t *testing.T) {
 					"metadata": map[string]interface{}{
 						"annotations": map[string]interface{}{
 							"annotation":                     "value",
-							"value":                          Annotation,
+							"value":                          DependsOnAnnotation,
 							"config.kubernetes.io/depend-on": "value",
 						},
 					},
@@ -57,7 +57,7 @@ func TestObjectExplicitDependencies(t *testing.T) {
 				Object: map[string]interface{}{
 					"metadata": map[string]interface{}{
 						"annotations": map[string]interface{}{
-							Annotation: "/namespaces/namespace/kind/name, group/kind/name",
+							DependsOnAnnotation: "/namespaces/namespace/kind/name, group/kind/name",
 						},
 					},
 				},
@@ -82,7 +82,7 @@ func TestObjectExplicitDependencies(t *testing.T) {
 				Object: map[string]interface{}{
 					"metadata": map[string]interface{}{
 						"annotations": map[string]interface{}{
-							Annotation: "/namespaces/namespace/kind/name, group/string/namespace/kind/name",
+							DependsOnAnnotation: "/namespaces/namespace/kind/name, group/string/namespace/kind/name",
 						},
 					},
 				},
@@ -102,7 +102,7 @@ func TestObjectExplicitDependencies(t *testing.T) {
 				Object: map[string]interface{}{
 					"metadata": map[string]interface{}{
 						"annotations": map[string]interface{}{
-							Annotation: "value",
+							DependsOnAnnotation: "value",
 						},
 					},
 				},
@@ -114,7 +114,7 @@ func TestObjectExplicitDependencies(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			depedendencies, err := ObjectExplicitDependencies(test.object)
+			dependencies, err := ObjectExplicitDependencies(test.object)
 
 			switch len(test.expectedError) {
 			case 0:
@@ -123,7 +123,7 @@ func TestObjectExplicitDependencies(t *testing.T) {
 				assert.ErrorContains(t, err, test.expectedError)
 			}
 
-			assert.Equal(t, test.expectedSet, depedendencies)
+			assert.Equal(t, test.expectedSet, dependencies)
 		})
 	}
 }
@@ -147,7 +147,7 @@ func TestSetObjectExplicitDependencies(t *testing.T) {
 				Object: map[string]interface{}{
 					"metadata": map[string]interface{}{
 						"annotations": map[string]interface{}{
-							Annotation: "old value",
+							DependsOnAnnotation: "old value",
 						},
 					},
 				},
@@ -227,7 +227,7 @@ func TestSetObjectExplicitDependencies(t *testing.T) {
 			default:
 				assert.ErrorContains(t, err, test.expectedError)
 			}
-			value, found := test.object.GetAnnotations()[Annotation]
+			value, found := test.object.GetAnnotations()[DependsOnAnnotation]
 			assert.Equal(t, len(test.expectedAnnotation) != 0, found)
 			assert.Equal(t, test.expectedAnnotation, value)
 		})

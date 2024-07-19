@@ -86,7 +86,7 @@ with less manual orchestration.
 
 ##### Explicit Dependency Ordering
 
-In addition to implicit depedendencies sometimes the user would like to determine certain resources ordering.
+In addition to implicit dependencies sometimes the user would like to determine certain resources ordering.
 In these cases, the user can use explicit dependency ordering by adding a
 `config.kubernetes.io/depends-on: <OBJECT_REFERENCE>` annotation to an object.
 
