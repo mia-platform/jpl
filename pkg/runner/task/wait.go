@@ -18,9 +18,9 @@ package task
 import (
 	"context"
 
-	"github.com/mia-platform/jpl/internal/poller"
 	"github.com/mia-platform/jpl/pkg/event"
 	"github.com/mia-platform/jpl/pkg/inventory"
+	"github.com/mia-platform/jpl/pkg/poller"
 	"github.com/mia-platform/jpl/pkg/resource"
 	"github.com/mia-platform/jpl/pkg/runner"
 	"k8s.io/apimachinery/pkg/api/meta"

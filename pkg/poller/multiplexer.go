@@ -24,15 +24,15 @@ const (
 	closedErrorMessage = "multiplexer is closed, we cannot add new channels"
 )
 
-type Multiplexer[T any] struct {
+type multiplexer[T any] struct {
 	multiplexedChannel chan T
 
 	atomicCounter *atomic.Int32
 	doneCh        <-chan struct{}
 }
 
-func NewMultiplexer[T any](doneCh <-chan struct{}) *Multiplexer[T] {
-	multiplexer := &Multiplexer[T]{
+func newMultiplexer[T any](doneCh <-chan struct{}) *multiplexer[T] {
+	multiplexer := &multiplexer[T]{
 		multiplexedChannel: make(chan T),
 		atomicCounter:      &atomic.Int32{},
 		doneCh:             doneCh,
@@ -63,11 +63,11 @@ func NewMultiplexer[T any](doneCh <-chan struct{}) *Multiplexer[T] {
 	return multiplexer
 }
 
-func (m *Multiplexer[T]) MultiplexedChannel() <-chan T {
+func (m *multiplexer[T]) MultiplexedChannel() <-chan T {
 	return m.multiplexedChannel
 }
 
-func (m *Multiplexer[T]) AddChannel(ch <-chan T) error {
+func (m *multiplexer[T]) AddChannel(ch <-chan T) error {
 	select {
 	case <-m.doneCh:
 		return fmt.Errorf(closedErrorMessage)

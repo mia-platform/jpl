@@ -42,20 +42,20 @@ func TestNewInformer(t *testing.T) {
 	deploymentGVK := appsv1.SchemeGroupVersion.WithKind(reflect.TypeOf(appsv1.Deployment{}).Name())
 	tests := map[string]struct {
 		mapper       meta.RESTMapper
-		resource     InformerResource
+		resource     informerResource
 		expectErr    bool
 		errorMessage string
 	}{
 		"object with kind in mapper return informer": {
 			mapper: fakeRESTMapper(deploymentGVK),
-			resource: InformerResource{
+			resource: informerResource{
 				GroupKind: deploymentGVK.GroupKind(),
 				Namespace: "",
 			},
 		},
 		"object not in mapper return error": {
 			mapper: fakeRESTMapper(),
-			resource: InformerResource{
+			resource: informerResource{
 				GroupKind: deploymentGVK.GroupKind(),
 				Namespace: "",
 			},
@@ -67,11 +67,11 @@ func TestNewInformer(t *testing.T) {
 	for testName, testCase := range tests {
 		t.Run(testName, func(t *testing.T) {
 			client := dynamicfake.NewSimpleDynamicClient(pkgtesting.Scheme)
-			informerBuilder := NewInfromerBuilder(client, testCase.mapper, 0)
+			informerBuilder := newInfromerBuilder(client, testCase.mapper, 0)
 
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			informer, err := informerBuilder.NewInformer(ctx, testCase.resource)
+			informer, err := informerBuilder.newInformer(ctx, testCase.resource)
 			if testCase.expectErr {
 				assert.Nil(t, informer)
 				assert.ErrorContains(t, err, testCase.errorMessage)
@@ -145,22 +145,22 @@ func TestNewInformerCalls(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			informerResource := InformerResource{
+			informerResource := informerResource{
 				GroupKind: deploymentGVK.GroupKind(),
 				Namespace: namespace,
 			}
-			informerBuilder := NewInfromerBuilder(client, mapper, 0)
-			informer, err := informerBuilder.NewInformer(ctx, informerResource)
+			informerBuilder := newInfromerBuilder(client, mapper, 0)
+			informer, err := informerBuilder.newInformer(ctx, informerResource)
 			require.Nil(t, err)
 			require.NotNil(t, informer)
 
-			err = informer.SetWatchErrorHandler(func(_ *cache.Reflector, err error) {
+			err = informer.setWatchErrorHandler(func(_ *cache.Reflector, err error) {
 				testCase.handleError(t, err)
 				cancel()
 			})
 			assert.NoError(t, err)
 
-			_, err = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{})
+			_, err = informer.addEventHandler(cache.ResourceEventHandlerFuncs{})
 			assert.NoError(t, err)
 
 			informer.Run()

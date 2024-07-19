@@ -28,10 +28,10 @@ import (
 	"testing"
 	"time"
 
-	pollerfake "github.com/mia-platform/jpl/internal/poller/fake"
 	jplclient "github.com/mia-platform/jpl/pkg/client"
 	"github.com/mia-platform/jpl/pkg/generator"
 	"github.com/mia-platform/jpl/pkg/inventory"
+	"github.com/mia-platform/jpl/pkg/poller"
 	"github.com/mia-platform/jpl/pkg/resourcereader"
 	"github.com/mia-platform/jpl/pkg/util"
 	"github.com/stretchr/testify/require"
@@ -103,7 +103,7 @@ func applyResources(t *testing.T, factory util.ClientFactory, store inventory.St
 		WithGenerators(generator.NewJobGenerator("jpl.mia-platform.eu/create", "true")).
 		WithFactory(factory).
 		WithInventory(store).
-		WithStatusPoller(&pollerfake.TestPoller{}).
+		WithStatusPoller(&poller.FakePoller{}).
 		Build()
 	require.NoError(t, err)
 

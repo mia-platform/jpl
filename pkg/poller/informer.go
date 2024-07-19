@@ -30,23 +30,23 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// InformerResource encapsulate the needed information from a resource for instatiating an informer
-type InformerResource struct {
+// informerResource encapsulate the needed information from a resource for instatiating an informer
+type informerResource struct {
 	GroupKind schema.GroupKind
 	Namespace string
 }
 
-// InformerBuilder can be used for setting up a series of new informers reusing the same configurations
-type InformerBuilder struct {
+// informerBuilder can be used for setting up a series of new informers reusing the same configurations
+type informerBuilder struct {
 	Client       dynamic.Interface
 	Mapper       meta.RESTMapper
 	ResyncPeriod time.Duration
 	Indexers     cache.Indexers
 }
 
-// NewInfromerBuilder return a new informer builder configured with client and resync period
-func NewInfromerBuilder(client dynamic.Interface, mapper meta.RESTMapper, resync time.Duration) *InformerBuilder {
-	return &InformerBuilder{
+// newInfromerBuilder return a new informer builder configured with client and resync period
+func newInfromerBuilder(client dynamic.Interface, mapper meta.RESTMapper, resync time.Duration) *informerBuilder {
+	return &informerBuilder{
 		Client:       client,
 		Mapper:       mapper,
 		ResyncPeriod: resync,
@@ -56,9 +56,9 @@ func NewInfromerBuilder(client dynamic.Interface, mapper meta.RESTMapper, resync
 	}
 }
 
-// NewInformer return a new SharedInformer configured for resource or an error if the resource group/kind cannot be
+// newInformer return a new SharedInformer configured for resource or an error if the resource group/kind cannot be
 // looked up to the remote server
-func (b *InformerBuilder) NewInformer(ctx context.Context, resource InformerResource) (*Informer, error) {
+func (b *informerBuilder) newInformer(ctx context.Context, resource informerResource) (*informer, error) {
 	mapping, err := b.Mapper.RESTMapping(resource.GroupKind)
 	if err != nil {
 		return nil, err
@@ -83,14 +83,14 @@ func (b *InformerBuilder) NewInformer(ctx context.Context, resource InformerReso
 	example := &unstructured.Unstructured{}
 	example.SetGroupVersionKind(mapping.GroupVersionKind)
 
-	return &Informer{
+	return &informer{
 		sharedInformer: cache.NewSharedIndexInformer(lw, example, b.ResyncPeriod, b.Indexers),
 		context:        informerCtx,
 		cancelFunc:     cancelFunc,
 	}, nil
 }
 
-type Informer struct {
+type informer struct {
 	sharedInformer cache.SharedIndexInformer
 	context        context.Context
 	cancelFunc     context.CancelFunc
@@ -99,7 +99,7 @@ type Informer struct {
 	lock    sync.Mutex
 }
 
-func (i *Informer) Run() {
+func (i *informer) Run() {
 	i.lock.Lock()
 	defer i.lock.Unlock()
 
@@ -111,17 +111,17 @@ func (i *Informer) Run() {
 	i.started = true
 }
 
-func (i *Informer) Stop() {
+func (i *informer) Stop() {
 	i.lock.Lock()
 	defer i.lock.Unlock()
 
 	i.cancelFunc()
 }
 
-func (i *Informer) SetWatchErrorHandler(handler cache.WatchErrorHandler) error {
+func (i *informer) setWatchErrorHandler(handler cache.WatchErrorHandler) error {
 	return i.sharedInformer.SetWatchErrorHandler(handler)
 }
 
-func (i *Informer) AddEventHandler(handler cache.ResourceEventHandler) (cache.ResourceEventHandlerRegistration, error) {
+func (i *informer) addEventHandler(handler cache.ResourceEventHandler) (cache.ResourceEventHandlerRegistration, error) {
 	return i.sharedInformer.AddEventHandler(handler)
 }

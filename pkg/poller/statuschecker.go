@@ -97,14 +97,15 @@ var (
 	stsGK    = appsv1.SchemeGroupVersion.WithKind(reflect.TypeOf(appsv1.StatefulSet{}).Name()).GroupKind()
 )
 
-// StatusCheck will perform a series of checks to find if objects has some properties set on its status
+// statusCheck will perform a series of checks to find if objects has some properties set on its status
 // that can be extrapolated to find what its current status in the cluster is.
 // The checks are:
 //   - presence of deletion timestamp
 //   - comparing current and observed generations
 //   - specific checks for core native k8s kinds
+//   - custom checks provided by the user
 //   - presence of particular conditions types
-func StatusCheck(object *unstructured.Unstructured) (*Result, error) {
+func statusCheck(object *unstructured.Unstructured) (*Result, error) {
 	// 1. control if a deletion timestamp is present on the resource,
 	// if is not nil the object has been marked for deletion
 	deletionTimestamp := object.GetDeletionTimestamp()
@@ -122,12 +123,14 @@ func StatusCheck(object *unstructured.Unstructured) (*Result, error) {
 		return result, err
 	}
 
-	// 4. control resource status conditions array and check if there are the standard one or the widely used "ready"
+	// 4. call custom checks provided by end users
+
+	// 5. control resource status conditions array and check if there are the standard one or the widely used "ready"
 	if result, err := checkStatusConditions(object); result != nil || err != nil {
 		return result, err
 	}
 
-	// 5. if any other control is not found, we cannot check anything else, presume that the resource is current
+	// 6. if any other control is not found, we cannot check anything else, presume that the resource is current
 	return currentResult(currentMessage), nil
 }
 

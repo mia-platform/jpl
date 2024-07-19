@@ -18,11 +18,11 @@ package client
 import (
 	"fmt"
 
-	"github.com/mia-platform/jpl/internal/poller"
 	"github.com/mia-platform/jpl/pkg/filter"
 	"github.com/mia-platform/jpl/pkg/generator"
 	"github.com/mia-platform/jpl/pkg/inventory"
 	"github.com/mia-platform/jpl/pkg/mutator"
+	"github.com/mia-platform/jpl/pkg/poller"
 	"github.com/mia-platform/jpl/pkg/runner"
 	"github.com/mia-platform/jpl/pkg/runner/task"
 	"github.com/mia-platform/jpl/pkg/util"

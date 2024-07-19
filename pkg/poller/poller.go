@@ -51,8 +51,8 @@ func NewDefaultStatusPoller(client dynamic.Interface, mapper meta.RESTMapper) St
 // Start implement StatusPoller interface
 func (p *defaultStatusPoller) Start(ctx context.Context, objects []*unstructured.Unstructured) <-chan event.Event {
 	informerResources, ids := resourcesAndIDsFromObjects(objects)
-	multiplexer := &InformerMultiplexer{
-		InformerBuilder: *NewInfromerBuilder(p.client, p.mapper, p.resync),
+	multiplexer := &informerMultiplexer{
+		InformerBuilder: *newInfromerBuilder(p.client, p.mapper, p.resync),
 		Resources:       informerResources,
 		ObjectToObserve: ids,
 	}
@@ -61,11 +61,11 @@ func (p *defaultStatusPoller) Start(ctx context.Context, objects []*unstructured
 }
 
 // resourcesAndIDsFromObjects return an array of unique InformerResources created from objects
-func resourcesAndIDsFromObjects(objects []*unstructured.Unstructured) ([]InformerResource, []resource.ObjectMetadata) {
-	results := make(sets.Set[InformerResource], 0)
+func resourcesAndIDsFromObjects(objects []*unstructured.Unstructured) ([]informerResource, []resource.ObjectMetadata) {
+	results := make(sets.Set[informerResource], 0)
 	ids := make([]resource.ObjectMetadata, 0, len(objects))
 	for _, obj := range objects {
-		results.Insert(InformerResource{
+		results.Insert(informerResource{
 			GroupKind: obj.GroupVersionKind().GroupKind(),
 			Namespace: obj.GetNamespace(),
 		})

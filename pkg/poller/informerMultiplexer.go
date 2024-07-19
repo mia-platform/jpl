@@ -30,19 +30,19 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// InformerMultiplexer can be used to manage multiple informer better than a working group. With InformerMultiplexer
+// informerMultiplexer can be used to manage multiple informer better than a working group. With informerMultiplexer
 // we can stop and restart informer based on the responses to better manage the calls made to the remote api
-type InformerMultiplexer struct {
-	InformerBuilder InformerBuilder
-	Resources       []InformerResource
+type informerMultiplexer struct {
+	InformerBuilder informerBuilder
+	Resources       []informerResource
 	ObjectToObserve []resource.ObjectMetadata
 
 	context            context.Context
 	cancelFunc         context.CancelFunc
-	channelMultiplexer *Multiplexer[event.Event]
+	channelMultiplexer *multiplexer[event.Event]
 
 	informersMapLock sync.Mutex
-	informers        map[InformerResource]*Informer
+	informers        map[informerResource]*informer
 
 	running bool
 	stopped bool
@@ -51,7 +51,7 @@ type InformerMultiplexer struct {
 
 // Run will start the multiplexer for the set Resources and ObjectToObserve, it will return a channel where all the
 // obkect statuses will be reported
-func (im *InformerMultiplexer) Run(ctx context.Context) <-chan event.Event {
+func (im *informerMultiplexer) Run(ctx context.Context) <-chan event.Event {
 	im.lock.Lock()
 	defer im.lock.Unlock()
 
@@ -65,8 +65,8 @@ func (im *InformerMultiplexer) Run(ctx context.Context) <-chan event.Event {
 	}
 
 	im.context, im.cancelFunc = context.WithCancel(ctx)
-	im.channelMultiplexer = NewMultiplexer[event.Event](im.context.Done())
-	im.informers = make(map[InformerResource]*Informer, len(im.Resources))
+	im.channelMultiplexer = newMultiplexer[event.Event](im.context.Done())
+	im.informers = make(map[informerResource]*informer, len(im.Resources))
 	for _, resource := range im.Resources {
 		im.startInformer(resource)
 	}
@@ -86,11 +86,11 @@ func (im *InformerMultiplexer) Run(ctx context.Context) <-chan event.Event {
 
 // Stop will mark the multiplexer context as done and stop new informer to be added, the channel will remain open
 // until all currently started informer will send their last message
-func (im *InformerMultiplexer) Stop() {
+func (im *informerMultiplexer) Stop() {
 	im.cancelFunc()
 }
 
-func (im *InformerMultiplexer) startInformer(resource InformerResource) {
+func (im *informerMultiplexer) startInformer(resource informerResource) {
 	go func() {
 		im.informersMapLock.Lock()
 		defer im.informersMapLock.Unlock()
@@ -116,8 +116,8 @@ func (im *InformerMultiplexer) startInformer(resource InformerResource) {
 	}()
 }
 
-func (im *InformerMultiplexer) runInformer(resource InformerResource) (*Informer, error) {
-	informer, err := im.InformerBuilder.NewInformer(im.context, resource)
+func (im *informerMultiplexer) runInformer(resource informerResource) (*informer, error) {
+	informer, err := im.InformerBuilder.newInformer(im.context, resource)
 	if err != nil {
 		return informer, err
 	}
@@ -127,12 +127,12 @@ func (im *InformerMultiplexer) runInformer(resource InformerResource) (*Informer
 	watchErrorHandler := func(_ *cache.Reflector, err error) {
 		im.watchErrorHandler(resource, informerCh, err)
 	}
-	if err := informer.SetWatchErrorHandler(watchErrorHandler); err != nil {
+	if err := informer.setWatchErrorHandler(watchErrorHandler); err != nil {
 		close(informerCh)
 		return informer, err
 	}
 
-	if _, err := informer.AddEventHandler(im.eventHandler(im.context, informerCh)); err != nil {
+	if _, err := informer.addEventHandler(im.eventHandler(im.context, informerCh)); err != nil {
 		close(informerCh)
 		return informer, err
 	}
@@ -149,20 +149,7 @@ func (im *InformerMultiplexer) runInformer(resource InformerResource) (*Informer
 	return informer, nil
 }
 
-// func (im *InformerMultiplexer) stopInformer(resource InformerResource) {
-// 	im.informersMapLock.Lock()
-// 	defer im.informersMapLock.Unlock()
-
-// 	informer, found := im.informers[resource]
-// 	if !found {
-// 		return
-// 	}
-
-// 	informer.Stop()
-// 	delete(im.informers, resource)
-// }
-
-func (im *InformerMultiplexer) watchErrorHandler(_ InformerResource, eventCh chan<- event.Event, err error) {
+func (im *informerMultiplexer) watchErrorHandler(_ informerResource, eventCh chan<- event.Event, err error) {
 	// TODO: handle the various errors
 	switch {
 	case err == io.EOF:
@@ -176,7 +163,7 @@ func (im *InformerMultiplexer) watchErrorHandler(_ InformerResource, eventCh cha
 	}
 }
 
-func (im *InformerMultiplexer) eventHandler(ctx context.Context, eventCh chan<- event.Event) cache.ResourceEventHandler {
+func (im *informerMultiplexer) eventHandler(ctx context.Context, eventCh chan<- event.Event) cache.ResourceEventHandler {
 	handler := cache.ResourceEventHandlerFuncs{}
 	handler.AddFunc = func(obj interface{}) {
 		if ctx.Err() != nil {
@@ -194,7 +181,7 @@ func (im *InformerMultiplexer) eventHandler(ctx context.Context, eventCh chan<- 
 			return
 		}
 
-		result, err := StatusCheck(unstruct)
+		result, err := statusCheck(unstruct)
 		if err != nil {
 			im.handleInformerError(eventCh, err)
 			return
@@ -220,7 +207,7 @@ func (im *InformerMultiplexer) eventHandler(ctx context.Context, eventCh chan<- 
 			return
 		}
 
-		result, err := StatusCheck(unstruct)
+		result, err := statusCheck(unstruct)
 		if err != nil {
 			im.handleInformerError(eventCh, err)
 			return
@@ -256,7 +243,7 @@ func (im *InformerMultiplexer) eventHandler(ctx context.Context, eventCh chan<- 
 	return handler
 }
 
-func (im *InformerMultiplexer) filterObject(obj *unstructured.Unstructured) bool {
+func (im *informerMultiplexer) filterObject(obj *unstructured.Unstructured) bool {
 	return !slices.Contains(im.ObjectToObserve, resource.ObjectMetadataFromUnstructured(obj))
 }
 
@@ -280,7 +267,7 @@ func eventFromResult(result *Result, obj *unstructured.Unstructured) event.Event
 	return statusEvent
 }
 
-func (im *InformerMultiplexer) handleBlockingError(ch chan<- event.Event, err error) {
+func (im *informerMultiplexer) handleBlockingError(ch chan<- event.Event, err error) {
 	ch <- event.Event{
 		Type: event.TypeError,
 		ErrorInfo: event.ErrorInfo{
@@ -289,7 +276,7 @@ func (im *InformerMultiplexer) handleBlockingError(ch chan<- event.Event, err er
 	}
 }
 
-func (im *InformerMultiplexer) handleInformerError(ch chan<- event.Event, err error) {
+func (im *informerMultiplexer) handleInformerError(ch chan<- event.Event, err error) {
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return
 	}
