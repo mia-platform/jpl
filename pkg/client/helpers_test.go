@@ -38,7 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/resource"
-	"k8s.io/client-go/dynamic"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/rest/fake"
 )
@@ -53,7 +52,7 @@ func newTestApplier(t *testing.T, objects []*unstructured.Unstructured, inventor
 	builder := NewBuilder().
 		WithFactory(factoryForTesting(t, objects, inventoryObjects)).
 		WithInventory(&fakeinventory.Inventory{InventoryObjects: inventoryObjects}).
-		WithStatusPollerBuilder(&fakePollerBuilder{events: statusEvents})
+		WithStatusPoller(&fakePollerBuilder{events: statusEvents})
 	if generator != nil {
 		builder.WithGenerators(generator)
 	}
@@ -178,15 +177,10 @@ func (g *errorGenerator) Generate(_ *unstructured.Unstructured, _ cache.RemoteRe
 	return []*unstructured.Unstructured{}, g.err
 }
 
-var _ poller.Builder = &fakePollerBuilder{}
 var _ poller.StatusPoller = &fakePollerBuilder{}
 
 type fakePollerBuilder struct {
 	events []event.Event
-}
-
-func (b *fakePollerBuilder) NewPoller(dynamic.Interface, meta.RESTMapper) poller.StatusPoller {
-	return b
 }
 
 func (b *fakePollerBuilder) Start(ctx context.Context, _ []*unstructured.Unstructured) <-chan event.Event {

@@ -50,7 +50,7 @@ type Applier struct {
 	mutators   []mutator.Interface
 	filters    []filter.Interface
 
-	pollerBuilder poller.Builder
+	poller poller.StatusPoller
 }
 
 // ApplierOptions options for the apply step
@@ -95,13 +95,13 @@ func (a *Applier) Run(ctx context.Context, objects []*unstructured.Unstructured,
 		manager := inventory.NewManager(a.inventory, remoteObjects)
 
 		queueBuilder := QueueBuilder{
-			Client:        a.client,
-			Mapper:        a.mapper,
-			Manager:       manager,
-			RemoteGetter:  resourceCache,
-			InfoFetcher:   a.infoFetcher,
-			Filters:       a.filters,
-			PollerBuilder: a.pollerBuilder,
+			Client:       a.client,
+			Mapper:       a.mapper,
+			Manager:      manager,
+			RemoteGetter: resourceCache,
+			InfoFetcher:  a.infoFetcher,
+			Filters:      a.filters,
+			Poller:       a.poller,
 		}
 		queueOptions := QueueOptions{
 			DryRun:       options.DryRun,

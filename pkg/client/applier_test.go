@@ -47,7 +47,7 @@ func TestNewApplier(t *testing.T) {
 	assert.NotNil(t, applier.runner)
 	assert.NotNil(t, applier.mapper)
 	assert.NotNil(t, applier.infoFetcher)
-	assert.NotNil(t, applier.pollerBuilder)
+	assert.NotNil(t, applier.poller)
 	assert.NoError(t, err)
 
 	applier, err = NewBuilder().Build()

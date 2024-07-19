@@ -30,13 +30,13 @@ import (
 
 // Builder is used to correctly instantiate an Applier client with the correct properties
 type Builder struct {
-	factory       util.ClientFactory
-	runner        runner.TaskRunner
-	inventory     inventory.Store
-	generators    []generator.Interface
-	mutators      []mutator.Interface
-	filters       []filter.Interface
-	pollerBuilder poller.Builder
+	factory    util.ClientFactory
+	runner     runner.TaskRunner
+	inventory  inventory.Store
+	generators []generator.Interface
+	mutators   []mutator.Interface
+	filters    []filter.Interface
+	poller     poller.StatusPoller
 }
 
 // NewBuilder return a new Builder instance with configured defaults
@@ -77,8 +77,8 @@ func (b *Builder) WithFilters(filters ...filter.Interface) *Builder {
 	return b
 }
 
-func (b *Builder) WithStatusPollerBuilder(builder poller.Builder) *Builder {
-	b.pollerBuilder = builder
+func (b *Builder) WithStatusPoller(poller poller.StatusPoller) *Builder {
+	b.poller = poller
 	return b
 }
 
@@ -96,11 +96,6 @@ func (b *Builder) Build() (*Applier, error) {
 		return nil, fmt.Errorf("cannot build an Applier client without a valid inventory")
 	}
 
-	pollerBuilder := b.pollerBuilder
-	if pollerBuilder == nil {
-		pollerBuilder = &poller.DefaultBuilder{}
-	}
-
 	client, err := b.factory.DynamicClient()
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve a valid kubernetes client: %w", err)
@@ -116,15 +111,20 @@ func (b *Builder) Build() (*Applier, error) {
 		return nil, fmt.Errorf("failed to retrieve a valid Info Fetcher: %w", err)
 	}
 
+	statusPoller := b.poller
+	if statusPoller == nil {
+		statusPoller = poller.NewDefaultStatusPoller(client, mapper)
+	}
+
 	return &Applier{
-		client:        client,
-		mapper:        mapper,
-		runner:        b.runner,
-		inventory:     b.inventory,
-		infoFetcher:   fetcher,
-		generators:    b.generators,
-		mutators:      b.mutators,
-		filters:       b.filters,
-		pollerBuilder: pollerBuilder,
+		client:      client,
+		mapper:      mapper,
+		runner:      b.runner,
+		inventory:   b.inventory,
+		infoFetcher: fetcher,
+		generators:  b.generators,
+		mutators:    b.mutators,
+		filters:     b.filters,
+		poller:      statusPoller,
 	}, nil
 }

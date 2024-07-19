@@ -40,13 +40,13 @@ type QueueBuilder struct {
 	objects      []*unstructured.Unstructured
 	pruneObjects []*unstructured.Unstructured
 
-	Manager       *inventory.Manager
-	Client        dynamic.Interface
-	Mapper        meta.RESTMapper
-	Filters       []filter.Interface
-	InfoFetcher   task.InfoFetcher
-	RemoteGetter  cache.RemoteResourceGetter
-	PollerBuilder poller.Builder
+	Manager      *inventory.Manager
+	Client       dynamic.Interface
+	Mapper       meta.RESTMapper
+	Filters      []filter.Interface
+	InfoFetcher  task.InfoFetcher
+	RemoteGetter cache.RemoteResourceGetter
+	Poller       poller.StatusPoller
 }
 
 func (b *QueueBuilder) WithObjects(objs []*unstructured.Unstructured) *QueueBuilder {
@@ -78,7 +78,7 @@ func (b *QueueBuilder) Build(options QueueOptions) <-chan runner.Task {
 			if !options.DryRun {
 				tasks = append(tasks, &task.WaitTask{
 					Objects: group,
-					Poller:  b.PollerBuilder.NewPoller(b.Client, b.Mapper),
+					Poller:  b.Poller,
 					Mapper:  b.Mapper,
 				})
 			}

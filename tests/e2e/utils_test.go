@@ -28,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	pollerfake "github.com/mia-platform/jpl/internal/poller/fake"
 	jplclient "github.com/mia-platform/jpl/pkg/client"
 	"github.com/mia-platform/jpl/pkg/generator"
 	"github.com/mia-platform/jpl/pkg/inventory"
@@ -102,6 +103,7 @@ func applyResources(t *testing.T, factory util.ClientFactory, store inventory.St
 		WithGenerators(generator.NewJobGenerator("jpl.mia-platform.eu/create", "true")).
 		WithFactory(factory).
 		WithInventory(store).
+		WithStatusPoller(&pollerfake.TestPoller{}).
 		Build()
 	require.NoError(t, err)
 
