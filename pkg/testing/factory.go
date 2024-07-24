@@ -45,6 +45,8 @@ type TestClientFactory struct {
 	Client resource.RESTClient
 	// UnstructuredClientForMappingFunc custom function to call when UnstructuredClientForMapping is invoked
 	UnstructuredClientForMappingFunc resource.FakeClientFunc
+	// RESTMapper custom RESTMapper implementation that can be used to augment the supported default types
+	RESTMapper meta.RESTMapper
 
 	// FakeDynamicClient custom fake dynamic client implementation to return in DynamicClient
 	FakeDynamicClient *fakedynamic.FakeDynamicClient
@@ -85,6 +87,14 @@ func (f *TestClientFactory) WithNamespace(ns string) *TestClientFactory {
 // ToRESTConfig reimplement the method for returning a fake clientConfig
 func (f *TestClientFactory) ToRESTConfig() (*rest.Config, error) {
 	return f.clientConfig, nil
+}
+
+// ToRESTMapper reimplement the method for returning a custom mapper
+func (f *TestClientFactory) ToRESTMapper() (meta.RESTMapper, error) {
+	if f.RESTMapper != nil {
+		return f.RESTMapper, nil
+	}
+	return f.ClientFactory.ToRESTMapper()
 }
 
 // DynamicClient reimplement the method for returning a simple fake Dynamic client or a custom one if available

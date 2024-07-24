@@ -30,7 +30,7 @@ func TestMultiplexerError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	multiplexer := NewMultiplexer[string](ctx.Done())
+	multiplexer := newMultiplexer[string](ctx.Done())
 	// wait until context is cancelled
 	<-ctx.Done()
 
@@ -48,7 +48,7 @@ func TestAddingSingleChannel(t *testing.T) {
 	// create a new context and cancel it immediately
 	ctx, cancel := context.WithCancel(context.Background())
 
-	multiplexer := NewMultiplexer[string](ctx.Done())
+	multiplexer := newMultiplexer[string](ctx.Done())
 
 	eventCh := make(chan string)
 	multiplexer.AddChannel(eventCh)
@@ -78,7 +78,7 @@ func TestAdddingMultipleChannels(t *testing.T) {
 	totalEventSecondChan := 40
 	ctx, cancel := context.WithCancel(context.Background())
 
-	multiplexer := NewMultiplexer[string](ctx.Done())
+	multiplexer := newMultiplexer[string](ctx.Done())
 	firstCtx := runChannel(ctx, t, multiplexer, totalEventFirstChan)
 	secondCtx := runChannel(ctx, t, multiplexer, totalEventSecondChan)
 	firstDone := firstCtx.Done()
@@ -112,7 +112,7 @@ loop:
 	assert.Equal(t, totalEvents, count)
 }
 
-func runChannel(ctx context.Context, t *testing.T, multiplexer *Multiplexer[string], totalMessages int) context.Context {
+func runChannel(ctx context.Context, t *testing.T, multiplexer *multiplexer[string], totalMessages int) context.Context {
 	t.Helper()
 
 	ctx, cancel := context.WithCancel(ctx)

@@ -25,6 +25,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func TestStatusCheck(t *testing.T) {
@@ -272,11 +274,19 @@ func TestStatusCheck(t *testing.T) {
 			object:         pkgtesting.UnstructuredFromFile(t, filepath.Join(testdata, "stsPartitionCurrent.yaml")),
 			expectedResult: currentResult(fmt.Sprintf(statefulSetPartitionCompleteMessageFormat, 3)),
 		},
+		"registered custom resource use custom status checker": {
+			object:         pkgtesting.UnstructuredFromFile(t, filepath.Join(testdata, "registeredCurrent.yaml")),
+			expectedResult: currentResult("custom type ready"),
+		},
+	}
+
+	registeredResources := map[schema.GroupKind]StatusCheckerFunc{
+		{Kind: "RegisteredResource", Group: "example.com"}: customResourceStatusCheck(t),
 	}
 
 	for testName, testCase := range tests {
 		t.Run(testName, func(t *testing.T) {
-			result, err := StatusCheck(testCase.object)
+			result, err := statusCheck(testCase.object, registeredResources)
 			if len(testCase.expectedError) > 0 {
 				assert.ErrorContains(t, err, testCase.expectedError)
 				assert.Equal(t, testCase.expectedResult, result)
@@ -325,5 +335,34 @@ func TestConditionsCheck(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, testCase.expectedResult, result)
 		})
+	}
+}
+
+func customResourceStatusCheck(t *testing.T) StatusCheckerFunc {
+	t.Helper()
+
+	return func(object *unstructured.Unstructured) (*Result, error) {
+		conditionsData, found, err := unstructured.NestedSlice(object.Object, "status", "conditions")
+		if err != nil {
+			return nil, err
+		}
+
+		if !found {
+			return inProgressResult("custom resource in progress"), nil
+		}
+
+		for _, conditionData := range conditionsData {
+			condition := new(metav1.Condition)
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(conditionData.(map[string]interface{}), condition)
+			if err != nil {
+				return nil, err
+			}
+
+			if condition.Type == "CustomType" && condition.Status == metav1.ConditionTrue {
+				return currentResult(condition.Message), nil
+			}
+		}
+
+		return inProgressResult("custom resource in progress"), nil
 	}
 }

@@ -271,7 +271,7 @@ func TestPoller(t *testing.T) {
 				return false, nil, nil
 			})
 
-			poller := NewDefaultStatusPoller(client, mapper)
+			poller := NewDefaultStatusPoller(client, mapper, nil)
 			eventCh := poller.Start(ctx, testCase.resources)
 
 			steppingCh := make(chan struct{})
@@ -373,7 +373,7 @@ func TestPollerErrors(t *testing.T) {
 				return false, nil, nil
 			})
 
-			poller := NewDefaultStatusPoller(client, mapper)
+			poller := NewDefaultStatusPoller(client, mapper, nil)
 			eventCh := poller.Start(ctx, testCase.resources)
 
 			steppingCh := make(chan struct{})

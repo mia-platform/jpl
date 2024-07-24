@@ -20,8 +20,8 @@ import (
 	"testing"
 	"time"
 
-	fakepoller "github.com/mia-platform/jpl/internal/poller/fake"
 	"github.com/mia-platform/jpl/pkg/event"
+	"github.com/mia-platform/jpl/pkg/poller"
 	"github.com/mia-platform/jpl/pkg/resource"
 	"github.com/mia-platform/jpl/pkg/runner"
 	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
@@ -42,7 +42,7 @@ func TestCancelWaitTask(t *testing.T) {
 		Objects: []*unstructured.Unstructured{
 			deployment,
 		},
-		Poller: &fakepoller.TestPoller{},
+		Poller: &poller.FakePoller{},
 	}
 
 	cancel()
@@ -65,7 +65,7 @@ func TestWaitTask(t *testing.T) {
 			deploymentApplied,
 			namespace,
 		},
-		Poller: &fakepoller.TestPoller{},
+		Poller: &poller.FakePoller{},
 	}
 
 	expectedEvents := []event.Event{

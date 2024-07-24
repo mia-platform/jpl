@@ -65,7 +65,6 @@ func TestApplierRun(t *testing.T) {
 	testCases := map[string]struct {
 		objects          []*unstructured.Unstructured
 		inventoryObjects []*unstructured.Unstructured
-		options          ApplierOptions
 		expectedEvents   []event.Event
 		statusEvents     []event.Event
 	}{
@@ -189,6 +188,22 @@ func TestApplierRun(t *testing.T) {
 					},
 				},
 				{
+					Type: event.TypeStatusUpdate,
+					StatusUpdateInfo: event.StatusUpdateInfo{
+						Message:        "",
+						Status:         event.StatusSuccessful,
+						ObjectMetadata: resource.ObjectMetadataFromUnstructured(deployment),
+					},
+				},
+				{
+					Type: event.TypeStatusUpdate,
+					StatusUpdateInfo: event.StatusUpdateInfo{
+						Message:        "",
+						Status:         event.StatusSuccessful,
+						ObjectMetadata: resource.ObjectMetadataFromUnstructured(namespace),
+					},
+				},
+				{
 					Type: event.TypeInventory,
 					InventoryInfo: event.InventoryInfo{
 						Status: event.StatusPending,
@@ -201,7 +216,24 @@ func TestApplierRun(t *testing.T) {
 					},
 				},
 			},
-			options: ApplierOptions{DryRun: true},
+			statusEvents: []event.Event{
+				{
+					Type: event.TypeStatusUpdate,
+					StatusUpdateInfo: event.StatusUpdateInfo{
+						Message:        "",
+						Status:         event.StatusSuccessful,
+						ObjectMetadata: resource.ObjectMetadataFromUnstructured(deployment),
+					},
+				},
+				{
+					Type: event.TypeStatusUpdate,
+					StatusUpdateInfo: event.StatusUpdateInfo{
+						Message:        "",
+						Status:         event.StatusSuccessful,
+						ObjectMetadata: resource.ObjectMetadataFromUnstructured(namespace),
+					},
+				},
+			},
 		},
 		"Apply and prune objects with success with previous inventory": {
 			objects: []*unstructured.Unstructured{
@@ -226,6 +258,14 @@ func TestApplierRun(t *testing.T) {
 					},
 				},
 				{
+					Type: event.TypeStatusUpdate,
+					StatusUpdateInfo: event.StatusUpdateInfo{
+						Message:        "",
+						Status:         event.StatusSuccessful,
+						ObjectMetadata: resource.ObjectMetadataFromUnstructured(deployment),
+					},
+				},
+				{
 					Type: event.TypePrune,
 					PruneInfo: event.PruneInfo{
 						Object: namespace,
@@ -252,7 +292,16 @@ func TestApplierRun(t *testing.T) {
 					},
 				},
 			},
-			options: ApplierOptions{DryRun: true},
+			statusEvents: []event.Event{
+				{
+					Type: event.TypeStatusUpdate,
+					StatusUpdateInfo: event.StatusUpdateInfo{
+						Message:        "",
+						Status:         event.StatusSuccessful,
+						ObjectMetadata: resource.ObjectMetadataFromUnstructured(deployment),
+					},
+				},
+			},
 		},
 		"error during graph building": {
 			objects: []*unstructured.Unstructured{
@@ -275,7 +324,6 @@ func TestApplierRun(t *testing.T) {
 					},
 				},
 			},
-			options: ApplierOptions{DryRun: true},
 		},
 	}
 
@@ -285,7 +333,7 @@ func TestApplierRun(t *testing.T) {
 			withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 			defer cancel()
 
-			eventCh := applier.Run(context.TODO(), testCase.objects, testCase.options)
+			eventCh := applier.Run(context.TODO(), testCase.objects, ApplierOptions{})
 			var events []event.Event
 
 		loop:
@@ -323,7 +371,6 @@ func TestGenerators(t *testing.T) {
 
 	testCases := map[string]struct {
 		objects        []*unstructured.Unstructured
-		options        ApplierOptions
 		generator      generator.Interface
 		expectedEvents []event.Event
 	}{
@@ -331,9 +378,6 @@ func TestGenerators(t *testing.T) {
 			objects: []*unstructured.Unstructured{
 				deployment,
 				cronjonb,
-			},
-			options: ApplierOptions{
-				DryRun: true,
 			},
 			generator: &fakeGenerator{resource: job},
 			expectedEvents: []event.Event{
@@ -398,9 +442,6 @@ func TestGenerators(t *testing.T) {
 				deployment,
 				cronjonb,
 			},
-			options: ApplierOptions{
-				DryRun: true,
-			},
 			generator: &errorGenerator{err: fmt.Errorf("abort")},
 			expectedEvents: []event.Event{
 				{
@@ -452,16 +493,12 @@ func TestMutators(t *testing.T) {
 
 	testCases := map[string]struct {
 		objects        []*unstructured.Unstructured
-		options        ApplierOptions
 		mutator        mutator.Interface
 		expectedEvents []event.Event
 	}{
 		"mutate object": {
 			objects: []*unstructured.Unstructured{
 				deployment,
-			},
-			options: ApplierOptions{
-				DryRun: true,
 			},
 			mutator: mutator.NewLabelsMutator(map[string]string{"foo": "bar"}),
 			expectedEvents: []event.Event{
@@ -497,9 +534,6 @@ func TestMutators(t *testing.T) {
 			objects: []*unstructured.Unstructured{
 				deployment,
 			},
-			options: ApplierOptions{
-				DryRun: true,
-			},
 			mutator: mutator.NewLabelsMutator(nil),
 			expectedEvents: []event.Event{
 				{
@@ -533,9 +567,6 @@ func TestMutators(t *testing.T) {
 		"error during object mutation": {
 			objects: []*unstructured.Unstructured{
 				deployment,
-			},
-			options: ApplierOptions{
-				DryRun: true,
 			},
 			mutator: mutator.NewLabelsMutator(map[string]string{"invalid-": "value"}),
 			expectedEvents: []event.Event{

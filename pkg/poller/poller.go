@@ -23,9 +23,17 @@ import (
 	"github.com/mia-platform/jpl/pkg/resource"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/dynamic"
 )
+
+// CustomStatusCheckers contains a mapping of GroupKind to StatusCheckerFunc for adding custom status parsing for
+// custom resources that don't follow the basic encoded ones.
+type CustomStatusCheckers map[schema.GroupKind]StatusCheckerFunc
+
+// StatusCheckerFunc is a function that return a status Result or error for the given uUnstructured object.
+type StatusCheckerFunc func(*unstructured.Unstructured) (*Result, error)
 
 type StatusPoller interface {
 	// Start will start polling the remote api-server for getting updates to the passed resources
@@ -33,39 +41,42 @@ type StatusPoller interface {
 }
 
 type defaultStatusPoller struct {
-	client dynamic.Interface
-	mapper meta.RESTMapper
-	resync time.Duration
+	client         dynamic.Interface
+	mapper         meta.RESTMapper
+	resync         time.Duration
+	statusCheckers CustomStatusCheckers
 }
 
 // NewDefaultStatusPoller return a default implementation of StatusPoller that will connect to the
 // remote api-server and elaborate the current status of the requested resources
-func NewDefaultStatusPoller(client dynamic.Interface, mapper meta.RESTMapper) StatusPoller {
+func NewDefaultStatusPoller(client dynamic.Interface, mapper meta.RESTMapper, statusCheckers CustomStatusCheckers) StatusPoller {
 	return &defaultStatusPoller{
-		client: client,
-		mapper: mapper,
-		resync: 5 * time.Minute,
+		client:         client,
+		mapper:         mapper,
+		resync:         5 * time.Minute,
+		statusCheckers: statusCheckers,
 	}
 }
 
 // Start implement StatusPoller interface
 func (p *defaultStatusPoller) Start(ctx context.Context, objects []*unstructured.Unstructured) <-chan event.Event {
 	informerResources, ids := resourcesAndIDsFromObjects(objects)
-	multiplexer := &InformerMultiplexer{
-		InformerBuilder: *NewInfromerBuilder(p.client, p.mapper, p.resync),
-		Resources:       informerResources,
-		ObjectToObserve: ids,
+	multiplexer := &informerMultiplexer{
+		InformerBuilder:      *newInfromerBuilder(p.client, p.mapper, p.resync),
+		Resources:            informerResources,
+		ObjectToObserve:      ids,
+		customStatusCheckers: p.statusCheckers,
 	}
 
 	return multiplexer.Run(ctx)
 }
 
 // resourcesAndIDsFromObjects return an array of unique InformerResources created from objects
-func resourcesAndIDsFromObjects(objects []*unstructured.Unstructured) ([]InformerResource, []resource.ObjectMetadata) {
-	results := make(sets.Set[InformerResource], 0)
+func resourcesAndIDsFromObjects(objects []*unstructured.Unstructured) ([]informerResource, []resource.ObjectMetadata) {
+	results := make(sets.Set[informerResource], 0)
 	ids := make([]resource.ObjectMetadata, 0, len(objects))
 	for _, obj := range objects {
-		results.Insert(InformerResource{
+		results.Insert(informerResource{
 			GroupKind: obj.GroupVersionKind().GroupKind(),
 			Namespace: obj.GetNamespace(),
 		})

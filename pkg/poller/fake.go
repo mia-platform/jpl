@@ -13,24 +13,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package fake
+package poller
 
 import (
 	"context"
 
-	"github.com/mia-platform/jpl/internal/poller"
 	"github.com/mia-platform/jpl/pkg/event"
-	"github.com/mia-platform/jpl/pkg/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-var _ poller.StatusPoller = &TestPoller{}
+var _ StatusPoller = &FakePoller{}
 
-// TestPoller is used to test correct behaviour of code that will work with events sent from a StatusPoller
-type TestPoller struct{}
+// FakePoller is used to test correct behaviour of code that will work with events sent from a StatusPoller
+type FakePoller struct{}
 
 // Start implement StatusPoller, but it will use the objs to generate the relevant statuses to return to the channel
-func (p *TestPoller) Start(ctx context.Context, objs []*unstructured.Unstructured) <-chan event.Event {
+func (p *FakePoller) Start(ctx context.Context, objs []*unstructured.Unstructured) <-chan event.Event {
 	eventCh := make(chan event.Event)
 
 	go func() {
@@ -41,7 +39,7 @@ func (p *TestPoller) Start(ctx context.Context, objs []*unstructured.Unstructure
 				break
 			}
 
-			result, err := poller.StatusCheck(obj)
+			result, err := statusCheck(obj, nil)
 			if err != nil {
 				eventCh <- event.Event{
 					Type: event.TypeError,
@@ -57,24 +55,4 @@ func (p *TestPoller) Start(ctx context.Context, objs []*unstructured.Unstructure
 	}()
 
 	return eventCh
-}
-
-func eventFromResult(result *poller.Result, obj *unstructured.Unstructured) event.Event {
-	statusEvent := event.Event{
-		Type: event.TypeStatusUpdate,
-		StatusUpdateInfo: event.StatusUpdateInfo{
-			Message:        result.Message,
-			ObjectMetadata: resource.ObjectMetadataFromUnstructured(obj),
-		},
-	}
-	switch result.Status {
-	case poller.StatusCurrent:
-		statusEvent.StatusUpdateInfo.Status = event.StatusSuccessful
-	case poller.StatusInProgress, poller.StatusTerminating:
-		statusEvent.StatusUpdateInfo.Status = event.StatusPending
-	case poller.StatusFailed:
-		statusEvent.StatusUpdateInfo.Status = event.StatusFailed
-	}
-
-	return statusEvent
 }
