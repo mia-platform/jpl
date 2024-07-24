@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.4.0] - 2024-07-24
+
 ### Added
 
 - explicit dependencies declaration via object annotation for object in the current resource set
@@ -14,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- update kyaml package to v0.17.2
 - update k8s.io packages to v0.28.12
 - update to go 1.22.5
 
@@ -68,7 +71,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Lifted code from mlp to a separate module
 
-[Unreleased]: https://github.com/mia-platform/jpl/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/mia-platform/jpl/compare/v0.4.0...HEAD
+[v0.4.0]: https://github.com/mia-platform/jpl/compare/v0.3.0...v0.4.0
 [v0.3.0]: https://github.com/mia-platform/jpl/compare/v0.2.0...v0.3.0
 [v0.2.0]: https://github.com/mia-platform/jpl/compare/v0.1.2...v0.2.0
 [v0.1.2]: https://github.com/mia-platform/jpl/compare/v0.1.1...v0.1.2

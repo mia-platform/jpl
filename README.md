@@ -124,6 +124,7 @@ the versions of Kubernetes that are compatible with them.
 | `jpl-0.1.x` | +-              | ✓               | +-              | +-              | +-              | +-              | +-              |
 | `jpl-0.2.x` | +-              | +-              | +-              | +-              | ✓               | +-              | +-              |
 | `jpl-0.3.x` | +-              | +-              | +-              | +-              | ✓               | +-              | +-              |
+| `jpl-0.4.x` | +-              | +-              | +-              | +-              | ✓               | +-              | +-              |
 | `HEAD`      | +-              | +-              | +-              | +-              | ✓               | +-              | +-              |
 
 Key:
