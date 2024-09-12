@@ -1,14 +1,14 @@
 module github.com/mia-platform/jpl
 
-go 1.22.5
+go 1.23.1
 
 require (
 	github.com/stretchr/testify v1.9.0
-	k8s.io/api v0.28.12
-	k8s.io/apiextensions-apiserver v0.28.12
-	k8s.io/apimachinery v0.28.12
-	k8s.io/cli-runtime v0.28.12
-	k8s.io/client-go v0.28.12
+	k8s.io/api v0.28.14
+	k8s.io/apiextensions-apiserver v0.28.14
+	k8s.io/apimachinery v0.28.14
+	k8s.io/cli-runtime v0.28.14
+	k8s.io/client-go v0.28.14
 	sigs.k8s.io/controller-runtime v0.16.6
 	sigs.k8s.io/kustomize/kyaml v0.17.2
 )

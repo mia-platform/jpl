@@ -16,7 +16,7 @@
 package poller
 
 import (
-	"fmt"
+	"errors"
 	"sync/atomic"
 )
 
@@ -70,7 +70,7 @@ func (m *multiplexer[T]) MultiplexedChannel() <-chan T {
 func (m *multiplexer[T]) AddChannel(ch <-chan T) error {
 	select {
 	case <-m.doneCh:
-		return fmt.Errorf(closedErrorMessage)
+		return errors.New(closedErrorMessage)
 	default:
 		// context is not done, we can add the channel
 		m.atomicCounter.Add(1)

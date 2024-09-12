@@ -18,6 +18,7 @@ package task
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -118,7 +119,7 @@ func TestInfoFetcherBuilderError(t *testing.T) {
 				return nil, fmt.Errorf("unexpected request")
 			}),
 		}
-		return client, fmt.Errorf(errorMessage)
+		return client, errors.New(errorMessage)
 	}
 
 	infoFetcher, err := DefaultInfoFetcherBuilder(tf)
