@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- update k8s.io packages to v0.28.14
+- update k8s.io packages to v0.30.5
+- update controller-runtime to v0.18.5
 - update to go 1.23.1
 
 ## [v0.4.0] - 2024-07-24
