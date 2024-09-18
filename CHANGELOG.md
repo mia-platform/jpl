@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.5.0] - 2024-09-18
+
 ### Changed
 
 - update k8s.io packages to v0.30.5
@@ -77,7 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Lifted code from mlp to a separate module
 
-[Unreleased]: https://github.com/mia-platform/jpl/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/mia-platform/jpl/compare/v0.5.0...HEAD
+[v0.5.0]: https://github.com/mia-platform/jpl/compare/v0.4.0...v0.5.0
 [v0.4.0]: https://github.com/mia-platform/jpl/compare/v0.3.0...v0.4.0
 [v0.3.0]: https://github.com/mia-platform/jpl/compare/v0.2.0...v0.3.0
 [v0.2.0]: https://github.com/mia-platform/jpl/compare/v0.1.2...v0.2.0
