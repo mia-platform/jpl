@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - update to go 1.23.2
 
+### Fixed
+
+- hangs on waiting resources if nothing has been applied correctly
+
 ## [v0.5.0] - 2024-09-18
 
 ### Changed

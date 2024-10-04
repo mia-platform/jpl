@@ -56,8 +56,12 @@ func (t *WaitTask) Run(state runner.State) {
 		t.objectsToWatch.Insert(resource.ObjectMetadataFromUnstructured(obj))
 	}
 
-	pollerCh := t.Poller.Start(ctx, pollerObjects)
+	if len(pollerObjects) == 0 {
+		cancel()
+		return
+	}
 
+	pollerCh := t.Poller.Start(ctx, pollerObjects)
 	resetMapper := false
 	for {
 		msg, open := <-pollerCh
