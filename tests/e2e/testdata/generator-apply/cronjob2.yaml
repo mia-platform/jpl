@@ -6,6 +6,7 @@ metadata:
     jpl.mia-platform.eu/create: "true"
 spec:
   schedule: "* * * * *"
+  suspend: true
   jobTemplate:
     spec:
       template:
