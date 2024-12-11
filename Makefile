@@ -107,17 +107,6 @@ ci: test-coverage
 
 ### Put your custom import, define or goals under here ###
 
-ENVTEST_K8S_VERSION?= $(shell cat $(TOOLS_DIR)/ENVTEST_K8S_VERSION)
-
-test/conformance/setup: $(TOOLS_BIN)/setup-envtest
-	$(info Setup testenv with k8s $(ENVTEST_K8S_VERSION) version...)
-	$(eval KUBEBUILDER_ASSETS:= $(shell $(TOOLS_BIN)/setup-envtest use $(ENVTEST_K8S_VERSION) --bin-dir $(TOOLS_BIN) -p path))
-$(TOOLS_BIN)/setup-envtest: $(TOOLS_DIR)/ENVTEST_VERSION
-	$(eval ENVTEST_K8S_VERSION:= $(shell cat $<))
-	mkdir -p $(TOOLS_BIN)
-	$(info Installing testenv $(ENVTEST_K8S_VERSION) bin in $(TOOLS_BIN))
-	GOBIN=$(TOOLS_BIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@$(ENVTEST_K8S_VERSION)
-
 generate-deps: $(TOOLS_BIN)/stringer
 $(TOOLS_BIN)/stringer: $(TOOLS_DIR)/STRINGER_VERSION
 	$(eval STRINGER_VERSION:= $(shell cat $<))

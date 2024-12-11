@@ -15,6 +15,7 @@
 
 //go:build conformance
 
+//nolint:thelper
 package e2e
 
 import (
@@ -22,56 +23,95 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
-	"time"
 
-	"github.com/mia-platform/jpl/pkg/flowcontrol"
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/e2e-framework/pkg/env"
+	"sigs.k8s.io/e2e-framework/pkg/envconf"
+	"sigs.k8s.io/e2e-framework/pkg/envfuncs"
+	"sigs.k8s.io/e2e-framework/support/kind"
 )
 
-// testClusterConfig contains the current configuration for connecting to the testenv "fake" cluster
-var testClusterConfig *rest.Config
+type namespaceCtxKey string
+
+var (
+	testenv env.Environment
+)
 
 func TestMain(m *testing.M) {
-	// Do Envtest setup
-	fmt.Println("Setting up testenv...")
-	testEnv := envtest.Environment{
-		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "testdata", "e2e", "crds"),
-		},
-		ErrorIfCRDPathMissing: true,
-	}
-	config, err := testEnv.Start()
-	testClusterConfig = config
+	testenv = env.New()
 
+	err := apiextv1.AddToScheme(scheme.Scheme)
 	if err != nil {
-		fmt.Printf("failed to start testenv: %s\n", err)
+		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	var fcEnabled bool
-	if fcEnabled, err = flowcontrol.IsEnabled(ctx, testClusterConfig); err != nil {
-		cancel()
-		fmt.Printf("failed to check flowcontrol: %s\n", err)
-		os.Exit(1)
-	}
-	cancel()
+	// Specifying a run ID so that multiple runs wouldn't collide.
+	runID := envconf.RandomName("ns", 4)
 
-	if fcEnabled {
-		testClusterConfig.QPS = -1
-		testClusterConfig.Burst = -1
+	kindClusterName := "mlp-e2e-tests"
+	kindImageName := "kindest/node:v1.31.2@sha256:18fbefc20a7113353c7b75b5c869d7145a6abd6269154825872dc59c1329912e"
+	if nameFromEnv, found := os.LookupEnv("KIND_NODE_IMAGE"); found {
+		kindImageName = nameFromEnv
 	}
 
-	// execute go tests
-	exitCode := m.Run()
+	imageOpts := kind.WithImage(kindImageName)
 
-	// Do Envtest teardown
-	fmt.Println("Tearing down testenv...")
-	if err := testEnv.Stop(); err != nil {
-		fmt.Printf("failed to stop testenv: %s\n", err)
+	kindConfigPath := filepath.Join("testdata", "kind.yaml")
+	crdsPath := filepath.Join("testdata", "crds")
+
+	// Use pre-defined environment funcs to create a kind cluster prior to test run
+	testenv.Setup(
+		envfuncs.CreateClusterWithConfig(kind.NewProvider(), kindClusterName, kindConfigPath, imageOpts),
+		envfuncs.SetupCRDs(crdsPath, "*"),
+	)
+
+	testenv.BeforeEachTest(func(ctx context.Context, cfg *envconf.Config, t *testing.T) (context.Context, error) {
+		return createNSForTest(ctx, t, cfg, runID)
+	})
+
+	testenv.AfterEachTest(func(ctx context.Context, cfg *envconf.Config, t *testing.T) (context.Context, error) {
+		return deleteNSForTest(ctx, t, cfg)
+	})
+
+	// Use pre-defined environment funcs to teardown kind cluster after tests
+	testenv.Finish(
+		// envfuncs.ExportClusterLogs(kindClusterName, "logs"),
+		envfuncs.TeardownCRDs(crdsPath, "*"),
+		// envfuncs.DestroyCluster(kindClusterName),
+	)
+
+	// launch package tests
+	os.Exit(testenv.Run(m))
+}
+
+// CreateNSForTest creates a random namespace with the runID as a prefix. It is stored in the context
+// so that the deleteNSForTest routine can look it up and delete it.
+func createNSForTest(ctx context.Context, t *testing.T, cfg *envconf.Config, runID string) (context.Context, error) {
+	ns := envconf.RandomName(runID, 10)
+	t.Logf("Creating NS %q for test %q", ns, t.Name())
+	ctx = context.WithValue(ctx, getNamespaceKey(t), ns)
+
+	return envfuncs.CreateNamespace(ns)(ctx, cfg)
+}
+
+// DeleteNSForTest looks up the namespace corresponding to the given test and deletes it.
+func deleteNSForTest(ctx context.Context, t *testing.T, cfg *envconf.Config) (context.Context, error) {
+	ns := fmt.Sprint(ctx.Value(getNamespaceKey(t)))
+	t.Logf("Deleting NS %q for test %q", ns, t.Name())
+	return envfuncs.DeleteNamespace(ns)(ctx, cfg)
+}
+
+// GetNamespaceKey returns the context key for a given test
+func getNamespaceKey(t *testing.T) namespaceCtxKey {
+	// When we pass t.Name() from inside an `assess` step, the name is in the form TestName/Features/Assess
+	if strings.Contains(t.Name(), "/") {
+		return namespaceCtxKey(strings.Split(t.Name(), "/")[0])
 	}
 
-	os.Exit(exitCode)
+	// When pass t.Name() from inside a `testenv.BeforeEachTest` function, the name is just TestName
+	return namespaceCtxKey(t.Name())
 }

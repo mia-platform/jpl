@@ -18,37 +18,45 @@
 package e2e
 
 import (
+	"context"
 	"testing"
 
-	"github.com/mia-platform/jpl/pkg/inventory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	batchv1 "k8s.io/api/batch/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/e2e-framework/pkg/envconf"
+	"sigs.k8s.io/e2e-framework/pkg/features"
 )
 
 func TestApplyCronJobsWithGenerator(t *testing.T) {
-	t.Parallel()
+	applyFeature := features.New("apply on empty namespace").
+		Setup(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			t.Helper()
+			factory, store := factoryAndStoreForTesting(t, cfg, "inventory")
 
-	// prepare test constants
-	expectedResourcesCount := 2
-	resourcePath := testdataPathForPath(t, "generator-apply")
-	namespace := createNamespaceForTesting(t)
-	factory := factoryForTesting(t, &namespace)
-	envtestListOptions := &client.ListOptions{Namespace: namespace}
-	store, err := inventory.NewConfigMapStore(factory, "inventory", namespace, "jpl-e2e-test")
-	require.NoError(t, err)
+			resourcePath := testdataPathForPath(t, "generator-apply")
+			applyResources(t, factory, store, nil, resourcePath, 2)
+			return ctx
+		}).
+		Assess("check cronjobs", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			t.Helper()
 
-	// apply resources
-	applyResources(t, factory, store, nil, resourcePath, expectedResourcesCount)
+			cronjobs := new(batchv1.CronJobList)
+			require.NoError(t, cfg.Client().Resources().WithNamespace(cfg.Namespace()).List(ctx, cronjobs))
+			assert.Equal(t, 2, len(cronjobs.Items))
+			return ctx
+		}).
+		Assess("check jobs", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			t.Helper()
 
-	// control that all CronJobs are present
-	appliedCronJobs := &batchv1.CronJobList{}
-	getResourcesFromEnv(t, appliedCronJobs, envtestListOptions)
-	assert.Equal(t, expectedResourcesCount, len(appliedCronJobs.Items))
+			jobs := new(batchv1.JobList)
+			require.NoError(t, cfg.Client().Resources().WithNamespace(cfg.Namespace()).List(ctx, jobs))
+			require.Equal(t, 1, len(jobs.Items))
 
-	// check that a job is created
-	appliedJobs := &batchv1.JobList{}
-	getResourcesFromEnv(t, appliedJobs, envtestListOptions)
-	assert.Equal(t, 1, len(appliedJobs.Items))
+			assert.Equal(t, "manual", jobs.Items[0].Annotations["cronjob.kubernetes.io/instantiate"])
+			return ctx
+		}).
+		Feature()
+
+	testenv.Test(t, applyFeature)
 }

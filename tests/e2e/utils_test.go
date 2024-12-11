@@ -19,72 +19,42 @@ package e2e
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
-	"fmt"
 	"io"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
 	jplclient "github.com/mia-platform/jpl/pkg/client"
 	"github.com/mia-platform/jpl/pkg/generator"
 	"github.com/mia-platform/jpl/pkg/inventory"
-	"github.com/mia-platform/jpl/pkg/poller"
 	"github.com/mia-platform/jpl/pkg/resourcereader"
 	"github.com/mia-platform/jpl/pkg/util"
 	"github.com/stretchr/testify/require"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/e2e-framework/pkg/envconf"
 )
 
-// factoryForTesting return a ClientFactory configured with the current testenv configuration and the providednamespace.
-// It also check if the cluster support flowcontrol and set the corresponding burst and qps accordingly.
-func factoryForTesting(t *testing.T, namespace *string) util.ClientFactory {
+// factoryAndStoreForTesting return a ClientFactory and Store for use in testing environments
+func factoryAndStoreForTesting(t *testing.T, cfg *envconf.Config, inventoryName string) (util.ClientFactory, inventory.Store) {
 	t.Helper()
-	cliConfig := genericclioptions.NewConfigFlags(false)
-	cliConfig.WrapConfigFn = func(_ *rest.Config) *rest.Config {
-		return rest.CopyConfig(testClusterConfig)
-	}
 
-	cliConfig.Namespace = namespace
-	return util.NewFactory(cliConfig)
+	kubeconfig := cfg.KubeContext()
+	namespace := cfg.Namespace()
+	t.Logf("starting test with kubeconfig %q and namespace %q", cfg.KubeconfigFile(), cfg.Namespace())
+	cliConfig := genericclioptions.NewConfigFlags(false)
+	cliConfig.KubeConfig = &kubeconfig
+	cliConfig.Namespace = &namespace
+	factory := util.NewFactory(cliConfig)
+	store, err := inventory.NewConfigMapStore(factory, inventoryName, cfg.Namespace(), "e2e-test-jlp")
+	require.NoError(t, err)
+
+	return factory, store
 }
 
 // testdataPathForPath return a valid path relative to the testadata folder
 func testdataPathForPath(t *testing.T, resourcePath string) string {
 	t.Helper()
-	return filepath.Join("..", "..", "testdata", "e2e", resourcePath)
-}
-
-// namespaceForTesting return a valid namespace name with randomness in it to avoid collision during parallel testing
-func namespaceForTesting(t *testing.T) string {
-	t.Helper()
-
-	b := make([]byte, 30)
-	_, _ = rand.Read(b)
-	return fmt.Sprintf("%s-%s", strings.ToLower(t.Name()), hex.EncodeToString(b))[:30]
-}
-
-// createNamespaceForTesting will generate a new random namespace name and create it on the api-server targeted
-// by client
-func createNamespaceForTesting(t *testing.T) string {
-	t.Helper()
-	envtestClient, err := client.New(testClusterConfig, client.Options{})
-	require.NoError(t, err)
-
-	namespace := namespaceForTesting(t)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-
-	err = envtestClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}})
-	require.NoError(t, err)
-	return namespace
+	return filepath.Join("testdata", resourcePath)
 }
 
 // applyResources will read resources from reader or path, check that the expectedCount of resource is found
@@ -103,7 +73,6 @@ func applyResources(t *testing.T, factory util.ClientFactory, store inventory.St
 		WithGenerators(generator.NewJobGenerator("jpl.mia-platform.eu/create", "true")).
 		WithFactory(factory).
 		WithInventory(store).
-		WithStatusPoller(&poller.FakePoller{}).
 		Build()
 	require.NoError(t, err)
 
@@ -125,22 +94,4 @@ func applyResources(t *testing.T, factory util.ClientFactory, store inventory.St
 			return
 		}
 	}
-}
-
-func getResourcesFromEnv(t *testing.T, list client.ObjectList, options client.ListOption) {
-	t.Helper()
-	envtestClient, err := client.New(testClusterConfig, client.Options{})
-	require.NoError(t, err)
-
-	err = envtestClient.List(context.Background(), list, options)
-	require.NoError(t, err)
-}
-
-func getResourceFromEnv(t *testing.T, name client.ObjectKey, obj client.Object, options client.GetOption) {
-	t.Helper()
-	envtestClient, err := client.New(testClusterConfig, client.Options{})
-	require.NoError(t, err)
-
-	err = envtestClient.Get(context.Background(), name, obj, options)
-	require.NoError(t, err)
 }
