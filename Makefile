@@ -49,7 +49,7 @@ endif
 
 # Set here the name of the package you want to build
 CMDNAME:= jpl
-BUILD_PATH:= $(PROJECT_DIR)
+BUILD_PATH:= $(PROJECT_DIR)/...
 CONFORMANCE_TEST_PATH:= $(PROJECT_DIR)/tests/e2e
 IS_LIBRARY:= 1
 
