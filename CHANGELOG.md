@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - update to go 1.23.5
 - update k8s.io packages to v0.31.5
 
+### Fixed
+
+- handling upgrade from client-side to server-side apply
+
 ## [v0.5.1] - 2024-10-04
 
 ### Changed
