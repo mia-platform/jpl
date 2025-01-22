@@ -18,6 +18,7 @@ package task
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -37,8 +38,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/rest/fake"
+	"k8s.io/client-go/util/csaupgrade"
 )
 
 var (
@@ -46,11 +49,13 @@ var (
 )
 
 var (
-	testdataFolder            = "testdata"
-	deploymentFilename        = filepath.Join(testdataFolder, "deploy.yaml")
-	namespaceFilename         = filepath.Join(testdataFolder, "namespace.yaml")
-	deploymentAppliedFilename = filepath.Join(testdataFolder, "deploy-applied.yaml")
-	namespaceAppliedFilename  = filepath.Join(testdataFolder, "namespace-applied.yaml")
+	testdataFolder               = "testdata"
+	deploymentFilename           = filepath.Join(testdataFolder, "deploy.yaml")
+	namespaceFilename            = filepath.Join(testdataFolder, "namespace.yaml")
+	managedFieldsFilename        = filepath.Join(testdataFolder, "managed-fields.yaml")
+	deploymentAppliedFilename    = filepath.Join(testdataFolder, "deploy-applied.yaml")
+	namespaceAppliedFilename     = filepath.Join(testdataFolder, "namespace-applied.yaml")
+	managedFieldsAppliedFilename = filepath.Join(testdataFolder, "managed-fields-applied.yaml")
 )
 
 func TestCancelApplyTask(t *testing.T) {
@@ -422,10 +427,146 @@ func TestApplyTask(t *testing.T) {
 			require.NoError(t, err)
 
 			task := &ApplyTask{
-				InfoFetcher: infoFetcher,
-				Objects:     testCase.resources,
-				Filters:     testCase.filters,
-				DryRun:      testCase.dryRun,
+				FieldManager: "test",
+				InfoFetcher:  infoFetcher,
+				Objects:      testCase.resources,
+				Filters:      testCase.filters,
+				DryRun:       testCase.dryRun,
+			}
+
+			withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+			defer cancel()
+			state := &runner.FakeState{Context: withTimeout}
+
+			task.Run(state)
+			t.Log(state.SentEvents)
+			require.Equal(t, len(testCase.expectedEvents), len(state.SentEvents))
+			for idx, expectedEvent := range testCase.expectedEvents {
+				assert.Equal(t, expectedEvent.String(), state.SentEvents[idx].String())
+			}
+		})
+	}
+}
+
+func TestClientSideMigration(t *testing.T) {
+	t.Parallel()
+
+	managedFieldsPath := "/namespaces/test/deployments/managed-fields"
+	managedFields := pkgtesting.UnstructuredFromFile(t, managedFieldsFilename)
+	fieldManager := "test"
+
+	testCases := map[string]struct {
+		resources      []*unstructured.Unstructured
+		expectedEvents []event.Event
+		filters        []filter.Interface
+		dryRun         bool
+	}{
+		"applying resource with client side apply annotation": {
+			resources: []*unstructured.Unstructured{
+				managedFields,
+			},
+			expectedEvents: []event.Event{
+				{
+					Type: event.TypeApply,
+					ApplyInfo: event.ApplyInfo{
+						Status: event.StatusPending,
+						Object: managedFields,
+					},
+				},
+				{
+					Type: event.TypeApply,
+					ApplyInfo: event.ApplyInfo{
+						Status: event.StatusSuccessful,
+						Object: managedFields,
+					},
+				},
+			},
+		},
+	}
+
+	postPatchObject := pkgtesting.UnstructuredFromFile(t, managedFieldsAppliedFilename)
+	expectedPatch, err := csaupgrade.UpgradeManagedFieldsPatch(postPatchObject, sets.New("kubectl", fieldManager), fieldManager)
+	require.NoError(t, err)
+
+	err = csaupgrade.UpgradeManagedFields(postPatchObject, sets.New("kubectl", fieldManager), fieldManager)
+	require.NoError(t, err)
+
+	postPatchData, err := json.Marshal(postPatchObject)
+	require.NoError(t, err)
+
+	patches := 0
+	targetPatches := 2
+	applies := 0
+
+	for testName, testCase := range testCases {
+		t.Run(testName, func(t *testing.T) {
+			tf := pkgtesting.NewTestClientFactory().WithNamespace("test")
+			tf.Client = &fake.RESTClient{
+				NegotiatedSerializer: resource.UnstructuredPlusDefaultContentConfig().NegotiatedSerializer,
+				Client: fake.CreateHTTPClient(func(r *http.Request) (*http.Response, error) {
+					contentType := r.Header.Get("Content-Type")
+					response := pkgtesting.UnstructuredFromFile(t, managedFieldsAppliedFilename)
+					data, err := runtime.Encode(unstructured.NewJSONFallbackEncoder(codec), response)
+					require.NoError(t, err)
+					bodyRC := io.NopCloser(bytes.NewReader(data))
+
+					switch path, method := r.URL.Path, r.Method; {
+					case method == http.MethodGet && path == managedFieldsPath:
+						if patches < targetPatches {
+							return &http.Response{StatusCode: http.StatusOK, Header: pkgtesting.DefaultHeaders(), Body: bodyRC}, nil
+						}
+
+						t.Logf("unexpected request: %#v\n%#v", r.URL, r)
+						require.Fail(t, "sent more GET requests than expected")
+						return nil, fmt.Errorf("unexpected request")
+					case contentType == string(types.ApplyPatchType) && method == http.MethodPatch && path == managedFieldsPath:
+						defer func() {
+							applies++
+						}()
+
+						switch applies {
+						case 0:
+							return &http.Response{StatusCode: http.StatusOK, Header: pkgtesting.DefaultHeaders(), Body: bodyRC}, nil
+						case 1, 2:
+							bodyRC := io.NopCloser(bytes.NewReader(postPatchData))
+							return &http.Response{StatusCode: http.StatusOK, Header: pkgtesting.DefaultHeaders(), Body: bodyRC}, nil
+						}
+
+						t.Logf("unexpected request: %#v\n%#v", r.URL, r)
+						require.Fail(t, "sent more apply requests than expected")
+						return &http.Response{StatusCode: http.StatusBadRequest, Header: pkgtesting.DefaultHeaders()}, nil
+					case contentType == string(types.JSONPatchType) && method == http.MethodPatch && path == managedFieldsPath:
+						defer func() {
+							patches++
+						}()
+
+						defer r.Body.Close()
+						// Require that the patch is equal to what is expected
+						body, err := io.ReadAll(r.Body)
+						require.NoError(t, err)
+						require.Equal(t, string(expectedPatch), string(body))
+
+						if patches == targetPatches-1 {
+							bodyRC := io.NopCloser(bytes.NewReader(postPatchData))
+							return &http.Response{StatusCode: http.StatusOK, Header: pkgtesting.DefaultHeaders(), Body: bodyRC}, nil
+						}
+
+						return &http.Response{StatusCode: http.StatusConflict, Header: pkgtesting.DefaultHeaders()}, nil
+					default:
+						require.Fail(t, "unexpected request", r.URL, r)
+						return nil, fmt.Errorf("unexpected request")
+					}
+				}),
+			}
+			infoFetcher, err := DefaultInfoFetcherBuilder(tf)
+			require.NoError(t, err)
+
+			task := &ApplyTask{
+				FieldManager: fieldManager,
+				InfoFetcher:  infoFetcher,
+				Objects:      testCase.resources,
+				Filters:      testCase.filters,
+				DryRun:       testCase.dryRun,
 			}
 
 			withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)

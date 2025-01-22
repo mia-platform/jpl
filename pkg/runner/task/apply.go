@@ -26,21 +26,38 @@ import (
 	pkgresource "github.com/mia-platform/jpl/pkg/resource"
 	"github.com/mia-platform/jpl/pkg/runner"
 	"github.com/mia-platform/jpl/pkg/util"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/cli-runtime/pkg/resource"
+	"k8s.io/client-go/util/csaupgrade"
+	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
 )
 
 const (
-	warningChangesOnDeletingResource = "WARNING: try to change %s resource which is currently being deleted."
+	maxPatchRetry = 5
+
+	warningMigrationPatchFailed      = "WARNING: server rejected managed fields migration to Server-Side Apply. This is non-fatal and will be retried next time you apply. Error: %[1]s\n"
+	warningChangesOnDeletingResource = "WARNING: try to change %[1]s resource which is currently being deleted.\n"
+	warningMigrationReapplyFailed    = "WARNING: failed to re-apply configuration after performing Server-Side Apply migration. This is non-fatal and will be retried next time you apply. Error: %[1]s\n"
+)
+
+var (
+	lastAppliedAnnotationFieldPath = fieldpath.NewSet(
+		fieldpath.MakePathOrDie(
+			"metadata", "annotations",
+			corev1.LastAppliedConfigAnnotation),
+	)
 )
 
 // InfoFetcher function for transforming a jpl Resources in a kubernetes resource Info object
-type InfoFetcher func(*unstructured.Unstructured) (resource.Info, error)
+type InfoFetcher func(*unstructured.Unstructured) (*resource.Info, error)
 
 // keep it to always check if ApplyTask implement correctly the Task interface
 var _ runner.Task = &ApplyTask{}
@@ -127,7 +144,7 @@ func skippedEvent(obj *unstructured.Unstructured) event.Event {
 
 // applyObject encapsulate the logic for making a PATCH request to the api-server with server side merging logic
 // and strict validation of the resource fields
-func applyObject(ctx context.Context, info resource.Info, dryRun bool, fieldManager string) error {
+func applyObject(ctx context.Context, info *resource.Info, dryRun bool, fieldManager string) error {
 	forceConflictingFields := true
 	options := &metav1.PatchOptions{
 		Force:           &forceConflictingFields,
@@ -164,6 +181,23 @@ func applyObject(ctx context.Context, info resource.Info, dryRun bool, fieldMana
 	// we ignore the error, so no need to catch it
 	_ = info.Refresh(obj, true)
 
+	if migrated, err := migrateToSSAIfNecessary(ctx, info, fieldManager); err != nil {
+		fmt.Fprintf(os.Stderr, warningMigrationPatchFailed, err.Error())
+	} else if migrated {
+		if _, err := info.Client.Patch(types.ApplyPatchType).
+			NamespaceIfScoped(info.Namespace, info.Mapping.Scope.Name() == meta.RESTScopeNameNamespace).
+			Resource(info.Mapping.Resource.Resource).
+			Name(info.Name).
+			VersionedParams(options, metav1.ParameterCodec).
+			Body(data).
+			Do(ctx).
+			Get(); err != nil {
+			fmt.Fprintf(os.Stderr, warningMigrationReapplyFailed, err.Error())
+		}
+	} else {
+		_ = info.Refresh(obj, true)
+	}
+
 	warnIfDeleting(info.Object)
 	return nil
 }
@@ -174,7 +208,7 @@ func DefaultInfoFetcherBuilder(factory util.ClientFactory) (InfoFetcher, error) 
 		return nil, err
 	}
 
-	return func(r *unstructured.Unstructured) (resource.Info, error) {
+	return func(r *unstructured.Unstructured) (*resource.Info, error) {
 		info := pkgresource.Info(r)
 		gvk := info.Object.GetObjectKind().GroupVersionKind()
 		mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
@@ -190,6 +224,77 @@ func DefaultInfoFetcherBuilder(factory util.ClientFactory) (InfoFetcher, error) 
 		info.Client = c
 		return info, nil
 	}, nil
+}
+
+// migrateToSSAIfNecessary check if the returned object needs to have its kubectl-client-side-apply
+// managed fields migrated server-side-apply.
+func migrateToSSAIfNecessary(ctx context.Context, info *resource.Info, fieldManager string) (bool, error) {
+	accessor, err := meta.Accessor(info.Object)
+	if err != nil {
+		return false, err
+	}
+
+	csaManagers := csaupgrade.FindFieldsOwners(
+		accessor.GetManagedFields(),
+		metav1.ManagedFieldsOperationUpdate,
+		lastAppliedAnnotationFieldPath)
+
+	managerNames := sets.New[string](fieldManager)
+	for _, entry := range csaManagers {
+		managerNames.Insert(entry.Manager)
+	}
+
+	// Re-attempt patch as many times as it is conflicting due to ResourceVersion
+	// test failing
+	for i := 0; i < maxPatchRetry; i++ {
+		var patchData []byte
+		var obj runtime.Object
+
+		patchData, err = csaupgrade.UpgradeManagedFieldsPatch(
+			info.Object, managerNames, fieldManager)
+
+		if err != nil {
+			// If patch generation failed there was likely a bug.
+			return false, err
+		} else if patchData == nil {
+			// nil patch data means nothing to do - object is already migrated
+			return false, nil
+		}
+
+		options := &metav1.PatchOptions{
+			FieldManager: fieldManager,
+		}
+
+		obj, err = info.Client.Patch(types.JSONPatchType).
+			NamespaceIfScoped(info.Namespace, info.Mapping.Scope.Name() == meta.RESTScopeNameNamespace).
+			Resource(info.Mapping.Resource.Resource).
+			Name(info.Name).
+			VersionedParams(options, metav1.ParameterCodec).
+			Body(patchData).
+			Do(ctx).
+			Get()
+
+		if err == nil {
+			// Stop retrying upon success.
+			_ = info.Refresh(obj, true)
+			return true, nil
+		} else if !errors.IsConflict(err) {
+			// Only retry if there was a conflict
+			return false, err
+		}
+
+		// Refresh the object for next iteration
+		err = info.Get()
+		if err != nil {
+			// If there was an error fetching, return error
+			return false, err
+		}
+	}
+
+	// Reaching this point with non-nil error means there was a conflict and
+	// max retries was hit
+	// Return the last error witnessed (which will be a conflict)
+	return false, err
 }
 
 // warnIfDeleting prints a warning if a resource is being deleted

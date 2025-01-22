@@ -103,10 +103,10 @@ func servicesMetadataFromWebhook(webhook *unstructured.Unstructured) []ObjectMet
 }
 
 // Info return a kubernetes resource Info backed by a copy of the unstructured
-func Info(obj *unstructured.Unstructured) resource.Info {
+func Info(obj *unstructured.Unstructured) *resource.Info {
 	obj = obj.DeepCopy()
 
-	return resource.Info{
+	return &resource.Info{
 		Name:      obj.GetName(),
 		Namespace: obj.GetNamespace(),
 		Object:    obj,
