@@ -39,7 +39,7 @@ func TestCancelInventoryTask(t *testing.T) {
 	configmap, err := inventory.NewConfigMapStore(tf, "test", "test", "jpl")
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithCancel(context.TODO())
+	ctx, cancel := context.WithCancel(t.Context())
 	state := &runner.FakeState{Context: ctx}
 
 	expectedEvents := []event.Event{
@@ -147,7 +147,7 @@ func TestInventoryTaskRun(t *testing.T) {
 				DryRun:  testCase.dryRun,
 			}
 
-			withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+			withTimeout, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 			defer cancel()
 			state := &runner.FakeState{Context: withTimeout}
 

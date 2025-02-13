@@ -69,7 +69,7 @@ func TestNewInformer(t *testing.T) {
 			client := dynamicfake.NewSimpleDynamicClient(pkgtesting.Scheme)
 			informerBuilder := newInfromerBuilder(client, testCase.mapper, 0)
 
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 			defer cancel()
 			informer, err := informerBuilder.newInformer(ctx, testCase.resource)
 			if testCase.expectErr {
@@ -142,7 +142,7 @@ func TestNewInformerCalls(t *testing.T) {
 			client := dynamicfake.NewSimpleDynamicClient(pkgtesting.Scheme)
 			testCase.setupClient(client)
 
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 			defer cancel()
 
 			informerResource := informerResource{

@@ -330,10 +330,10 @@ func TestApplierRun(t *testing.T) {
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
 			applier := newTestApplier(t, testCase.objects, testCase.inventoryObjects, testCase.statusEvents, nil, nil, nil)
-			withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+			withTimeout, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 			defer cancel()
 
-			eventCh := applier.Run(context.TODO(), testCase.objects, ApplierOptions{})
+			eventCh := applier.Run(t.Context(), testCase.objects, ApplierOptions{})
 			var events []event.Event
 
 		loop:
@@ -455,7 +455,7 @@ func TestGenerators(t *testing.T) {
 	}
 
 	for testName, testCase := range testCases {
-		withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+		withTimeout, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 		defer cancel()
 
 		t.Run(testName, func(t *testing.T) {
@@ -581,7 +581,7 @@ func TestMutators(t *testing.T) {
 	}
 
 	for testName, testCase := range testCases {
-		withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+		withTimeout, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 		defer cancel()
 
 		t.Run(testName, func(t *testing.T) {
@@ -661,7 +661,7 @@ func TestFilters(t *testing.T) {
 
 	filter := &testFilter{}
 
-	withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+	withTimeout, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 	defer cancel()
 
 	applier := newTestApplier(t, objects, nil, []event.Event{}, nil, nil, filter)
@@ -739,7 +739,7 @@ func TestLoadObjectFromInventory(t *testing.T) {
 
 			require.NoError(t, err)
 
-			ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 			defer cancel()
 
 			resourceCache := cache.NewCachedResourceGetter(applier.mapper, applier.client)

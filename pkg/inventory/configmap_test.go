@@ -137,7 +137,7 @@ func TestLoad(t *testing.T) {
 			store, err := NewConfigMapStore(factory, testCase.name, namespace, "jpl-inventory-test")
 			require.NoError(t, err)
 
-			ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 			defer cancel()
 
 			metadata, err := store.(*configMapStore).Load(ctx)
@@ -247,7 +247,7 @@ func TestSave(t *testing.T) {
 			require.NoError(t, err)
 			cmStore := store.(*configMapStore)
 
-			ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 			defer cancel()
 
 			cmStore.savedObjects = testCase.data
@@ -336,7 +336,7 @@ func TestDelete(t *testing.T) {
 			store, err := NewConfigMapStore(factory, testCase.name, namespace, "jpl-inventory-test")
 			require.NoError(t, err)
 
-			ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 			defer cancel()
 
 			err = store.Delete(ctx, testCase.dryRun)

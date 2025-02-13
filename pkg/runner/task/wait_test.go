@@ -33,7 +33,7 @@ import (
 func TestCancelWaitTask(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := context.WithCancel(context.TODO())
+	ctx, cancel := context.WithCancel(t.Context())
 	state := &runner.FakeState{Context: ctx}
 
 	deployment := pkgtesting.UnstructuredFromFile(t, deploymentFilename)
@@ -95,7 +95,7 @@ func TestWaitTask(t *testing.T) {
 		},
 	}
 
-	withTimeout, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	withTimeout, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 	state := &runner.FakeState{Context: withTimeout}
 

@@ -254,7 +254,7 @@ func TestSaveConfigMap(t *testing.T) {
 			factory.Client = testCase.client
 			manager := NewManager(testInventory(t, factory), testCase.startingObjects)
 			manager.objectStatuses = testCase.currentStatus
-			ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 			defer cancel()
 			err := manager.SaveCurrentInventoryState(ctx, testCase.dryRun)
 
@@ -374,7 +374,7 @@ func TestDeleteConfigMap(t *testing.T) {
 			factory.Client = testCase.client
 			manager := NewManager(testInventory(t, factory), nil)
 			manager.objectStatuses = testCase.currentStatus
-			ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 			defer cancel()
 			err := manager.DeleteRemoteInventoryIfPossible(ctx, testCase.dryRun)
 

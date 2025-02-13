@@ -72,7 +72,7 @@ func TestCancelApplyTask(t *testing.T) {
 	infoFetcher, err := DefaultInfoFetcherBuilder(tf)
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithCancel(context.TODO())
+	ctx, cancel := context.WithCancel(t.Context())
 	state := &runner.FakeState{Context: ctx}
 
 	deployement := pkgtesting.UnstructuredFromFile(t, deploymentFilename)
@@ -157,7 +157,7 @@ func TestInfoFetcherBuilderError(t *testing.T) {
 		},
 	}
 
-	withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+	withTimeout, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 	defer cancel()
 	state := &runner.FakeState{Context: withTimeout}
 
@@ -219,7 +219,7 @@ func TestUnsupportedMediaTypeError(t *testing.T) {
 		},
 	}
 
-	withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+	withTimeout, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 	defer cancel()
 	state := &runner.FakeState{Context: withTimeout}
 
@@ -434,7 +434,7 @@ func TestApplyTask(t *testing.T) {
 				DryRun:       testCase.dryRun,
 			}
 
-			withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+			withTimeout, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 			defer cancel()
 			state := &runner.FakeState{Context: withTimeout}
 
@@ -569,7 +569,7 @@ func TestClientSideMigration(t *testing.T) {
 				DryRun:       testCase.dryRun,
 			}
 
-			withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+			withTimeout, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 			defer cancel()
 			state := &runner.FakeState{Context: withTimeout}
 

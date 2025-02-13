@@ -95,7 +95,7 @@ func TestRunWithQueue(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
-			withTimeout, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
+			withTimeout, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 			defer cancel()
 			state := &FakeState{Context: withTimeout}
 
@@ -109,7 +109,7 @@ func TestRunWithQueue(t *testing.T) {
 func TestCancelQueue(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := context.WithCancel(context.TODO())
+	ctx, cancel := context.WithCancel(t.Context())
 	state := &FakeState{Context: ctx}
 	r := &taskRunner{}
 	taskQueue := func() chan Task {

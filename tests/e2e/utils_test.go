@@ -76,7 +76,7 @@ func applyResources(t *testing.T, factory util.ClientFactory, store inventory.St
 		Build()
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Minute)
 	defer cancel()
 
 	eventCh := applier.Run(ctx, resources, jplclient.ApplierOptions{FieldManager: "jpl-test"})
