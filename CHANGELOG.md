@@ -9,7 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- update to go 1.24.0
+- update to go 1.24.1
+- update k8s.io packages to 0.31.7
+- update structured-merge-diff to 4.6.0
+- update kyaml to 1.9.0
 
 ## [v0.6.0] - 2025-01-23
 
