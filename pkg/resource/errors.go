@@ -77,11 +77,9 @@ func (e CyclicDependencyError) Error() string {
 	builder := new(strings.Builder)
 	builder.WriteString("cyclical dependencies:")
 	for _, dependency := range e.dependencies {
-		builder.WriteString(
-			fmt.Sprintf("\n- from %s to %s",
-				formatObjectMetadata(dependency.from),
-				formatObjectMetadata(dependency.to),
-			),
+		fmt.Fprintf(builder, "\n- from %s to %s",
+			formatObjectMetadata(dependency.from),
+			formatObjectMetadata(dependency.to),
 		)
 	}
 

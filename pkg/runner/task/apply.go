@@ -27,7 +27,6 @@ import (
 	"github.com/mia-platform/jpl/pkg/runner"
 	"github.com/mia-platform/jpl/pkg/util"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -278,7 +277,7 @@ func migrateToSSAIfNecessary(ctx context.Context, info *resource.Info, fieldMana
 			// Stop retrying upon success.
 			_ = info.Refresh(obj, true)
 			return true, nil
-		} else if !errors.IsConflict(err) {
+		} else if !apierrors.IsConflict(err) {
 			// Only retry if there was a conflict
 			return false, err
 		}

@@ -347,7 +347,7 @@ func podStatusCheck(object *unstructured.Unstructured) (*Result, error) {
 	case corev1.PodPending:
 		for _, condition := range pod.Status.Conditions {
 			if condition.Type == corev1.PodScheduled && condition.Status == corev1.ConditionFalse {
-				creationTime := pod.ObjectMeta.CreationTimestamp.Time
+				creationTime := pod.CreationTimestamp.Time
 				deltaWindowTime := time.Now().Add(unscheduledWindow) // add some leeway to declare a failed scheduling
 				if condition.Reason == corev1.PodReasonUnschedulable && creationTime.After(deltaWindowTime) {
 					return inProgressResult(podUnscheduledMessage), nil
@@ -403,10 +403,7 @@ func deployStatusCheck(object *unstructured.Unstructured) (*Result, error) {
 	}
 
 	// if ProgressDeadlineSeconds is not set the controller than will not set the `Progressing` condition
-	deployIsProgressing := false
-	if deploy.Spec.ProgressDeadlineSeconds == nil {
-		deployIsProgressing = true
-	}
+	deployIsProgressing := deploy.Spec.ProgressDeadlineSeconds == nil
 
 	deployIsAvailable := false // save if the available condition is found for later
 	for _, condition := range deploy.Status.Conditions {
