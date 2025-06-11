@@ -238,7 +238,7 @@ func migrateToSSAIfNecessary(ctx context.Context, info *resource.Info, fieldMana
 		metav1.ManagedFieldsOperationUpdate,
 		lastAppliedAnnotationFieldPath)
 
-	managerNames := sets.New[string](fieldManager)
+	managerNames := sets.New(fieldManager)
 	for _, entry := range csaManagers {
 		managerNames.Insert(entry.Manager)
 	}

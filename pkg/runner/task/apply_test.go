@@ -180,7 +180,11 @@ func TestUnsupportedMediaTypeError(t *testing.T) {
 			switch path, method := r.URL.Path, r.Method; {
 			case method == http.MethodPatch && path == deployPath:
 				applied++
-				return &http.Response{StatusCode: http.StatusUnsupportedMediaType, Header: pkgtesting.DefaultHeaders()}, nil
+				return &http.Response{
+					Request:    r,
+					StatusCode: http.StatusUnsupportedMediaType,
+					Header:     pkgtesting.DefaultHeaders(),
+				}, nil
 			default:
 				t.Logf("unexpected request: %#v\n%#v", r.URL, r)
 				return nil, fmt.Errorf("unexpected request")

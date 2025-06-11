@@ -301,7 +301,7 @@ func TestDelete(t *testing.T) {
 
 			factory.Client = &fake.RESTClient{
 				Client: fake.CreateHTTPClient(func(r *http.Request) (*http.Response, error) {
-					assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+					assert.Equal(t, "application/vnd.kubernetes.protobuf", r.Header.Get("Content-Type"))
 					data, err := io.ReadAll(r.Body)
 					require.NoError(t, err)
 					decoder := pkgtesting.Codecs.UniversalDecoder()
