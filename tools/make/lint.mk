@@ -16,7 +16,7 @@
 ##@ Lint Goals
 
 # if not already installed in the system install a pinned version in tools folder
-# GOLANGCI_PATH:= $(shell command -v golangci-lint 2> /dev/null)
+GOLANGCI_PATH:= $(shell command -v golangci-lint 2> /dev/null)
 ifndef GOLANGCI_PATH
 	GOLANGCI_PATH:=$(TOOLS_BIN)/golangci-lint
 endif
