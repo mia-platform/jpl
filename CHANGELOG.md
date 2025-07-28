@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- update to go 1.24.5
+- update k8s.io packages to 0.32.7
+- update kyaml to 0.20.1
+
 ## [v0.7.0] - 2025-06-11
 
 ### Changed
