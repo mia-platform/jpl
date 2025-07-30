@@ -273,6 +273,7 @@ func TestPoller(t *testing.T) {
 
 			poller := NewDefaultStatusPoller(client, mapper, nil)
 			eventCh := poller.Start(ctx, testCase.resources)
+			time.Sleep(150 * time.Millisecond) // Allow the pollers to start
 
 			steppingCh := make(chan struct{})
 			defer close(steppingCh)
