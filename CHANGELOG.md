@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- option for disabling the waiting steps
+
 ## [v0.8.0] - 2025-09-04
 
 ### Changed

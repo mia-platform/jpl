@@ -56,6 +56,7 @@ type Applier struct {
 // ApplierOptions options for the apply step
 type ApplierOptions struct {
 	DryRun       bool
+	DisableWait  bool
 	Timeout      time.Duration
 	FieldManager string
 }
@@ -105,6 +106,7 @@ func (a *Applier) Run(ctx context.Context, objects []*unstructured.Unstructured,
 		}
 		queueOptions := QueueOptions{
 			DryRun:       options.DryRun,
+			Wait:         !options.DisableWait,
 			Prune:        true,
 			FieldManager: options.FieldManager,
 		}

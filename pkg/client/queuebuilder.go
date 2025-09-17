@@ -31,6 +31,7 @@ import (
 )
 
 type QueueOptions struct {
+	Wait         bool
 	DryRun       bool
 	Prune        bool
 	FieldManager string
@@ -83,7 +84,7 @@ func (b *QueueBuilder) Build(options QueueOptions) (<-chan runner.Task, error) {
 				InfoFetcher:  b.InfoFetcher,
 				RemoteGetter: b.RemoteGetter,
 			})
-			if !options.DryRun {
+			if !options.DryRun && options.Wait {
 				tasks = append(tasks, &task.WaitTask{
 					Objects: group,
 					Poller:  b.Poller,
