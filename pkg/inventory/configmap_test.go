@@ -18,6 +18,7 @@ package inventory
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -116,6 +117,8 @@ func TestLoad(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			factory := pkgtesting.NewTestClientFactory()
 			factory.Client = &fake.RESTClient{
 				Client: fake.CreateHTTPClient(func(r *http.Request) (*http.Response, error) {
@@ -129,7 +132,7 @@ func TestLoad(t *testing.T) {
 						return &http.Response{StatusCode: http.StatusForbidden, Header: pkgtesting.DefaultHeaders()}, nil
 					default:
 						t.Logf("unexpected request: %#v\n%#v", r.URL, r)
-						return nil, fmt.Errorf("unexpected request")
+						return nil, errors.New("unexpected request")
 					}
 				}),
 			}
@@ -210,6 +213,8 @@ func TestSave(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			factory := pkgtesting.NewTestClientFactory()
 			var configMap corev1.ConfigMap
 
@@ -220,7 +225,7 @@ func TestSave(t *testing.T) {
 					case true:
 						assert.Equal(t, "All", r.URL.Query().Get("dryRun"))
 					default:
-						assert.Equal(t, "", r.URL.Query().Get("dryRun"))
+						assert.Empty(t, r.URL.Query().Get("dryRun"))
 					}
 					switch path, method := r.URL.Path, r.Method; {
 					case method == http.MethodPatch && path == fmt.Sprintf("/api/v1/namespaces/%s/configmaps/%s", namespace, name):
@@ -238,7 +243,7 @@ func TestSave(t *testing.T) {
 						return &http.Response{StatusCode: http.StatusForbidden, Header: pkgtesting.DefaultHeaders()}, nil
 					default:
 						t.Logf("unexpected request: %#v\n%#v", r.URL, r)
-						return nil, fmt.Errorf("unexpected request")
+						return nil, errors.New("unexpected request")
 					}
 				}),
 			}
@@ -297,8 +302,9 @@ func TestDelete(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
-			factory := pkgtesting.NewTestClientFactory()
+			t.Parallel()
 
+			factory := pkgtesting.NewTestClientFactory()
 			factory.Client = &fake.RESTClient{
 				Client: fake.CreateHTTPClient(func(r *http.Request) (*http.Response, error) {
 					assert.Equal(t, "application/vnd.kubernetes.protobuf", r.Header.Get("Content-Type"))
@@ -328,7 +334,7 @@ func TestDelete(t *testing.T) {
 						return &http.Response{StatusCode: http.StatusNotFound, Header: pkgtesting.DefaultHeaders()}, nil
 					default:
 						t.Logf("unexpected request: %#v\n%#v", r.URL, r)
-						return nil, fmt.Errorf("unexpected request")
+						return nil, errors.New("unexpected request")
 					}
 				}),
 			}
@@ -381,6 +387,8 @@ func TestSetObjects(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			s := &configMapStore{
 				savedObjects: testCase.startingMetadata,
 			}

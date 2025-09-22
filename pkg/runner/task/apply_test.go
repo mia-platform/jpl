@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"path/filepath"
@@ -89,7 +88,7 @@ func TestCancelApplyTask(t *testing.T) {
 			ApplyInfo: event.ApplyInfo{
 				Object: deployement,
 				Status: event.StatusFailed,
-				Error:  fmt.Errorf("context canceled"),
+				Error:  errors.New("context canceled"),
 			},
 		},
 	}
@@ -105,7 +104,7 @@ func TestCancelApplyTask(t *testing.T) {
 	cancel()
 
 	task.Run(state)
-	require.Equal(t, len(expectedEvents), len(state.SentEvents))
+	require.Len(t, state.SentEvents, len(expectedEvents))
 	for idx, expectedEvent := range expectedEvents {
 		assert.Equal(t, expectedEvent.String(), state.SentEvents[idx].String())
 	}
@@ -113,6 +112,7 @@ func TestCancelApplyTask(t *testing.T) {
 
 func TestInfoFetcherBuilderError(t *testing.T) {
 	t.Parallel()
+
 	tf := pkgtesting.NewTestClientFactory().WithNamespace("test")
 	errorMessage := "error during client creation"
 	tf.UnstructuredClientForMappingFunc = func(_ schema.GroupVersion) (resource.RESTClient, error) {
@@ -121,7 +121,7 @@ func TestInfoFetcherBuilderError(t *testing.T) {
 			NegotiatedSerializer: resource.UnstructuredPlusDefaultContentConfig().NegotiatedSerializer,
 			Client: fake.CreateHTTPClient(func(r *http.Request) (*http.Response, error) {
 				t.Logf("unexpected request: %#v\n%#v", r.URL, r)
-				return nil, fmt.Errorf("unexpected request")
+				return nil, errors.New("unexpected request")
 			}),
 		}
 		return client, errors.New(errorMessage)
@@ -144,7 +144,7 @@ func TestInfoFetcherBuilderError(t *testing.T) {
 			ApplyInfo: event.ApplyInfo{
 				Object: deployment,
 				Status: event.StatusFailed,
-				Error:  fmt.Errorf("error during client creation"),
+				Error:  errors.New("error during client creation"),
 			},
 		},
 	}
@@ -162,7 +162,7 @@ func TestInfoFetcherBuilderError(t *testing.T) {
 	state := &runner.FakeState{Context: withTimeout}
 
 	task.Run(state)
-	require.Equal(t, len(expectedEvents), len(state.SentEvents))
+	require.Len(t, state.SentEvents, len(expectedEvents))
 	for idx, expectedEvent := range expectedEvents {
 		assert.Equal(t, expectedEvent.String(), state.SentEvents[idx].String())
 	}
@@ -187,7 +187,7 @@ func TestUnsupportedMediaTypeError(t *testing.T) {
 				}, nil
 			default:
 				t.Logf("unexpected request: %#v\n%#v", r.URL, r)
-				return nil, fmt.Errorf("unexpected request")
+				return nil, errors.New("unexpected request")
 			}
 		}),
 	}
@@ -209,7 +209,7 @@ func TestUnsupportedMediaTypeError(t *testing.T) {
 			ApplyInfo: event.ApplyInfo{
 				Object: deployment,
 				Status: event.StatusFailed,
-				Error:  fmt.Errorf("server-side apply not available on the server: unknown (patch deployments nginx)"),
+				Error:  errors.New("server-side apply not available on the server: unknown (patch deployments nginx)"),
 			},
 		},
 	}
@@ -228,7 +228,7 @@ func TestUnsupportedMediaTypeError(t *testing.T) {
 	state := &runner.FakeState{Context: withTimeout}
 
 	task.Run(state)
-	require.Equal(t, len(expectedEvents), len(state.SentEvents))
+	require.Len(t, state.SentEvents, len(expectedEvents))
 	for idx, expectedEvent := range expectedEvents {
 		assert.Equal(t, expectedEvent.String(), state.SentEvents[idx].String())
 	}
@@ -360,13 +360,13 @@ func TestApplyTask(t *testing.T) {
 					ApplyInfo: event.ApplyInfo{
 						Status: event.StatusFailed,
 						Object: namespace,
-						Error:  fmt.Errorf("error in filter"),
+						Error:  errors.New("error in filter"),
 					},
 				},
 			},
 			filters: []filter.Interface{
 				&testFilter{Kind: "Deployment"},
-				&testFilter{Error: fmt.Errorf("error in filter")},
+				&testFilter{Error: errors.New("error in filter")},
 			},
 		},
 		"dry run": {
@@ -395,12 +395,14 @@ func TestApplyTask(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			tf := pkgtesting.NewTestClientFactory().WithNamespace("test")
 			tf.Client = &fake.RESTClient{
 				NegotiatedSerializer: resource.UnstructuredPlusDefaultContentConfig().NegotiatedSerializer,
 				Client: fake.CreateHTTPClient(func(r *http.Request) (*http.Response, error) {
-					require.Equal(t, r.Header.Get("Content-Type"), string(types.ApplyPatchType))
-					require.Equal(t, r.URL.Query().Get("force"), "true")
+					require.Equal(t, string(types.ApplyPatchType), r.Header.Get("Content-Type"))
+					require.Equal(t, "true", r.URL.Query().Get("force"))
 					if testCase.dryRun {
 						require.Equal(t, "All", r.URL.Query().Get("dryRun"))
 					}
@@ -423,7 +425,7 @@ func TestApplyTask(t *testing.T) {
 						return &http.Response{StatusCode: http.StatusOK, Header: pkgtesting.DefaultHeaders(), Body: bodyRC}, nil
 					default:
 						t.Logf("unexpected request: %#v\n%#v", r.URL, r)
-						return nil, fmt.Errorf("unexpected request")
+						return nil, errors.New("unexpected request")
 					}
 				}),
 			}
@@ -444,7 +446,7 @@ func TestApplyTask(t *testing.T) {
 
 			task.Run(state)
 			t.Log(state.SentEvents)
-			require.Equal(t, len(testCase.expectedEvents), len(state.SentEvents))
+			require.Len(t, state.SentEvents, len(testCase.expectedEvents))
 			for idx, expectedEvent := range testCase.expectedEvents {
 				assert.Equal(t, expectedEvent.String(), state.SentEvents[idx].String())
 			}
@@ -504,6 +506,8 @@ func TestClientSideMigration(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			tf := pkgtesting.NewTestClientFactory().WithNamespace("test")
 			tf.Client = &fake.RESTClient{
 				NegotiatedSerializer: resource.UnstructuredPlusDefaultContentConfig().NegotiatedSerializer,
@@ -522,7 +526,7 @@ func TestClientSideMigration(t *testing.T) {
 
 						t.Logf("unexpected request: %#v\n%#v", r.URL, r)
 						require.Fail(t, "sent more GET requests than expected")
-						return nil, fmt.Errorf("unexpected request")
+						return nil, errors.New("unexpected request")
 					case contentType == string(types.ApplyPatchType) && method == http.MethodPatch && path == managedFieldsPath:
 						defer func() {
 							applies++
@@ -557,8 +561,8 @@ func TestClientSideMigration(t *testing.T) {
 
 						return &http.Response{StatusCode: http.StatusConflict, Header: pkgtesting.DefaultHeaders()}, nil
 					default:
-						require.Fail(t, "unexpected request", r.URL, r)
-						return nil, fmt.Errorf("unexpected request")
+						require.Fail(t, "unexpected request", "%#v\n%#v", r.URL, r)
+						return nil, errors.New("unexpected request")
 					}
 				}),
 			}
@@ -579,7 +583,7 @@ func TestClientSideMigration(t *testing.T) {
 
 			task.Run(state)
 			t.Log(state.SentEvents)
-			require.Equal(t, len(testCase.expectedEvents), len(state.SentEvents))
+			require.Len(t, state.SentEvents, len(testCase.expectedEvents))
 			for idx, expectedEvent := range testCase.expectedEvents {
 				assert.Equal(t, expectedEvent.String(), state.SentEvents[idx].String())
 			}

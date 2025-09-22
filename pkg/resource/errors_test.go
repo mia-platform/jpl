@@ -24,6 +24,7 @@ import (
 
 func TestCustomError(t *testing.T) {
 	t.Parallel()
+
 	unknownGVK := schema.GroupVersionKind{
 		Group:   "example.com",
 		Version: "v1alpha1",

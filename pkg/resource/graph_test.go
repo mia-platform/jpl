@@ -230,8 +230,9 @@ func TestNewDependencyGraph(t *testing.T) {
 
 	for testName, testCase := range tests {
 		t.Run(testName, func(t *testing.T) {
-			graph, err := NewDependencyGraph(testCase.objects)
+			t.Parallel()
 
+			graph, err := NewDependencyGraph(testCase.objects)
 			switch len(testCase.expectedGraphError) {
 			case 0:
 				assert.NoError(t, err)

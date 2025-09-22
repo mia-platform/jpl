@@ -61,7 +61,7 @@ func (im *informerMultiplexer) Run(ctx context.Context) <-chan event.Event {
 		errorCh := make(chan event.Event)
 		go func() {
 			defer close(errorCh)
-			im.handleBlockingError(errorCh, fmt.Errorf("cannot restart an already running informer"))
+			im.handleBlockingError(errorCh, errors.New("cannot restart an already running informer"))
 		}()
 		return errorCh
 	}
@@ -154,8 +154,8 @@ func (im *informerMultiplexer) runInformer(resource informerResource) (*informer
 func (im *informerMultiplexer) watchErrorHandler(_ informerResource, eventCh chan<- event.Event, err error) {
 	// TODO: handle the various errors
 	switch {
-	case err == io.EOF:
-	case err == io.ErrUnexpectedEOF:
+	case errors.Is(err, io.EOF):
+	case errors.Is(err, io.ErrUnexpectedEOF):
 	case errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded):
 	case apierrors.IsNotFound(err):
 	case apierrors.IsResourceExpired(err) || apierrors.IsGone(err):

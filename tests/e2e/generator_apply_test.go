@@ -43,7 +43,7 @@ func TestApplyCronJobsWithGenerator(t *testing.T) {
 
 			cronjobs := new(batchv1.CronJobList)
 			require.NoError(t, cfg.Client().Resources().WithNamespace(cfg.Namespace()).List(ctx, cronjobs))
-			assert.Equal(t, 2, len(cronjobs.Items))
+			assert.Len(t, cronjobs.Items, 2)
 			return ctx
 		}).
 		Assess("check jobs", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
@@ -51,7 +51,7 @@ func TestApplyCronJobsWithGenerator(t *testing.T) {
 
 			jobs := new(batchv1.JobList)
 			require.NoError(t, cfg.Client().Resources().WithNamespace(cfg.Namespace()).List(ctx, jobs))
-			require.Equal(t, 1, len(jobs.Items))
+			require.Len(t, jobs.Items, 1)
 
 			assert.Equal(t, "manual", jobs.Items[0].Annotations["cronjob.kubernetes.io/instantiate"])
 			return ctx

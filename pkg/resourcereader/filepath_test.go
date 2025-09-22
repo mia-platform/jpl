@@ -65,8 +65,9 @@ func TestFilepathReader(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
-			dir := t.TempDir()
+			t.Parallel()
 
+			dir := t.TempDir()
 			for filePath, content := range testCase.manifests {
 				p := filepath.Join(dir, filePath)
 				err := os.WriteFile(p, content, 0600)
@@ -81,7 +82,7 @@ func TestFilepathReader(t *testing.T) {
 				assert.NoError(t, err)
 			}
 
-			assert.Equal(t, testCase.expectedCount, len(objects))
+			assert.Len(t, objects, testCase.expectedCount)
 		})
 	}
 }

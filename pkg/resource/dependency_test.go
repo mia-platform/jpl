@@ -114,8 +114,9 @@ func TestObjectExplicitDependencies(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			dependencies, err := ObjectExplicitDependencies(test.object)
+			t.Parallel()
 
+			dependencies, err := ObjectExplicitDependencies(test.object)
 			switch len(test.expectedError) {
 			case 0:
 				assert.NoError(t, err)
@@ -219,8 +220,9 @@ func TestSetObjectExplicitDependencies(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			err := SetObjectExplicitDependencies(test.object, test.dependencies)
+			t.Parallel()
 
+			err := SetObjectExplicitDependencies(test.object, test.dependencies)
 			switch len(test.expectedError) {
 			case 0:
 				assert.NoError(t, err)

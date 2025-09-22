@@ -141,6 +141,8 @@ func TestSetNamespace(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			err := setNamespace(mapper, testCase.objs, testCase.namespace, testCase.enforceNamespace)
 			assert.Equal(t, testCase.expectedErr, err)
 

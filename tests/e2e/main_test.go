@@ -81,7 +81,7 @@ func TestMain(m *testing.M) {
 	testenv.Finish(
 		// envfuncs.ExportClusterLogs(kindClusterName, "logs"),
 		envfuncs.TeardownCRDs(crdsPath, "*"),
-		// envfuncs.DestroyCluster(kindClusterName),
+		envfuncs.DestroyCluster(kindClusterName),
 	)
 
 	// launch package tests

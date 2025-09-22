@@ -16,6 +16,7 @@
 package resource
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -147,11 +148,11 @@ func parseDependencyObjectMetadata(metadataString string) (ObjectMetadata, error
 // return error if objMetadata is malformed.
 func formatDependencyObjectMetadata(objMetadata ObjectMetadata) (string, error) {
 	if objMetadata.Kind == "" {
-		return "", fmt.Errorf("invalid object metadata: missing resource kind")
+		return "", errors.New("invalid object metadata: missing resource kind")
 	}
 
 	if objMetadata.Name == "" {
-		return "", fmt.Errorf("invalid object metadata: missing resource name")
+		return "", errors.New("invalid object metadata: missing resource name")
 	}
 
 	kind := objMetadata.Kind

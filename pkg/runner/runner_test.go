@@ -17,7 +17,7 @@ package runner
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 	"time"
 
@@ -81,13 +81,13 @@ func TestRunWithQueue(t *testing.T) {
 			taskQueue: func() chan Task {
 				queue := make(chan Task, 3)
 				queue <- &fakeTask{}
-				queue <- &fakeTask{err: fmt.Errorf("error in task")}
+				queue <- &fakeTask{err: errors.New("error in task")}
 				queue <- &fakeTask{}
 				return queue
 			},
 			expectedEvents: []event.Event{
 				{Type: event.TypeApply, ApplyInfo: event.ApplyInfo{}},
-				{Type: event.TypeApply, ApplyInfo: event.ApplyInfo{Error: fmt.Errorf("error in task")}},
+				{Type: event.TypeApply, ApplyInfo: event.ApplyInfo{Error: errors.New("error in task")}},
 				{Type: event.TypeApply, ApplyInfo: event.ApplyInfo{}},
 			},
 		},
@@ -95,6 +95,8 @@ func TestRunWithQueue(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			withTimeout, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 			defer cancel()
 			state := &FakeState{Context: withTimeout}

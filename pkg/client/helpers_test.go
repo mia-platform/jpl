@@ -135,7 +135,7 @@ func (h *handler) handleRequest(t *testing.T, request *http.Request) (bool, *htt
 
 		path := fmt.Sprintf("/%s/%s", mapping.Resource.Resource, obj.GetName())
 		if mapping.Scope == meta.RESTScopeNamespace {
-			path = fmt.Sprintf("/namespaces/%s", obj.GetNamespace()) + path
+			path = "/namespaces/" + obj.GetNamespace() + path
 		}
 
 		if request.URL.Path == path && request.Method == http.MethodPatch {

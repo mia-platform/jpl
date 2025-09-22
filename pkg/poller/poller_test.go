@@ -248,6 +248,8 @@ func TestPoller(t *testing.T) {
 
 	for testName, testCase := range tests {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			ctx, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 			defer cancel()
 
@@ -307,7 +309,7 @@ func TestPoller(t *testing.T) {
 			}
 
 			require.NotEqual(t, context.DeadlineExceeded, ctx.Err())
-			assert.Equal(t, len(testCase.expectedEvents), len(receivedEvents))
+			assert.Len(t, receivedEvents, len(testCase.expectedEvents))
 			assert.Equal(t, testCase.expectedEvents, receivedEvents)
 		})
 	}
@@ -351,6 +353,8 @@ func TestPollerErrors(t *testing.T) {
 
 	for testName, testCase := range tests {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 			defer cancel()
 
@@ -398,7 +402,7 @@ func TestPollerErrors(t *testing.T) {
 			}
 
 			require.NotEqual(t, context.DeadlineExceeded, ctx.Err())
-			assert.Equal(t, len(testCase.expectedEvents), len(receivedEvents))
+			assert.Len(t, receivedEvents, len(testCase.expectedEvents))
 			assert.Equal(t, testCase.expectedEvents, receivedEvents)
 		})
 	}

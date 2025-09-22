@@ -26,9 +26,9 @@ import (
 var _ Reader = &FilepathReader{}
 
 type FilepathReader struct {
-	Path string
-
 	ReaderConfigs
+
+	Path string
 }
 
 // Read implement the Reader interface

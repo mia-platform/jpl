@@ -56,7 +56,7 @@ func TestAddingSingleChannel(t *testing.T) {
 	totalEvents := 100
 	go func() {
 		defer cancel()
-		for i := 0; i < totalEvents; i++ {
+		for i := range totalEvents {
 			eventCh <- fmt.Sprintf("event number %d", i+1)
 		}
 		close(eventCh)
@@ -127,7 +127,7 @@ func runChannel(ctx context.Context, t *testing.T, multiplexer *multiplexer[stri
 		if !assert.NoError(t, err) {
 			return
 		}
-		for i := 0; i < totalMessages; i++ {
+		for i := range totalMessages {
 			eventCh <- fmt.Sprintf("event number %d of %d", i+1, totalMessages)
 		}
 	}()

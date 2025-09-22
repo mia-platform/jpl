@@ -31,6 +31,7 @@ import (
 
 func TestIsEnabled(t *testing.T) {
 	t.Parallel()
+
 	testCases := map[string]struct {
 		handler         http.HandlerFunc
 		expectedEnabled bool
@@ -64,6 +65,8 @@ func TestIsEnabled(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			ctx, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 			defer cancel()
 
@@ -82,6 +85,7 @@ func TestIsEnabled(t *testing.T) {
 
 func TestMalformedData(t *testing.T) {
 	t.Parallel()
+
 	testCases := map[string]struct {
 		config        *rest.Config
 		expectedError string
@@ -107,6 +111,8 @@ func TestMalformedData(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			// turn off staticcheck to avoid SA1012 we know is an error, but is the simplest one to trigger for our use case
 			enabled, err := IsEnabled(nil, testCase.config) //nolint:staticcheck
 			require.False(t, enabled)

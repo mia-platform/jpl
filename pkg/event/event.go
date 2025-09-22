@@ -142,15 +142,15 @@ func (i ApplyInfo) String() string {
 	objID := identifierFromObject(i.Object)
 	switch i.Status {
 	case StatusPending:
-		return fmt.Sprintf("%s: apply started...", objID)
+		return objID + ": apply started..."
 	case StatusSuccessful:
-		return fmt.Sprintf("%s: applied successfully", objID)
+		return objID + ": applied successfully"
 	case StatusSkipped:
-		return fmt.Sprintf("%s: apply skipped", objID)
+		return objID + ": apply skipped"
 	case StatusFailed:
-		return fmt.Sprintf("%s: failed to apply: %s", objID, i.Error)
+		return objID + ": failed to apply: " + i.Error.Error()
 	default:
-		return fmt.Sprintf("%s: apply status unknown", objID)
+		return objID + ": apply status unknown"
 	}
 }
 
@@ -164,13 +164,13 @@ func (i PruneInfo) String() string {
 	objID := identifierFromObject(i.Object)
 	switch i.Status {
 	case StatusPending:
-		return fmt.Sprintf("%s: prune started...", objID)
+		return objID + ": prune started..."
 	case StatusSuccessful:
-		return fmt.Sprintf("%s: pruned successfully", objID)
+		return objID + ": pruned successfully"
 	case StatusFailed:
-		return fmt.Sprintf("%s: failed to prune: %s", objID, i.Error)
+		return objID + ": failed to prune: " + i.Error.Error()
 	default:
-		return fmt.Sprintf("%s: prune status unknown", objID)
+		return objID + ": prune status unknown"
 	}
 }
 

@@ -18,7 +18,7 @@ package inventory
 import (
 	"bytes"
 	"context"
-	"fmt"
+	"errors"
 	"io"
 	"net/http"
 	"path/filepath"
@@ -44,7 +44,7 @@ func TestNewManager(t *testing.T) {
 	assert.NotNil(t, manager)
 	assert.Equal(t, manager.Inventory, inventory)
 	assert.NotNil(t, manager.objectStatuses)
-	assert.Equal(t, 0, len(manager.objectStatuses))
+	assert.Empty(t, manager.objectStatuses)
 }
 
 func TestObjectSatus(t *testing.T) {
@@ -65,7 +65,7 @@ func TestObjectSatus(t *testing.T) {
 	manager.SetSuccessfullDelete(clustercrd)
 	manager.SetSkipped(cronjob)
 
-	assert.Equal(t, 5, len(manager.objectStatuses))
+	assert.Len(t, manager.objectStatuses, 5)
 	assert.Equal(t, sets.New(deployment), manager.objectsForStatus(objectStatusApplyFailed))
 	assert.Equal(t, sets.New(namespace), manager.objectsForStatus(objectStatusDeleteFailed))
 	assert.Equal(t, sets.New(clustercr), manager.objectsForStatus(objectStatusApplySuccessfull))
@@ -73,7 +73,7 @@ func TestObjectSatus(t *testing.T) {
 	assert.Equal(t, sets.New(cronjob), manager.objectsForStatus(objectStatusSkipped))
 
 	manager.SetSuccessfullApply(deployment)
-	assert.Equal(t, 5, len(manager.objectStatuses))
+	assert.Len(t, manager.objectStatuses, 5)
 	assert.Equal(t, sets.New[*unstructured.Unstructured](), manager.objectsForStatus(objectStatusApplyFailed))
 	assert.Equal(t, sets.New(clustercr, deployment), manager.objectsForStatus(objectStatusApplySuccessfull))
 }
@@ -117,7 +117,7 @@ func TestSaveConfigMap(t *testing.T) {
 						}, nil
 					default:
 						t.Logf("unexpected request: %#v\n%#v", r.URL, r)
-						return nil, fmt.Errorf("no calls are expected here")
+						return nil, errors.New("no calls are expected here")
 					}
 				}),
 			},
@@ -151,7 +151,7 @@ func TestSaveConfigMap(t *testing.T) {
 						}, nil
 					default:
 						t.Logf("unexpected request: %#v\n%#v", r.URL, r)
-						return nil, fmt.Errorf("no calls are expected here")
+						return nil, errors.New("no calls are expected here")
 					}
 				}),
 			},
@@ -189,7 +189,7 @@ func TestSaveConfigMap(t *testing.T) {
 						}, nil
 					default:
 						t.Logf("unexpected request: %#v\n%#v", r.URL, r)
-						return nil, fmt.Errorf("no calls are expected here")
+						return nil, errors.New("no calls are expected here")
 					}
 				}),
 			},
@@ -220,7 +220,7 @@ func TestSaveConfigMap(t *testing.T) {
 						}, nil
 					default:
 						t.Logf("unexpected request: %#v\n%#v", r.URL, r)
-						return nil, fmt.Errorf("no calls are expected here")
+						return nil, errors.New("no calls are expected here")
 					}
 				}),
 			},
@@ -237,7 +237,7 @@ func TestSaveConfigMap(t *testing.T) {
 						return &http.Response{StatusCode: http.StatusForbidden, Header: pkgtesting.DefaultHeaders()}, nil
 					default:
 						t.Logf("unexpected request: %#v\n%#v", r.URL, r)
-						return nil, fmt.Errorf("no calls are expected here")
+						return nil, errors.New("no calls are expected here")
 					}
 				}),
 			},
@@ -250,6 +250,8 @@ func TestSaveConfigMap(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			factory := pkgtesting.NewTestClientFactory()
 			factory.Client = testCase.client
 			manager := NewManager(testInventory(t, factory), testCase.startingObjects)
@@ -289,7 +291,7 @@ func TestDeleteConfigMap(t *testing.T) {
 						return &http.Response{StatusCode: http.StatusNoContent, Header: pkgtesting.DefaultHeaders()}, nil
 					default:
 						t.Logf("unexpected request: %#v\n%#v", r.URL, r)
-						return nil, fmt.Errorf("no calls are expected here")
+						return nil, errors.New("no calls are expected here")
 					}
 				}),
 			},
@@ -312,7 +314,7 @@ func TestDeleteConfigMap(t *testing.T) {
 						return &http.Response{StatusCode: http.StatusNoContent, Header: pkgtesting.DefaultHeaders()}, nil
 					default:
 						t.Logf("unexpected request: %#v\n%#v", r.URL, r)
-						return nil, fmt.Errorf("no calls are expected here")
+						return nil, errors.New("no calls are expected here")
 					}
 				}),
 			},
@@ -329,7 +331,7 @@ func TestDeleteConfigMap(t *testing.T) {
 						return &http.Response{StatusCode: http.StatusNotFound, Header: pkgtesting.DefaultHeaders()}, nil
 					default:
 						t.Logf("unexpected request: %#v\n%#v", r.URL, r)
-						return nil, fmt.Errorf("no calls are expected here")
+						return nil, errors.New("no calls are expected here")
 					}
 				}),
 			},
@@ -341,7 +343,7 @@ func TestDeleteConfigMap(t *testing.T) {
 			client: &fake.RESTClient{
 				Client: fake.CreateHTTPClient(func(r *http.Request) (*http.Response, error) {
 					t.Logf("unexpected request: %#v\n%#v", r.URL, r)
-					return nil, fmt.Errorf("no calls are expected here")
+					return nil, errors.New("no calls are expected here")
 				}),
 			},
 			currentStatus: map[*unstructured.Unstructured]objectStatus{
@@ -357,7 +359,7 @@ func TestDeleteConfigMap(t *testing.T) {
 						return &http.Response{StatusCode: http.StatusForbidden, Header: pkgtesting.DefaultHeaders()}, nil
 					default:
 						t.Logf("unexpected request: %#v\n%#v", r.URL, r)
-						return nil, fmt.Errorf("no calls are expected here")
+						return nil, errors.New("no calls are expected here")
 					}
 				}),
 			},
@@ -370,6 +372,8 @@ func TestDeleteConfigMap(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			factory := pkgtesting.NewTestClientFactory()
 			factory.Client = testCase.client
 			manager := NewManager(testInventory(t, factory), nil)

@@ -55,6 +55,8 @@ func TestStreamReader(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			reader := bytes.NewReader(testCase.manifests)
 			objects, err := (&StreamReader{Reader: reader}).Read()
 			switch len(testCase.expectedError) {
@@ -64,7 +66,7 @@ func TestStreamReader(t *testing.T) {
 				assert.NoError(t, err)
 			}
 
-			assert.Equal(t, testCase.expectedCount, len(objects))
+			assert.Len(t, objects, testCase.expectedCount)
 		})
 	}
 }

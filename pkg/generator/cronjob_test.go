@@ -28,6 +28,7 @@ import (
 
 func TestCanHandleResource(t *testing.T) {
 	t.Parallel()
+
 	annotation := "example.com/annotation"
 	value := "true"
 	generator := NewJobGenerator(annotation, value)
@@ -115,6 +116,7 @@ func TestCanHandleResource(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, testCase.expectedResult, generator.CanHandleResource(testCase.metadata))
 		})
 	}
@@ -122,6 +124,7 @@ func TestCanHandleResource(t *testing.T) {
 
 func TestGenerate(t *testing.T) {
 	t.Parallel()
+
 	generator := NewJobGenerator("example.com/annotation", "true")
 	testdata := "testdata"
 
@@ -140,16 +143,18 @@ func TestGenerate(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			jobs, err := generator.Generate(testCase.object, nil)
 			if testCase.expectErr {
 				assert.Error(t, err)
 				assert.ErrorContains(t, err, "strict decoding error")
-				assert.Equal(t, 0, len(jobs))
+				assert.Empty(t, jobs)
 				return
 			}
 
 			assert.NoError(t, err)
-			assert.Equal(t, 1, len(jobs))
+			assert.Len(t, jobs, 1)
 		})
 	}
 }

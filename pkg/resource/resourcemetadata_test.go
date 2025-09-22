@@ -105,6 +105,8 @@ func TestObjectMetadataFromString(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			ok, resMeta := ObjectMetadataFromString(testCase.str)
 			assert.Equal(t, testCase.expectedFound, ok)
 			assert.Equal(t, testCase.expectedObjMetadata, resMeta)
@@ -159,6 +161,8 @@ func TestToString(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			key := testCase.objMetadata.ToString()
 			assert.Equal(t, testCase.expectedKey, key)
 		})
@@ -175,5 +179,5 @@ func TestMetadataFromUnstructured(t *testing.T) {
 	assert.Equal(t, "Deployment", metadata.Kind)
 	assert.Equal(t, "apps", metadata.Group)
 	assert.Equal(t, "nginx", metadata.Name)
-	assert.Equal(t, "", metadata.Namespace)
+	assert.Empty(t, metadata.Namespace)
 }

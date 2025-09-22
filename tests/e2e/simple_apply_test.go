@@ -69,7 +69,7 @@ func TestApplyToEmptyNamespace(t *testing.T) {
 
 			deployments := new(appsv1.DeploymentList)
 			require.NoError(t, cfg.Client().Resources().WithNamespace(cfg.Namespace()).List(ctx, deployments))
-			assert.Equal(t, 2, len(deployments.Items))
+			assert.Len(t, deployments.Items, 2)
 			return ctx
 		}).
 		Feature()
@@ -101,17 +101,17 @@ func TestApplyToEmptyNamespace(t *testing.T) {
 
 			deployments := new(appsv1.DeploymentList)
 			require.NoError(t, cfg.Client().Resources().WithNamespace(cfg.Namespace()).List(ctx, deployments))
-			assert.Equal(t, 2, len(deployments.Items))
+			assert.Len(t, deployments.Items, 2)
 
 			for _, deployment := range deployments.Items {
 				assert.NotNil(t, deployment.ObjectMeta.ManagedFields) // check that the object is managed by server side apply
 				if deployment.Name != "nginx" {
-					assert.EqualValues(t, deployment.ObjectMeta.Generation, 1) // other deployment must not have changed
+					assert.EqualValues(t, 1, deployment.ObjectMeta.Generation) // other deployment must not have changed
 					continue
 				}
 
-				assert.EqualValues(t, *deployment.Spec.Replicas, 2)        // correct filed value
-				assert.EqualValues(t, deployment.ObjectMeta.Generation, 2) // updated generation
+				assert.EqualValues(t, 2, *deployment.Spec.Replicas)        // correct filed value
+				assert.EqualValues(t, 2, deployment.ObjectMeta.Generation) // updated generation
 			}
 			return ctx
 		}).
@@ -171,7 +171,7 @@ func TestApplyWithNamespace(t *testing.T) {
 			testNamespace := ctx.Value(&newNamespaceKey).(string)
 			deployments := new(appsv1.DeploymentList)
 			require.NoError(t, cfg.Client().Resources().WithNamespace(testNamespace).List(ctx, deployments))
-			assert.Equal(t, 1, len(deployments.Items))
+			assert.Len(t, deployments.Items, 1)
 			return ctx
 		}).
 		Assess("services after apply", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
@@ -180,7 +180,7 @@ func TestApplyWithNamespace(t *testing.T) {
 			testNamespace := ctx.Value(&newNamespaceKey).(string)
 			services := new(corev1.ServiceList)
 			require.NoError(t, cfg.Client().Resources().WithNamespace(testNamespace).List(ctx, services))
-			assert.Equal(t, 1, len(services.Items))
+			assert.Len(t, services.Items, 1)
 			return ctx
 		}).
 		Teardown(func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {

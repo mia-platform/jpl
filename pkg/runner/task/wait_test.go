@@ -48,7 +48,7 @@ func TestCancelWaitTask(t *testing.T) {
 	cancel()
 
 	task.Run(state)
-	require.Equal(t, 0, len(state.SentEvents))
+	require.Empty(t, state.SentEvents)
 }
 
 func TestWaitTask(t *testing.T) {
@@ -106,7 +106,7 @@ func TestWaitTask(t *testing.T) {
 
 	<-withTimeout.Done()
 	require.NotEqual(t, withTimeout.Err(), context.DeadlineExceeded)
-	assert.Equal(t, len(expectedEvents), len(state.SentEvents))
+	assert.Len(t, state.SentEvents, len(expectedEvents))
 	for idx, expectedEvent := range expectedEvents {
 		assert.Equal(t, expectedEvent.String(), state.SentEvents[idx].String())
 	}

@@ -17,7 +17,7 @@ package task
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 	"time"
 
@@ -58,7 +58,7 @@ func TestCancelPruneTask(t *testing.T) {
 			PruneInfo: event.PruneInfo{
 				Object: deployment,
 				Status: event.StatusFailed,
-				Error:  fmt.Errorf("client rate limiter Wait returned an error: context canceled"),
+				Error:  errors.New("client rate limiter Wait returned an error: context canceled"),
 			},
 		},
 	}
@@ -75,7 +75,7 @@ func TestCancelPruneTask(t *testing.T) {
 	cancel()
 
 	task.Run(state)
-	require.Equal(t, len(expectedEvents), len(state.SentEvents))
+	require.Len(t, state.SentEvents, len(expectedEvents))
 	for idx, expectedEvent := range expectedEvents {
 		assert.Equal(t, expectedEvent.String(), state.SentEvents[idx].String())
 	}
@@ -122,7 +122,7 @@ func TestPruneAction(t *testing.T) {
 	state := &runner.FakeState{Context: withTimeout}
 
 	task.Run(state)
-	require.Equal(t, len(expectedEvents), len(state.SentEvents))
+	require.Len(t, state.SentEvents, len(expectedEvents))
 	for idx, expectedEvent := range expectedEvents {
 		assert.Equal(t, expectedEvent.String(), state.SentEvents[idx].String())
 	}

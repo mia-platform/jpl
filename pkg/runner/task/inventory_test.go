@@ -17,7 +17,7 @@ package task
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 	"time"
 
@@ -53,7 +53,7 @@ func TestCancelInventoryTask(t *testing.T) {
 			Type: event.TypeInventory,
 			InventoryInfo: event.InventoryInfo{
 				Status: event.StatusFailed,
-				Error:  fmt.Errorf("failed to save inventory: client rate limiter Wait returned an error: context canceled"),
+				Error:  errors.New("failed to save inventory: client rate limiter Wait returned an error: context canceled"),
 			},
 		},
 	}
@@ -64,7 +64,7 @@ func TestCancelInventoryTask(t *testing.T) {
 	cancel()
 
 	task.Run(state)
-	require.Equal(t, len(expectedEvents), len(state.SentEvents))
+	require.Len(t, state.SentEvents, len(expectedEvents))
 	for idx, expectedEvent := range expectedEvents {
 		assert.Equal(t, expectedEvent.String(), state.SentEvents[idx].String())
 	}
@@ -120,7 +120,7 @@ func TestInventoryTaskRun(t *testing.T) {
 		},
 		"update inventory with error during save": {
 			inventory: &fakeinventory.Inventory{
-				SaveErr: fmt.Errorf("error during saving"),
+				SaveErr: errors.New("error during saving"),
 			},
 			expectedEvents: []event.Event{
 				{
@@ -133,7 +133,7 @@ func TestInventoryTaskRun(t *testing.T) {
 					Type: event.TypeInventory,
 					InventoryInfo: event.InventoryInfo{
 						Status: event.StatusFailed,
-						Error:  fmt.Errorf("error during saving"),
+						Error:  errors.New("error during saving"),
 					},
 				},
 			},
@@ -142,6 +142,8 @@ func TestInventoryTaskRun(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			task := &InventoryTask{
 				Manager: inventory.NewManager(testCase.inventory, nil),
 				DryRun:  testCase.dryRun,
@@ -152,7 +154,7 @@ func TestInventoryTaskRun(t *testing.T) {
 			state := &runner.FakeState{Context: withTimeout}
 
 			task.Run(state)
-			require.Equal(t, len(testCase.expectedEvents), len(state.SentEvents))
+			require.Len(t, state.SentEvents, len(testCase.expectedEvents))
 			for idx, expectedEvent := range testCase.expectedEvents {
 				assert.Equal(t, expectedEvent.String(), state.SentEvents[idx].String())
 			}

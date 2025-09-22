@@ -67,7 +67,7 @@ func applyResources(t *testing.T, factory util.ClientFactory, store inventory.St
 
 	resources, err := resourceReader.Read()
 	require.NoError(t, err)
-	require.Equal(t, expectedCount, len(resources), "unexpected count of reasources read from path or buffer")
+	require.Len(t, resources, expectedCount, "unexpected count of reasources read from path or buffer")
 
 	applier, err := jplclient.NewBuilder().
 		WithGenerators(generator.NewJobGenerator("jpl.mia-platform.eu/create", "true")).

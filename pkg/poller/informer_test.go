@@ -66,6 +66,8 @@ func TestNewInformer(t *testing.T) {
 
 	for testName, testCase := range tests {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			client := dynamicfake.NewSimpleDynamicClient(pkgtesting.Scheme)
 			informerBuilder := newInfromerBuilder(client, testCase.mapper, 0)
 
@@ -78,7 +80,7 @@ func TestNewInformer(t *testing.T) {
 				return
 			}
 
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			assert.NotNil(t, informer)
 		})
 	}
@@ -139,6 +141,8 @@ func TestNewInformerCalls(t *testing.T) {
 
 	for testName, testCase := range tests {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			client := dynamicfake.NewSimpleDynamicClient(pkgtesting.Scheme)
 			testCase.setupClient(client)
 
@@ -151,7 +155,7 @@ func TestNewInformerCalls(t *testing.T) {
 			}
 			informerBuilder := newInfromerBuilder(client, mapper, 0)
 			informer, err := informerBuilder.newInformer(ctx, informerResource)
-			require.Nil(t, err)
+			assert.NoError(t, err)
 			require.NotNil(t, informer)
 
 			err = informer.setWatchErrorHandler(func(_ *cache.Reflector, err error) {

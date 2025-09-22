@@ -18,7 +18,6 @@ package client
 import (
 	"context"
 	"errors"
-	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -320,7 +319,7 @@ func TestApplierRun(t *testing.T) {
 				{
 					Type: event.TypeError,
 					ErrorInfo: event.ErrorInfo{
-						Error: fmt.Errorf("failed to parse object reference: unexpected field composition: value"),
+						Error: errors.New("failed to parse object reference: unexpected field composition: value"),
 					},
 				},
 			},
@@ -329,6 +328,8 @@ func TestApplierRun(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			applier := newTestApplier(t, testCase.objects, testCase.inventoryObjects, testCase.statusEvents, nil, nil, nil)
 			withTimeout, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 			defer cancel()
@@ -354,7 +355,7 @@ func TestApplierRun(t *testing.T) {
 				}
 			}
 
-			require.Equal(t, len(testCase.expectedEvents), len(events), "actual events found: %v", events)
+			require.Len(t, events, len(testCase.expectedEvents), "actual events found: %v", events)
 			for idx, expectedEvent := range testCase.expectedEvents {
 				assert.Equal(t, expectedEvent.String(), events[idx].String())
 			}
@@ -363,7 +364,6 @@ func TestApplierRun(t *testing.T) {
 }
 
 func TestGenerators(t *testing.T) {
-	t.Parallel()
 	testdataPath := "testdata"
 	deployment := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdataPath, "deployment.yaml"))
 	cronjonb := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdataPath, "cronjob.yaml"))
@@ -442,12 +442,12 @@ func TestGenerators(t *testing.T) {
 				deployment,
 				cronjonb,
 			},
-			generator: &errorGenerator{err: fmt.Errorf("abort")},
+			generator: &errorGenerator{err: errors.New("abort")},
 			expectedEvents: []event.Event{
 				{
 					Type: event.TypeError,
 					ErrorInfo: event.ErrorInfo{
-						Error: fmt.Errorf("generate resource failed: abort"),
+						Error: errors.New("generate resource failed: abort"),
 					},
 				},
 			},
@@ -478,7 +478,7 @@ func TestGenerators(t *testing.T) {
 				}
 			}
 
-			require.Equal(t, len(testCase.expectedEvents), len(events), "actual events found: %v", events)
+			require.Len(t, events, len(testCase.expectedEvents), "actual events found: %v", events)
 			for idx, expectedEvent := range testCase.expectedEvents {
 				assert.Equal(t, expectedEvent.String(), events[idx].String())
 			}
@@ -487,7 +487,6 @@ func TestGenerators(t *testing.T) {
 }
 
 func TestMutators(t *testing.T) {
-	t.Parallel()
 	testdataPath := "testdata"
 	deployment := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdataPath, "deployment.yaml"))
 
@@ -573,7 +572,7 @@ func TestMutators(t *testing.T) {
 				{
 					Type: event.TypeError,
 					ErrorInfo: event.ErrorInfo{
-						Error: fmt.Errorf(`mutate resource failed: labels: Invalid value: "invalid-": name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')`),
+						Error: errors.New(`mutate resource failed: labels: Invalid value: "invalid-": name part must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my.name',  or '123-abc', regex used for validation is '([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]')`),
 					},
 				},
 			},
@@ -604,7 +603,7 @@ func TestMutators(t *testing.T) {
 				}
 			}
 
-			require.Equal(t, len(testCase.expectedEvents), len(events), "actual events found: %v", events)
+			require.Len(t, events, len(testCase.expectedEvents), "actual events found: %v", events)
 			for idx, expectedEvent := range testCase.expectedEvents {
 				assert.Equal(t, expectedEvent.String(), events[idx].String())
 			}
@@ -613,7 +612,6 @@ func TestMutators(t *testing.T) {
 }
 
 func TestFilters(t *testing.T) {
-	t.Parallel()
 	testdataPath := "testdata"
 	deployment := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdataPath, "deployment.yaml"))
 	job := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdataPath, "job.yaml"))
@@ -683,15 +681,13 @@ loop:
 		}
 	}
 
-	require.Equal(t, len(expectedEvents), len(events), "actual events found: %v", events)
+	require.Len(t, events, len(expectedEvents), "actual events found: %v", events)
 	for idx, expectedEvent := range expectedEvents {
 		assert.Equal(t, expectedEvent.String(), events[idx].String())
 	}
 }
 
 func TestLoadObjectFromInventory(t *testing.T) {
-	t.Parallel()
-
 	testdataPath := "testdata"
 
 	deployment := pkgtesting.UnstructuredFromFile(t, filepath.Join(testdataPath, "deployment.yaml"))
@@ -745,7 +741,7 @@ func TestLoadObjectFromInventory(t *testing.T) {
 			resourceCache := cache.NewCachedResourceGetter(applier.mapper, applier.client)
 			objs, err := applier.loadObjectsFromInventory(ctx, resourceCache)
 			assert.NoError(t, err)
-			assert.Equal(t, test.expectedObjects, len(objs))
+			assert.Len(t, objs, test.expectedObjects)
 		})
 	}
 }

@@ -25,9 +25,9 @@ import (
 
 // StreamReader a StreamReader is a concrete implementation of Reader that will parse data from a given io.Reader
 type StreamReader struct {
-	Reader io.Reader
-
 	ReaderConfigs
+
+	Reader io.Reader
 }
 
 // Read implement the Reader interface

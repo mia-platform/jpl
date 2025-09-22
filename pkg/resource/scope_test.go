@@ -95,6 +95,8 @@ func TestResourceScope(t *testing.T) {
 	testFactory := pkgtesting.NewTestClientFactory()
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			mapper, err := testFactory.ToRESTMapper()
 			require.NoError(t, err)
 

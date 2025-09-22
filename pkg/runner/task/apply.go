@@ -245,7 +245,7 @@ func migrateToSSAIfNecessary(ctx context.Context, info *resource.Info, fieldMana
 
 	// Re-attempt patch as many times as it is conflicting due to ResourceVersion
 	// test failing
-	for i := 0; i < maxPatchRetry; i++ {
+	for range maxPatchRetry {
 		var patchData []byte
 		var obj runtime.Object
 

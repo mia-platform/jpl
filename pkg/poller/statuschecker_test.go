@@ -286,6 +286,8 @@ func TestStatusCheck(t *testing.T) {
 
 	for testName, testCase := range tests {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			result, err := statusCheck(testCase.object, registeredResources)
 			if len(testCase.expectedError) > 0 {
 				assert.ErrorContains(t, err, testCase.expectedError)
@@ -325,6 +327,8 @@ func TestConditionsCheck(t *testing.T) {
 
 	for testName, testCase := range tests {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			result, err := checkStatusConditions(testCase.object)
 			if len(testCase.expectedError) > 0 {
 				assert.ErrorContains(t, err, testCase.expectedError)

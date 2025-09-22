@@ -90,6 +90,8 @@ func TestSortedObjects(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			sort.Sort(SortableObjects(testCase.objects))
 			assert.Equal(t, testCase.want, testCase.objects)
 		})

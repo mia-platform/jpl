@@ -63,8 +63,10 @@ func TestFindCRDs(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			crds := FindCRDs(testCase.objs)
-			assert.Equal(t, testCase.expectedCrds, len(crds))
+			assert.Len(t, crds, testCase.expectedCrds)
 		})
 	}
 }
@@ -102,6 +104,8 @@ func TestIsCRD(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			isCRD := IsCRD(testCase.object)
 			assert.Equal(t, testCase.isCRD, isCRD)
 		})

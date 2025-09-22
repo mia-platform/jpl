@@ -52,6 +52,8 @@ func TestBuilder(t *testing.T) {
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			builder := NewResourceReaderBuilder(testCase.testFactory)
 			require.NotNil(t, builder)
 

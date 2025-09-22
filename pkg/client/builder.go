@@ -16,6 +16,7 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/mia-platform/jpl/pkg/filter"
@@ -91,15 +92,15 @@ func (b *Builder) WithCustomStatusChecker(customResourceCheck poller.CustomStatu
 // Build use default values and configured builder porperty for correctly setup an Applier
 func (b *Builder) Build() (*Applier, error) {
 	if b.factory == nil {
-		return nil, fmt.Errorf("cannot build an Applier client without a valid factory")
+		return nil, errors.New("cannot build an Applier client without a valid factory")
 	}
 
 	if b.runner == nil {
-		return nil, fmt.Errorf("cannot build an Applier client without a valid runner")
+		return nil, errors.New("cannot build an Applier client without a valid runner")
 	}
 
 	if b.inventory == nil {
-		return nil, fmt.Errorf("cannot build an Applier client without a valid inventory")
+		return nil, errors.New("cannot build an Applier client without a valid inventory")
 	}
 
 	client, err := b.factory.DynamicClient()
