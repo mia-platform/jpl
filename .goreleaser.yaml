@@ -3,7 +3,6 @@ dist: bin
 
 builds:
 - main: "{{ .Env.BUILD_PATH }}"
-  skip: true
   binary: >-
     {{ .Os }}/
     {{- .Arch }}/
@@ -58,6 +57,31 @@ changelog:
     order: 1
   - title: Others
     order: 999
+
+brews:
+- name: "{{ .Env.CMDNAME }}"
+  repository:
+    owner: mia-platform
+    name: homebrew-tap
+
+  commit_author:
+    name: bot-targa
+    email: github@mia-platform.eu
+
+  commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+  directory: Formula
+
+  install: |
+    bin.install "{{ .ArtifactName }}" => "{{ .Env.CMDNAME }}"
+
+    chmod 0555, bin/"{{ .Env.CMDNAME }}" # generate_completions_from_executable fails otherwise
+    generate_completions_from_executable(bin/"{{ .Env.CMDNAME }}", "completion")
+
+  homepage: "https://www.mia-platform.eu"
+  description: "{{ .Env.DESCRIPTION }}"
+
+  license: "Apache-2.0"
+  skip_upload: auto
 
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 # vim: set ts=2 sw=2 tw=0 fo=cnqoj
