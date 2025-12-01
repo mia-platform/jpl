@@ -21,8 +21,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mia-platform/jpl/pkg/event"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/mia-platform/jpl/pkg/event"
 )
 
 type fakeTask struct {

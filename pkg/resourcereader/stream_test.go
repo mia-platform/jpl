@@ -20,8 +20,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 	"github.com/stretchr/testify/assert"
+
+	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 )
 
 func TestStreamReader(t *testing.T) {

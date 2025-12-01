@@ -19,12 +19,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 )
 
 func TestResourceScope(t *testing.T) {

@@ -26,11 +26,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mia-platform/jpl/pkg/client/cache"
-	"github.com/mia-platform/jpl/pkg/event"
-	"github.com/mia-platform/jpl/pkg/filter"
-	"github.com/mia-platform/jpl/pkg/runner"
-	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -41,6 +36,12 @@ import (
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/rest/fake"
 	"k8s.io/client-go/util/csaupgrade"
+
+	"github.com/mia-platform/jpl/pkg/client/cache"
+	"github.com/mia-platform/jpl/pkg/event"
+	"github.com/mia-platform/jpl/pkg/filter"
+	"github.com/mia-platform/jpl/pkg/runner"
+	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 )
 
 var (

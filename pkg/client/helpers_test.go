@@ -23,6 +23,15 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/cli-runtime/pkg/resource"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
+	"k8s.io/client-go/rest/fake"
+
 	"github.com/mia-platform/jpl/pkg/client/cache"
 	"github.com/mia-platform/jpl/pkg/event"
 	"github.com/mia-platform/jpl/pkg/filter"
@@ -32,14 +41,6 @@ import (
 	"github.com/mia-platform/jpl/pkg/poller"
 	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 	"github.com/mia-platform/jpl/pkg/util"
-	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/cli-runtime/pkg/resource"
-	dynamicfake "k8s.io/client-go/dynamic/fake"
-	"k8s.io/client-go/rest/fake"
 )
 
 var (

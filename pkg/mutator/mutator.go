@@ -16,9 +16,10 @@
 package mutator
 
 import (
-	"github.com/mia-platform/jpl/pkg/client/cache"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/mia-platform/jpl/pkg/client/cache"
 )
 
 // Interface defines the interface for a mutator that can change the resource

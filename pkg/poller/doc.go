@@ -13,6 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// poller package contains the implementation of status poller for monitoring a set of resources on the remote server
+// Package poller contains the implementation of status poller for monitoring a set of resources on the remote server
 // and posting their updates in a channel
 package poller

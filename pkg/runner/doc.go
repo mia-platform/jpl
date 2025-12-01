@@ -13,5 +13,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// runner package contains the implementation of a queue of tasks that can perfom actions against a remote api-server
+// Package runner contains the implementation of a queue of tasks that can perform actions against a remote api-server
 package runner

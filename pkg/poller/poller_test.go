@@ -22,9 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mia-platform/jpl/pkg/event"
-	"github.com/mia-platform/jpl/pkg/resource"
-	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -33,6 +30,10 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	clienttesting "k8s.io/client-go/testing"
+
+	"github.com/mia-platform/jpl/pkg/event"
+	"github.com/mia-platform/jpl/pkg/resource"
+	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 )
 
 func TestPoller(t *testing.T) {

@@ -13,6 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// mutator package provide an interface for mutating resources.
+// Package mutator provide an interface for mutating resources.
 // It also contains some premade generator that can be used as is.
 package mutator

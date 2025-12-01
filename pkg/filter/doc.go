@@ -13,6 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// filter package provide an interface for filtering resources during apply time.
+// Package filter provide an interface for filtering resources during apply time.
 // The resource(s) that will be filtered out will be kept inside the inventory.
 package filter

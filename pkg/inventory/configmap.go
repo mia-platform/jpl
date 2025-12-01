@@ -19,14 +19,15 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/mia-platform/jpl/pkg/resource"
-	"github.com/mia-platform/jpl/pkg/util"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
 	clientv1 "k8s.io/client-go/applyconfigurations/core/v1"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/mia-platform/jpl/pkg/resource"
+	"github.com/mia-platform/jpl/pkg/util"
 )
 
 // keep it to always check if configMapStore implement correctly the Store interface
@@ -96,7 +97,7 @@ func (s *configMapStore) Delete(ctx context.Context, dryRun bool) error {
 	return nil
 }
 
-// Save implement Store interface
+// SetObjects implement Store interface
 func (s *configMapStore) SetObjects(objs sets.Set[*unstructured.Unstructured]) {
 	s.savedObjects = objs.Clone()
 }

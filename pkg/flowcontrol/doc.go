@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// flowcontrol package implement a call to a well known endpoint of a Kubernetes api-server for
+// Package flowcontrol implement a call to a well known endpoint of a Kubernetes api-server for
 // extracting information about the availability of server side flow control. If we find the relevant headers
 // in the response the user then can decide to change their throttling strategy from client to server side.
 package flowcontrol

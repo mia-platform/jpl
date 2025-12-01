@@ -18,9 +18,10 @@ package event
 import (
 	"fmt"
 
-	"github.com/mia-platform/jpl/pkg/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/mia-platform/jpl/pkg/resource"
 )
 
 // Type determines the type of events that are available.

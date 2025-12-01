@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// cache package contains a RemoteResourceGetter interface for retrieving remote resource state without exposing
+// Package cache contains a RemoteResourceGetter interface for retrieving remote resource state without exposing
 // the underline clients implementation. It also provide a concrete implementation that use a basic cache
 // mechanism to avoid multiple calls to the remote api-server.
 package cache

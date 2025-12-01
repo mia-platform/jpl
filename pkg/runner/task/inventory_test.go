@@ -21,14 +21,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	fakerest "k8s.io/client-go/rest/fake"
+
 	"github.com/mia-platform/jpl/pkg/event"
 	"github.com/mia-platform/jpl/pkg/inventory"
 	fakeinventory "github.com/mia-platform/jpl/pkg/inventory/fake"
 	"github.com/mia-platform/jpl/pkg/runner"
 	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	fakerest "k8s.io/client-go/rest/fake"
 )
 
 func TestCancelInventoryTask(t *testing.T) {

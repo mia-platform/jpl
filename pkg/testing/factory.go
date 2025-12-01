@@ -18,7 +18,6 @@ package testing
 import (
 	"fmt"
 
-	"github.com/mia-platform/jpl/pkg/util"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/meta/testrestmapper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +31,8 @@ import (
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
+	"github.com/mia-platform/jpl/pkg/util"
 )
 
 // TestClientFactory extends Factory and provides fake implementation, and affordances for working with kubernetes packages

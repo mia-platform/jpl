@@ -22,7 +22,6 @@ import (
 	"testing"
 	"time"
 
-	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
@@ -34,6 +33,8 @@ import (
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
+
+	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 )
 
 func TestNewInformer(t *testing.T) {

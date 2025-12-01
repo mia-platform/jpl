@@ -13,16 +13,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// fake package provide a fake implementation of an inventory Store for using during tests.
+// Package fake provide a fake implementation of an inventory Store for using during tests.
 package fake
 
 import (
 	"context"
 
-	"github.com/mia-platform/jpl/pkg/inventory"
-	"github.com/mia-platform/jpl/pkg/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/mia-platform/jpl/pkg/inventory"
+	"github.com/mia-platform/jpl/pkg/resource"
 )
 
 // keep it to always check if Inventory implement correctly the Store interface
@@ -77,7 +78,7 @@ func (i *Inventory) Delete(_ context.Context, _ bool) error {
 	return nil
 }
 
-// SetObejcts implement Store interface
+// SetObjects implement Store interface
 func (i *Inventory) SetObjects(_ sets.Set[*unstructured.Unstructured]) {}
 
 // Diff implement Store interface

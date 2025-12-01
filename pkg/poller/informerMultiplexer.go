@@ -23,11 +23,12 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/mia-platform/jpl/pkg/event"
-	"github.com/mia-platform/jpl/pkg/resource"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/mia-platform/jpl/pkg/event"
+	"github.com/mia-platform/jpl/pkg/resource"
 )
 
 // informerMultiplexer can be used to manage multiple informer better than a working group. With informerMultiplexer

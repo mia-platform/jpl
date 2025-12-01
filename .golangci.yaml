@@ -26,7 +26,7 @@ linters:
   - goconst
   - gocritic
   - gocyclo
-  # - godoclint
+  - godoclint
   - goheader
   - gosec
   - gosmopolitan
@@ -97,6 +97,8 @@ linters:
     testifylint:
       disable:
       - require-error
+      go-require:
+        ignore-http-handlers: true
     unparam:
       check-exported: false
     usetesting:
@@ -117,13 +119,11 @@ linters:
     rules:
     - linters:
       - errcheck
+      - goconst
       - gocyclo
       - gosec
       - tagliatelle
       path: _test\.go
-    - linters:
-      - goconst
-      path: (.+)_test\.go
     paths:
     - third_party$
     - builtin$
@@ -135,6 +135,9 @@ formatters:
   settings:
     gofmt:
       simplify: true
+    goimports:
+       local-prefixes:
+        - github.com/mia-platform/jpl
   exclusions:
     generated: lax
     paths:

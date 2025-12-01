@@ -18,8 +18,9 @@ package runner
 import (
 	"context"
 
-	"github.com/mia-platform/jpl/pkg/event"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/mia-platform/jpl/pkg/event"
 )
 
 // Task provides abstractions that a Task must implement to be able to be used by a Runner

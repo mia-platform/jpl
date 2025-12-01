@@ -13,5 +13,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// task package contains Tasks implementation that encapsulate actions against an api-server
+// Package task contains Tasks implementation that encapsulate actions against an api-server
 package task

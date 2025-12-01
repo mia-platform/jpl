@@ -19,9 +19,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 )
 
 func TestFindCRDs(t *testing.T) {

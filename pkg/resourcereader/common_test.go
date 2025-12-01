@@ -20,12 +20,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/mia-platform/jpl/pkg/resource"
-	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/mia-platform/jpl/pkg/resource"
+	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 )
 
 func TestSetNamespace(t *testing.T) {

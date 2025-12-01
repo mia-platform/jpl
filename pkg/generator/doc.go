@@ -13,6 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// generator package provide an interface for creating custom resources from the provided one.
+// Package generator provide an interface for creating custom resources from the provided one.
 // It also contains some premade generator that can be used as is.
 package generator

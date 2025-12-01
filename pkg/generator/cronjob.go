@@ -20,12 +20,13 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/mia-platform/jpl/pkg/client/cache"
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/mia-platform/jpl/pkg/client/cache"
 )
 
 // NewJobGenerator return a new generator.Interface that will create a Job from a CronJob mimicking the function of

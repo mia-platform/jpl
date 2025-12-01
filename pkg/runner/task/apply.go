@@ -20,12 +20,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mia-platform/jpl/pkg/client/cache"
-	"github.com/mia-platform/jpl/pkg/event"
-	"github.com/mia-platform/jpl/pkg/filter"
-	pkgresource "github.com/mia-platform/jpl/pkg/resource"
-	"github.com/mia-platform/jpl/pkg/runner"
-	"github.com/mia-platform/jpl/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -37,6 +31,13 @@ import (
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/util/csaupgrade"
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
+
+	"github.com/mia-platform/jpl/pkg/client/cache"
+	"github.com/mia-platform/jpl/pkg/event"
+	"github.com/mia-platform/jpl/pkg/filter"
+	pkgresource "github.com/mia-platform/jpl/pkg/resource"
+	"github.com/mia-platform/jpl/pkg/runner"
+	"github.com/mia-platform/jpl/pkg/util"
 )
 
 const (

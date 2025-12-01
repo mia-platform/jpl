@@ -21,9 +21,10 @@ import (
 	"strings"
 	"testing"
 
-	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 )
 
 func TestBuilder(t *testing.T) {

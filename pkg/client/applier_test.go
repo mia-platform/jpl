@@ -22,6 +22,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"github.com/mia-platform/jpl/pkg/client/cache"
 	"github.com/mia-platform/jpl/pkg/event"
 	"github.com/mia-platform/jpl/pkg/filter"
@@ -30,9 +34,6 @@ import (
 	"github.com/mia-platform/jpl/pkg/mutator"
 	"github.com/mia-platform/jpl/pkg/resource"
 	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func TestNewApplier(t *testing.T) {

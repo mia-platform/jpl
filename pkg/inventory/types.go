@@ -18,9 +18,10 @@ package inventory
 import (
 	"context"
 
-	"github.com/mia-platform/jpl/pkg/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/mia-platform/jpl/pkg/resource"
 )
 
 // Store define an interface for working with an inventory of deployed resources, without knowning the underling

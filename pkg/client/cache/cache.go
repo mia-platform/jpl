@@ -18,8 +18,9 @@ package cache
 import (
 	"context"
 
-	"github.com/mia-platform/jpl/pkg/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/mia-platform/jpl/pkg/resource"
 )
 
 // RemoteResourceGetter define the interface for a getter that can retrieve the remote status of a resource identified

@@ -24,14 +24,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"sigs.k8s.io/e2e-framework/pkg/envconf"
+
 	jplclient "github.com/mia-platform/jpl/pkg/client"
 	"github.com/mia-platform/jpl/pkg/generator"
 	"github.com/mia-platform/jpl/pkg/inventory"
 	"github.com/mia-platform/jpl/pkg/resourcereader"
 	"github.com/mia-platform/jpl/pkg/util"
-	"github.com/stretchr/testify/require"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"sigs.k8s.io/e2e-framework/pkg/envconf"
 )
 
 // factoryAndStoreForTesting return a ClientFactory and Store for use in testing environments

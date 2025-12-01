@@ -19,12 +19,13 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/mia-platform/jpl/pkg/resource"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 	"sigs.k8s.io/kustomize/kyaml/kio/filters"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
+
+	"github.com/mia-platform/jpl/pkg/resource"
 )
 
 // objectsFromReader will create a kio.Pipeline for reading data from a Reader and cast it to a series of Resources

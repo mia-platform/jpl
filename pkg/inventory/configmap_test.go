@@ -26,8 +26,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mia-platform/jpl/pkg/resource"
-	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -37,6 +35,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/rest/fake"
+
+	"github.com/mia-platform/jpl/pkg/resource"
+	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 )
 
 func TestNewConfigMapStore(t *testing.T) {

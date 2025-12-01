@@ -19,11 +19,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 	"github.com/stretchr/testify/assert"
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 )
 
 func TestCanHandleResource(t *testing.T) {

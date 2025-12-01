@@ -19,13 +19,14 @@ import (
 	"context"
 	"time"
 
-	"github.com/mia-platform/jpl/pkg/event"
-	"github.com/mia-platform/jpl/pkg/resource"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/dynamic"
+
+	"github.com/mia-platform/jpl/pkg/event"
+	"github.com/mia-platform/jpl/pkg/resource"
 )
 
 // CustomStatusCheckers contains a mapping of GroupKind to StatusCheckerFunc for adding custom status parsing for

@@ -21,12 +21,13 @@ import (
 	"testing"
 	"time"
 
-	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	pkgtesting "github.com/mia-platform/jpl/pkg/testing"
 )
 
 func TestStatusCheck(t *testing.T) {

@@ -16,11 +16,12 @@
 package mutator
 
 import (
-	"github.com/mia-platform/jpl/pkg/client/cache"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+
+	"github.com/mia-platform/jpl/pkg/client/cache"
 )
 
 // NewLabelsMutator return a new mutateor.Interface that will integrate the objects labels with the ones provided

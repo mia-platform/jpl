@@ -13,6 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// event package contains the event structure to encapsulate what is happening during the client apply process.
+// Package event contains the event structure to encapsulate what is happening during the client apply process.
 // the events can be used to log the status directly to the user or cancelling the excution if some error is found.
 package event

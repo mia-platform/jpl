@@ -16,8 +16,9 @@
 package filter
 
 import (
-	"github.com/mia-platform/jpl/pkg/client/cache"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/mia-platform/jpl/pkg/client/cache"
 )
 
 // Interface defines the interface for a filter that can choose to remove or keep objects from application

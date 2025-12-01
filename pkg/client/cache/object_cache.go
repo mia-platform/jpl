@@ -19,13 +19,14 @@ import (
 	"context"
 	"sync"
 
-	"github.com/mia-platform/jpl/pkg/resource"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+
+	"github.com/mia-platform/jpl/pkg/resource"
 )
 
 type resourceStatus struct {

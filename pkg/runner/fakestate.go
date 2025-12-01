@@ -18,8 +18,9 @@ package runner
 import (
 	"context"
 
-	"github.com/mia-platform/jpl/pkg/event"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/mia-platform/jpl/pkg/event"
 )
 
 var _ State = &FakeState{}
