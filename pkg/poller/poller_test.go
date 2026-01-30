@@ -396,7 +396,11 @@ func TestPollerErrors(t *testing.T) {
 			steppingCh <- struct{}{}
 
 			receivedEvents := make([]event.Event, 0)
-			for event := range eventCh {
+			for {
+				event, open := <-eventCh
+				if !open {
+					break
+				}
 				t.Log(event)
 				receivedEvents = append(receivedEvents, event)
 				steppingCh <- struct{}{}

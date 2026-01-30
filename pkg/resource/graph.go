@@ -58,7 +58,7 @@ func (g *DependencyGraph) SortedResourceGroups() ([][]*unstructured.Unstructured
 		}
 
 		if len(group) == 0 {
-			cyclicalDependencies := make([]Dependency, 0)
+			cyclicalDependencies := make([]Dependency, 0) //nolint: prealloc
 			for from, toList := range edges {
 				for to := range toList {
 					cyclicalDependencies = append(cyclicalDependencies, Dependency{

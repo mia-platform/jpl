@@ -54,9 +54,10 @@ func TestSetNamespace(t *testing.T) {
 		expectedNamespaces []string
 	}{
 		"empty objects don't do anything": {
-			objs:             []*unstructured.Unstructured{},
-			namespace:        testNamespace,
-			enforceNamespace: true,
+			objs:               []*unstructured.Unstructured{},
+			namespace:          testNamespace,
+			enforceNamespace:   true,
+			expectedNamespaces: []string{},
 		},
 		"empty namespace and unenforced namespace don't do anything": {
 			objs: []*unstructured.Unstructured{
@@ -147,7 +148,7 @@ func TestSetNamespace(t *testing.T) {
 			err := setNamespace(mapper, testCase.objs, testCase.namespace, testCase.enforceNamespace)
 			assert.Equal(t, testCase.expectedErr, err)
 
-			var namespaces []string
+			namespaces := make([]string, 0, len(testCase.objs))
 			for _, obj := range testCase.objs {
 				namespaces = append(namespaces, obj.GetNamespace())
 			}
